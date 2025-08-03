@@ -11,10 +11,12 @@ test_job:
   script:
     - echo "✅ Test job ran successfully"
 
+
 build_job:
   stage: build
   script:
     - echo "✅ Build placeholder complete"
+
 
 deploy_job:
   stage: deploy
