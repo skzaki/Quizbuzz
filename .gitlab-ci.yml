@@ -13,15 +13,15 @@ cache:
 test:
   stage: test
   script:
-    - echo "No tests defined yet."
+    - echo "No tests yet. Placeholder job."
 
 build:
   stage: build
   script:
-    - echo "Skipping build for now (Dockerfiles not added yet)"
+    - echo "Build placeholder."
 
 deploy:
   stage: deploy
   script:
-    - echo "Deployment will be configured after Docker and AWS are set up"
+    - echo "Deployment will be configured later."
   when: manual
