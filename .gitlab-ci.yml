@@ -1,0 +1,27 @@
+stages:
+  - test
+  - build
+  - deploy
+
+default:
+  image: node:18
+
+cache:
+  paths:
+    - node_modules/
+
+test:
+  stage: test
+  script:
+    - echo "No tests defined yet."
+
+build:
+  stage: build
+  script:
+    - echo "Skipping build for now (Dockerfiles not added yet)"
+
+deploy:
+  stage: deploy
+  script:
+    - echo "Deployment will be configured after Docker and AWS are set up"
+  when: manual
