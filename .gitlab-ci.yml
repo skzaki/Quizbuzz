@@ -6,22 +6,18 @@ stages:
 default:
   image: node:18
 
-cache:
-  paths:
-    - node_modules/
-
-test:
+test_job:
   stage: test
   script:
-    - echo "No tests yet. Placeholder job."
+    - echo "✅ Test job ran successfully"
 
-build:
+build_job:
   stage: build
   script:
-    - echo "Build placeholder."
+    - echo "✅ Build placeholder complete"
 
-deploy:
+deploy_job:
   stage: deploy
   script:
-    - echo "Deployment will be configured later."
+    - echo "✅ Manual deploy placeholder"
   when: manual
