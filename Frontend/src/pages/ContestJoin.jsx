@@ -32,7 +32,7 @@ const ContestJoin = () => {
     'QUIZ-123ABC': {
       id: '1',
       title: 'QuizBuzz 3',
-      startTime: '2025-08-02T20:08:00', // 30 minutes from now for demo
+      startTime: '2025-08-04T18:12:00', // 30 minutes from now for demo
       duration: 50,
       status: 'waiting',
       participants: 234
