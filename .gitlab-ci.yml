@@ -6,6 +6,15 @@ stages:
 default:
   image: node:18
 
+
+before_script:
+  - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+  - eval $(ssh-agent -s)
+  - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
+  - mkdir -p ~/.ssh
+  - chmod 700 ~/.ssh
+  - ssh-keyscan -H ip-172-31-9-250 >> ~/.ssh/known_hosts
+
 test_job:
   stage: test
   script:
@@ -16,6 +25,16 @@ build_job:
   stage: build
   script:
     - echo "✅ Build placeholder complete"
+
+
+deploy-prod:
+  stage: deploy
+  script:
+    - ssh ubuntu@ip-172-31-9-250 'cd /test && git pull'
+  only:
+    - main
+  environment:
+    name: production
 
 
 deploy_job:
