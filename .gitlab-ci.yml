@@ -30,7 +30,7 @@ build_job:
 deploy-prod:
   stage: deploy
   script:
-    - ssh ubuntu@ec2-13-233-51-250.ap-south-1.compute.amazonaws.com 'cd /test && git pull'
+    - ssh ubuntu@ec2-13-233-51-250.ap-south-1.compute.amazonaws.com 'cd test && git pull'
 
   only:
     - main
