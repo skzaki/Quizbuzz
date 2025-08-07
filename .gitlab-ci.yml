@@ -15,6 +15,9 @@ before_script:
   - chmod 700 ~/.ssh
   - ssh-keyscan -H ec2-13-233-51-250.ap-south-1.compute.amazonaws.com >> ~/.ssh/known_hosts
   - chmod 644 ~/.ssh/known_hosts
+  - echo "$SSH_PRIVATE_KEY" > key.pem
+  - chmod 600 key.pem
+
 
 test_job:
   stage: test
@@ -37,7 +40,7 @@ deploy-prod:
     - chmod 700 ~/.ssh
     - ssh-keyscan -H ec2-13-233-51-250.ap-south-1.compute.amazonaws.com >> ~/.ssh/known_hosts
     - chmod 644 ~/.ssh/known_hosts
-    - ssh ubuntu@ec2-13-233-51-250.ap-south-1.compute.amazonaws.com 'cd test && git pull'
+    - ssh -i key.pem ubuntu@ec2-13-233-51-250.ap-south-1.compute.amazonaws.com 'cd test && git pull'
 
 deploy_job:
   stage: deploy
