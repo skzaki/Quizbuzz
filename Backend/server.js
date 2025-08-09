@@ -1,0 +1,25 @@
+import http from "http";
+import { Server } from "socket.io";
+import app from "./app.js";
+import initSocket from "./socket.js";
+
+const PORT = process.env.PORT || 5000;
+
+// Create HTTP server from Express app
+const server = http.createServer(app);
+
+// Attach WebSocket server
+const io = new Server(server, {
+  cors: {
+    origin: "*", // Change to your frontend domain in prod
+    methods: ["GET", "POST"]
+  }
+});
+
+// Init Socket.io events
+initSocket(io);
+
+// Start server
+server.listen(PORT, () => {
+  console.log(`Listening on http://localhost:${PORT} ...`);
+});

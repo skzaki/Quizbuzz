@@ -1,3 +1,5 @@
+import slugify from "slugify";
+
 import mongoose from 'mongoose';
 
 const userSchema = new  mongoose.Schema({
@@ -32,8 +34,16 @@ const QuestionSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 
+contestSchema.pre("validate", function (next) {
+  if (this.title && !this.slug) {
+    this.slug = slugify(this.title, { lower: true, strict: true });
+  }
+  next();
+});
+
 const contestSchema = new mongoose.Schema({
     title: { type: String, required: true },
+    slug: { type: String, required: true, unique: true, immutable: true},
     description: { type: String },
     details: { type: String },
     topics: { type: String },
@@ -118,7 +128,7 @@ export const Submission = mongoose.model("Submission", submissionSchema);
 
 export const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI_ATLAS);
+    await mongoose.connect("mongodb://localhost:27017/quiz-data");
     console.log('MongoDB connected');
   } catch (error) {
     console.error('MongoDB connection failed', error);
