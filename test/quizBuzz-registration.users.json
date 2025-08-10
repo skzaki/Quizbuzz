@@ -1,0 +1,2090 @@
+[{
+  "_id": {
+    "$oid": "6881c253d9319e9f65209589"
+  },
+  "firstName": "Sakshi",
+  "lastName": "Gadhe",
+  "email": "sakshigadhe0@gmail.com",
+  "phone": "8177917195",
+  "college": "Pravara Women's college of Home science and BCA, loni",
+  "yearOfStudy": "Graduate",
+  "department": "Computer application",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T05:19:15.290Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "paymentId": "pay_QwmqV1jb01umHu",
+  "registrationId": "QUIZ-209589",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6881ca8ad9319e9f65209891"
+  },
+  "firstName": "Anushka ",
+  "lastName": "Dhanawate ",
+  "email": "anudhanawate9115@gmail.com",
+  "phone": "7820976619",
+  "college": "Savitribai phule pune university ",
+  "yearOfStudy": "3rd Year",
+  "department": "BCA",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T05:54:18.048Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6881cdfed9319e9f65209958"
+  },
+  "firstName": "Manjushree",
+  "lastName": "Gade",
+  "email": "manjushreegade2001@gmail.com",
+  "phone": "8766032561",
+  "college": "Women's college of Home science and Bca ",
+  "yearOfStudy": "Graduate",
+  "department": "Computer science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T06:09:02.190Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6881cf0ad9319e9f65209994"
+  },
+  "firstName": "Shruti ",
+  "lastName": "Gholap ",
+  "email": "shrutigholap2504@gmail.com",
+  "phone": "8799887920",
+  "college": "Women's college of home science and bca ",
+  "yearOfStudy": "3rd Year",
+  "department": "Computer Application ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T06:13:30.163Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-209994",
+  "paymentId": "pay_QwnlCt2Md0RiKW",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6881d330d9319e9f65209a38"
+  },
+  "firstName": "Apeksha ",
+  "lastName": "Shinde ",
+  "email": "sapeksha914@gmail.com",
+  "phone": "8237155408",
+  "college": "SSBT'S Arts Commerce and Science college of Bambhori Jalgaon ",
+  "yearOfStudy": "3rd Year",
+  "department": "BCA",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T06:31:12.278Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "paymentId": "pay_Qwo3x1HwKPK3KL",
+  "registrationId": "QUIZ-209A38",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6881d3c7d9319e9f65209a40"
+  },
+  "firstName": "Apeksha ",
+  "lastName": "Shinde ",
+  "email": "sapeksha914@gmail.com",
+  "phone": "8237155408",
+  "college": "SSBT'S Arts Commerce and Science college of Bambhori Jalgaon ",
+  "yearOfStudy": "3rd Year",
+  "department": "BCA",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T06:33:43.079Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6881d410d9319e9f65209a46"
+  },
+  "firstName": "Apeksha ",
+  "lastName": "Shinde ",
+  "email": "sapeksha914@gmail.com",
+  "phone": "8237155408",
+  "college": "SSBT'S Arts Commerce and Science college of Bambhori Jalgaon ",
+  "yearOfStudy": "3rd Year",
+  "department": "BCA",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T06:34:56.748Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6881d4aad9319e9f65209a5a"
+  },
+  "firstName": "Apeksha ",
+  "lastName": "Shinde ",
+  "email": "sapeksha914@gmail.com",
+  "phone": "8237155408",
+  "college": "SSBT'S Arts Commerce and Science college of Bambhori Jalgaon ",
+  "yearOfStudy": "3rd Year",
+  "department": "BCA",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T06:37:30.188Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6881e98dd9319e9f6520a00d"
+  },
+  "firstName": "Tanushri ",
+  "lastName": "Musmade ",
+  "email": "musmadetanushri1@gmail.com",
+  "phone": "91751 08790",
+  "college": "Savitribai Phule pune University ",
+  "yearOfStudy": "3rd Year",
+  "department": "BCA",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T08:06:37.209Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6881efbbd9319e9f6520a062"
+  },
+  "firstName": "Dhanashri",
+  "lastName": "Ingale",
+  "email": "ingaledhanu123@gmail.com",
+  "phone": "9022867014",
+  "college": "S. S. G. M college kopargaon",
+  "yearOfStudy": "Graduate",
+  "department": "Computer science",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T08:32:59.642Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "paymentId": "pay_Qwq8f9X6LN7PeU",
+  "registrationId": "QUIZ-20A062",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68822bc9d9319e9f6520ab4c"
+  },
+  "firstName": "Sakshi",
+  "lastName": "Ukale ",
+  "email": "sakshiukale3015@gmail.com",
+  "phone": "9403238513",
+  "college": "Shardabai pawar collage of art, science and commerce, shardanagar ",
+  "yearOfStudy": "1st Year",
+  "department": "Bcs",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T12:49:13.449Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68822c68d9319e9f6520ab66"
+  },
+  "firstName": "Neha ",
+  "lastName": "Bhangale ",
+  "email": "nbhangale940@gmail.com",
+  "phone": "  94041 58667",
+  "college": "Dhanaji Nana mahavidyalaya faizpur ",
+  "yearOfStudy": "Post Graduate",
+  "department": "Bsc computer ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T12:51:52.304Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68822e1fd9319e9f6520ac07"
+  },
+  "firstName": "Payal",
+  "lastName": "Kale",
+  "email": "payalkale825@gmail.com",
+  "phone": "9527990747",
+  "college": "Shardabai Pawar Mahavidyalayav, Baramati SPPU university ",
+  "yearOfStudy": "2nd Year",
+  "department": "Bsc computer science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T12:59:11.434Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68822e65d9319e9f6520ac5b"
+  },
+  "firstName": "Payal",
+  "lastName": "Kale",
+  "email": "payalkale825@gmail.com",
+  "phone": "9527990747",
+  "college": "Shardabai Pawar Mahavidyalayav, Baramati SPPU university ",
+  "yearOfStudy": "2nd Year",
+  "department": "Bsc computer science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T13:00:21.929Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68822e8ad9319e9f6520ac7a"
+  },
+  "firstName": "Sanika",
+  "lastName": "More",
+  "email": "sanikamore295@gmail.com",
+  "phone": "8468996485",
+  "college": "Savitribai Phule university ",
+  "yearOfStudy": "3rd Year",
+  "department": "BSC (computer science)",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T13:00:58.459Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "paymentId": "pay_Qwuhc8FuVCp9Gt",
+  "registrationId": "QUIZ-20AC7A",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68823a07d9319e9f6520b6e2"
+  },
+  "firstName": "MADHURA ",
+  "lastName": "WAGASKAR ",
+  "email": "mbwagaskar5216@gmail.com",
+  "phone": "8788325216",
+  "college": "Savitribai Phule pune University ",
+  "yearOfStudy": "2nd Year",
+  "department": "Bsc computer science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T13:49:59.448Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "paymentId": "pay_QwvXN8hOa9WfQv",
+  "registrationId": "QUIZ-20B6E2",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68823b37d9319e9f6520b7d0"
+  },
+  "firstName": "Neha ",
+  "lastName": "Bhangale ",
+  "email": "nbhangale940@gmail.com",
+  "phone": "9404158667",
+  "college": "Dhanaji Nana Mahavidyalaya",
+  "yearOfStudy": "Post Graduate",
+  "department": "Bsc computer ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T13:55:03.216Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "paymentId": "pay_QwvcsYLbzGa9Gw",
+  "registrationId": "QUIZ-20B7D0",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68823d68d9319e9f6520b999"
+  },
+  "firstName": "Shrutika",
+  "lastName": "Shirke",
+  "email": "shirkeshurutika@gmail.com",
+  "phone": "8007159003",
+  "college": "Shardabai pawar mahavidyalay",
+  "yearOfStudy": "2nd Year",
+  "department": " Computer Science",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T14:04:24.860Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68824182d9319e9f6520bcfd"
+  },
+  "firstName": "Sakshi ",
+  "lastName": "Hajare",
+  "email": "sakshihajare392@gmail.com",
+  "phone": "8788590044",
+  "college": "Shardabai Pawar college, Savitribai phule university",
+  "yearOfStudy": "2nd Year",
+  "department": "Computer Science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T14:21:54.066Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68824250d9319e9f6520bd9c"
+  },
+  "firstName": "Akansha",
+  "lastName": "Kambli ",
+  "email": "kambliakansha7@gmail.com",
+  "phone": "8983060833",
+  "college": "Dbj ",
+  "yearOfStudy": "3rd Year",
+  "department": "Computer science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T14:25:20.429Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6882438ad9319e9f6520be86"
+  },
+  "firstName": "SAKSHI",
+  "lastName": "CHAVAN",
+  "email": "chavansakshi576@gmail.com",
+  "phone": "9529548550",
+  "college": "D.B.J. College Chiplun",
+  "yearOfStudy": "3rd Year",
+  "department": "BSC Computer science",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T14:30:34.978Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6882442fd9319e9f6520befc"
+  },
+  "firstName": " SAKSHI",
+  "lastName": "CHAVAN",
+  "email": "chavansakshi576@gmail.com",
+  "phone": "9529548550",
+  "college": "D.B.J. College Chiplun",
+  "yearOfStudy": "3rd Year",
+  "department": "BSC Computer science",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T14:33:19.952Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "paymentId": "pay_QwwR8LhkSEHFHB",
+  "registrationId": "QUIZ-20BEFC",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68824882d9319e9f6520c1f6"
+  },
+  "firstName": "Dnyaneshwar ",
+  "lastName": "Kakde ",
+  "email": "dnyaneshwarkakde00@gmail.com",
+  "phone": " 801 0570902",
+  "college": "Sharadabai Pawar Mahavidyalaya ",
+  "yearOfStudy": "1st Year",
+  "department": "BCS",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T14:51:46.966Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "688250acd9319e9f6520c48d"
+  },
+  "firstName": "Kanchan",
+  "lastName": "Waghmare",
+  "email": "waghmarekanchan76@gmail.com",
+  "phone": "9922098998",
+  "college": "Shardabai pawar mahila mahavidyalay Shardanagar Baramati ",
+  "yearOfStudy": "2nd Year",
+  "department": "Bachelor Computer science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T15:26:36.715Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68825609d9319e9f6520c520"
+  },
+  "firstName": "Pranali ",
+  "lastName": "Bhosale ",
+  "email": "pranalibhosale578@gmail.com",
+  "phone": "7559538600",
+  "college": "Shardabai Pawar Women's Art's Commerce and Science College Shardanagar ",
+  "yearOfStudy": "3rd Year",
+  "department": "BSc. Computer Science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T15:49:29.529Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68826a6ede4f577fff4f050c"
+  },
+  "firstName": "Supriya ",
+  "lastName": "Antre ",
+  "email": "antresupriya@gmail.com",
+  "phone": "7666008129",
+  "college": "Women's college of Homescience and BCA loni ",
+  "yearOfStudy": "2nd Year",
+  "department": "Bachelor of Science in Computer Application ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-24T17:16:30.531Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-4F050C",
+  "paymentId": "pay_Qwz3aWyrtxUeXl",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6882e3349157e3ff0f22273e"
+  },
+  "firstName": "MANALI ",
+  "lastName": "PAWAR",
+  "email": "pawarmanali4895@gmail.com",
+  "phone": "8421834895",
+  "college": "Savitribai Phule pune university ",
+  "yearOfStudy": "2nd Year",
+  "department": "Bsc(Computer science)",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-25T01:51:48.630Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-22273E",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6882e7719157e3ff0f222748"
+  },
+  "firstName": "Purvaja ",
+  "lastName": "Fegade ",
+  "email": "fegadepurvaja04@gmail.com",
+  "phone": "8108219621",
+  "college": "Dhanaji Nana mahavidyalaya Faizpur ",
+  "yearOfStudy": "Graduate",
+  "department": "IT",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-25T02:09:53.043Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-222748",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6882fab89157e3ff0f2227a9"
+  },
+  "firstName": "Nikita ",
+  "lastName": "Kokare ",
+  "email": "nikitakokare51@gmail.com",
+  "phone": "7387520115",
+  "college": "Shardabai Pawar Mahila Mahavidyalaya/Savitribai phule pune university ",
+  "yearOfStudy": "3rd Year",
+  "department": "Bachelor of Computer Science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-25T03:32:08.821Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-2227A9",
+  "paymentId": "pay_Qx9XyX5cdf3wtM",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6883044e9157e3ff0f22283b"
+  },
+  "firstName": "Akanksha",
+  "lastName": "Turkunde ",
+  "email": "akankshaturkunde2622@gmail.com",
+  "phone": "9322566509",
+  "college": "Shardhabai pawar mahila arts and commerce College ",
+  "yearOfStudy": "2nd Year",
+  "department": "Bcs. computer science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-25T04:13:02.974Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-22283B",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68835bfe6bbbcd51332aefb9"
+  },
+  "firstName": "Pranali",
+  "lastName": "Bhosale",
+  "email": "pranalibhosale578@gmail.com",
+  "phone": "7559238600",
+  "college": "Shardabai Pawar Women's Art's Commerce and Science College Shardanagar",
+  "yearOfStudy": "3rd Year",
+  "department": "BSc.Computer Science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-25T10:27:10.877Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-2AEFB9",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68835c2e6bbbcd51332aefc2"
+  },
+  "firstName": "Pranali ",
+  "lastName": "Bhosale",
+  "email": "pranalibhosale578@gmail.com",
+  "phone": "7559238600",
+  "college": "Shardabai Pawar Women's Art's Commerce and Science College Shardanagar",
+  "yearOfStudy": "3rd Year",
+  "department": "BSc.Computer Science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-25T10:27:58.753Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-2AEFC2",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68835e986bbbcd51332af104"
+  },
+  "firstName": "Saniya",
+  "lastName": "Maniyar ",
+  "email": "saniyamaniyar0412@gmail.com",
+  "phone": "7558670412",
+  "college": "Shardabai pawar clg Baramati ",
+  "yearOfStudy": "2nd Year",
+  "department": "Computer Science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-25T10:38:16.858Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-2AF104",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "688363216bbbcd51332af33d"
+  },
+  "firstName": "Pranali",
+  "lastName": "Bhosale",
+  "email": "pranalibhosale578@gmail.com",
+  "phone": "7559238600",
+  "college": "Shardabai Pawar Art's Commerce and Science College Shardanagar",
+  "yearOfStudy": "3rd Year",
+  "department": "BSc.Computer Science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-25T10:57:37.698Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-2AF33D",
+  "paymentId": "pay_QxH8U4XsYoVkha",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6883668e6bbbcd51332af41e"
+  },
+  "firstName": "Rinku",
+  "lastName": "Karche",
+  "email": "karcherinku@gmail.com",
+  "phone": "8237108264",
+  "college": "Shardabai pawar science art's commarce collage shardanagar",
+  "yearOfStudy": "1st Year",
+  "department": "Bachelor of computer science",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-25T11:12:14.379Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-2AF41E",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6883766e6bbbcd51332af525"
+  },
+  "firstName": "Akanksha",
+  "lastName": "Thorat",
+  "email": "akankshathorat46@gmail.com",
+  "phone": "8421605069",
+  "college": "Shardabai pawar mahila college shardanagar baramati ",
+  "yearOfStudy": "3rd Year",
+  "department": "Computer science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-25T12:19:58.725Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-2AF525",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6883a51a6888e40bc437d100"
+  },
+  "firstName": "PUJA",
+  "lastName": "KARAD",
+  "email": "pujakarad22@gmail.com",
+  "phone": "9765164822",
+  "college": "DHANAJI NANA MAHAVIDYALAY,FAIZPUR",
+  "yearOfStudy": "3rd Year",
+  "department": "computer science and information technology",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-25T15:39:06.734Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-37D100",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6883ab6c6888e40bc437d120"
+  },
+  "firstName": "Pradnya ",
+  "lastName": "Taware",
+  "email": "tawarepradnya@gmail.com",
+  "phone": "9623979623",
+  "college": "Shardabai Pawar Mahila Mahavidyalaya ",
+  "yearOfStudy": "2nd Year",
+  "department": "Bsc. Computer Science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-25T16:06:04.709Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-37D120",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6884b728056621424457a947"
+  },
+  "firstName": "Tanushri ",
+  "lastName": "Musmade ",
+  "email": "musmadetanushri1@gmail.com",
+  "phone": "9175108790",
+  "college": "Savitribai Phule pune University ",
+  "yearOfStudy": "3rd Year",
+  "department": "BCA",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-26T11:08:24.136Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-57A947",
+  "paymentId": "pay_QxfrcUYbbbnV5C",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6884bec9056621424457a9a8"
+  },
+  "firstName": "Siddhi ",
+  "lastName": "Ingale",
+  "email": "siddhiingale10@gmail.com",
+  "phone": "8208781568",
+  "college": "Kavyitri Bahinabai chaudhari NMU, JALGAON ",
+  "yearOfStudy": "3rd Year",
+  "department": "Computer science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-26T11:40:57.703Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-57A9A8",
+  "paymentId": "pay_QxgPNQkbC6ZRea",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6884e162056621424457ab10"
+  },
+  "firstName": "Kunal",
+  "lastName": "patil",
+  "email": "kpatil5534@gmail.com",
+  "phone": "9322619167",
+  "college": "Dn college ",
+  "yearOfStudy": "3rd Year",
+  "department": "Bca ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-26T14:08:34.805Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-57AB10",
+  "paymentId": "pay_QxivIktZ4XJOrK",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6884e36b056621424457ab27"
+  },
+  "firstName": "PUJA",
+  "lastName": "KARAD",
+  "email": "pujakarad22@gmail.com",
+  "phone": "9765164822",
+  "college": "DHANAJI NANA MAHAVIDYALAY,FAIZPUR",
+  "yearOfStudy": "3rd Year",
+  "department": "computer science and information technology",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-26T14:17:15.358Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-57AB27",
+  "paymentId": "pay_Qxj4m12OlBhCS9",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6884e6e3056621424457ab3e"
+  },
+  "firstName": "Shreyas",
+  "lastName": "Jamdar",
+  "email": "jamdarshreyas28@gmail.com",
+  "phone": "8329082100",
+  "college": "Soniya Gandhi Polytechnic Shrigonda ",
+  "yearOfStudy": "3rd Year",
+  "department": "Computer engineering ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-26T14:32:03.247Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-57AB3E",
+  "paymentId": "pay_QxjKWsMeyRhVND",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68859fb1056621424457ad46"
+  },
+  "firstName": "Ishwari",
+  "lastName": "Varpe",
+  "email": "ishwarivarpe122@gmail.com",
+  "phone": "8847775122",
+  "college": "Women's college of home science and BCA ",
+  "yearOfStudy": "3rd Year",
+  "department": "Computer Application ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-27T03:40:33.666Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-57AD46",
+  "paymentId": "pay_QxwlI0bMzIK6mx",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6885c5c7056621424457aeee"
+  },
+  "firstName": "Akanksha",
+  "lastName": "Turkunde ",
+  "email": "akankshaturkunde2622@gmail.com",
+  "phone": "9322566509",
+  "college": "Shardhabai pawar mahila arts and commerce College ",
+  "yearOfStudy": "2nd Year",
+  "department": "Bcs. computer science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-27T06:23:03.348Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-57AEEE",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6886efc39a63056754e9cc2c"
+  },
+  "firstName": "Yatisha",
+  "lastName": "Mahajan",
+  "email": "mahajanyatisha@gmail.com",
+  "phone": "8767417022",
+  "college": "North Maharashtra University jalgaon ",
+  "yearOfStudy": "Graduate",
+  "department": "Computer science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-28T03:34:27.316Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E9CC2C",
+  "paymentId": "pay_QyLBh6PUHKmDtO",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6886fac59a63056754e9cc49"
+  },
+  "firstName": "Priti",
+  "lastName": "Supekar",
+  "email": "psupekar390@gmail.com",
+  "phone": "8767498661",
+  "college": "Women's college of home science and BCA,loni",
+  "yearOfStudy": "3rd Year",
+  "department": "BCA",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-28T04:21:25.730Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E9CC49",
+  "paymentId": "pay_QyLzHg2mnLyrUb",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6887306d9a63056754e9d35e"
+  },
+  "firstName": "Sakshi ",
+  "lastName": "Limbore ",
+  "email": "limboresakshi0@gmail.com",
+  "phone": "9322785352",
+  "college": "Pune university ",
+  "yearOfStudy": "3rd Year",
+  "department": "Computer science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-28T08:10:21.723Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E9D35E",
+  "paymentId": "pay_QyPuIyq6vQHSfU",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68875bdb9a63056754e9d5de"
+  },
+  "firstName": "Payal",
+  "lastName": "Pagar",
+  "email": "tpagar9284@gmail.com",
+  "phone": "9284785997",
+  "college": "K.A.A.N.M.S.College,Satana.",
+  "yearOfStudy": "3rd Year",
+  "department": "Computer Science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-28T11:15:39.770Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E9D5DE",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "688761239a63056754e9d645"
+  },
+  "firstName": "Vishal",
+  "lastName": "Yadav",
+  "email": "yadavishal556@gmail.com",
+  "phone": "9351460192",
+  "college": "Lakshmi Narain College of Technology-MCA Bhopal",
+  "yearOfStudy": "2nd Year",
+  "department": "Computer Application",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-28T11:38:11.036Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E9D645",
+  "paymentId": "pay_QyTTG9k8sdTXKP",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68876f649a63056754e9db20"
+  },
+  "firstName": "Pradnya",
+  "lastName": "Narwade",
+  "email": "pradnyanarwade2003@gmail.com",
+  "phone": "7066668498",
+  "college": "Dhanaji Nana Mahavidyalaya, Faizpur",
+  "yearOfStudy": "Graduate",
+  "department": "Computer Science",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-28T12:39:00.888Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E9DB20",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68876fb29a63056754e9db2d"
+  },
+  "firstName": "Pradnya",
+  "lastName": "Narwade",
+  "email": "pradnyanarwade2003@gmail.com",
+  "phone": "9623628565",
+  "college": "Dhanaji Nana Mahavidyalaya, Faizpur",
+  "yearOfStudy": "Graduate",
+  "department": "Computer Science",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-28T12:40:18.635Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E9DB2D",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "688770879a63056754e9db83"
+  },
+  "firstName": "Yogesh",
+  "lastName": "Chavan",
+  "email": "yogeshsandip082@gmail.com",
+  "phone": "8623001845",
+  "college": "KAANMS arts sci college satana",
+  "yearOfStudy": "3rd Year",
+  "department": "Computer science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-28T12:43:51.096Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E9DB83",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6887765b9a63056754e9e07a"
+  },
+  "firstName": "Poonam ",
+  "lastName": "Nikam ",
+  "email": "poonamnikam502@gmail.com",
+  "phone": "7038626220",
+  "college": "Bhosala Military college Nashik SPPU",
+  "yearOfStudy": "Graduate",
+  "department": "Computer science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-28T13:08:43.746Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E9E07A",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "688786916dbaffe6f4a2035f"
+  },
+  "firstName": "Kalpesh ",
+  "lastName": "Dhongade",
+  "email": "kalpeshdhongade1@gmail.com",
+  "phone": "8767941461",
+  "college": "K.P.G college igatpuri ",
+  "yearOfStudy": "Graduate",
+  "department": "Computer science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-28T14:17:53.264Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-A2035F",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "688792906dbaffe6f4a20387"
+  },
+  "firstName": "Shruti ",
+  "lastName": "Jalgaonkar ",
+  "email": "jalgaonkarshruti11@gamil.com",
+  "phone": "8080105267",
+  "college": "Dn collage faizpur ",
+  "yearOfStudy": "Graduate",
+  "department": "Computer student ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-28T15:09:04.724Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-A20387",
+  "paymentId": "pay_QyX1gCAJYD3X2f",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "688792e36dbaffe6f4a20391"
+  },
+  "firstName": "Shruti ",
+  "lastName": "Jalgaonkar ",
+  "email": "jalgaonkarshruti11@gamil.com",
+  "phone": "8080105267",
+  "college": "Dn collage faizpur ",
+  "yearOfStudy": "Graduate",
+  "department": "Computer student ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-28T15:10:27.528Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-A20391",
+  "paymentId": "pay_QyX43JVSgR5gbN",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "688794416dbaffe6f4a203a1"
+  },
+  "firstName": "Shruti",
+  "lastName": "Jalgaonkar",
+  "email": "jalgaonkarshruti11@gmail.com",
+  "phone": "8080105267",
+  "college": "Dn collage Faizpur",
+  "yearOfStudy": "Graduate",
+  "department": "Computer science",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-28T15:16:17.853Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-A203A1",
+  "paymentId": "pay_QyX9CLyDAXXejr",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6887ca166dbaffe6f4a20411"
+  },
+  "firstName": "Rohit",
+  "lastName": "Kumar",
+  "email": "rkstm9@gmail.com",
+  "phone": "9113134541",
+  "college": "Bharati Vidyapeeth (Deemed To Be University) College Of Engineering, Pune",
+  "yearOfStudy": "4th Year",
+  "department": "Computer Science & Engineering",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-28T19:05:58.052Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-A20411",
+  "paymentId": "pay_Qyb4iOTVX5pLdn",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "68885cf16dbaffe6f4a2059c"
+  },
+  "firstName": "Supriya ",
+  "lastName": "Shinde ",
+  "email": "shindesupriya714@gmail.com",
+  "phone": "9309700564",
+  "college": "Women's college of home science and bca Savitri Bai phule pune",
+  "yearOfStudy": "3rd Year",
+  "department": "BCA ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-29T05:32:33.421Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-A2059C",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "688861446dbaffe6f4a205a9"
+  },
+  "firstName": "RUSHIKESH",
+  "lastName": "ROKADE",
+  "email": "rushikeshrokade2257@gmail.com",
+  "phone": "8767343903",
+  "college": "Pune University ",
+  "yearOfStudy": "Graduate",
+  "department": "Bsc(Computer science)",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-29T05:51:00.397Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-A205A9",
+  "paymentId": "pay_Qym386UWHfg5CL",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "6888e2a86dbaffe6f4a20c3c"
+  },
+  "firstName": "Sandhya ",
+  "lastName": "Kale",
+  "email": "sandhyakale674@gmail.com",
+  "phone": "9096115236",
+  "college": "Savitribai phule Pune University ",
+  "yearOfStudy": "3rd Year",
+  "department": "Computer science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-29T15:03:04.005Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-30T16:23:10.982Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-A20C3C",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "688af7166dbaffe6f4a20fe9"
+  },
+  "firstName": "Kalyani ",
+  "lastName": "Mandwade ",
+  "email": "kalyanimandawade2004@gmail.com",
+  "phone": "7249345893",
+  "college": "K.A.N.M.S.Clg Satana ",
+  "yearOfStudy": "Post Graduate",
+  "department": "Computer science ",
+  "experience": "",
+  "createdAt": {
+    "$date": "2025-07-31T04:54:46.946Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-31T04:54:46.953Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-A20FE9",
+  "hidden": false
+},
+{
+  "_id": {
+    "$oid": "688b711d1817b89fa6e401fd"
+  },
+  "firstName": "Urmila ",
+  "lastName": "Walekar ",
+  "email": "urmilaWalekar@gmail.com",
+  "phone": "8080773204",
+  "college": "Sppu ",
+  "yearOfStudy": "4th Year",
+  "department": "Entc",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-07-31T13:35:25.989Z"
+  },
+  "updatedAt": {
+    "$date": "2025-07-31T13:35:26.001Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E401FD"
+},
+{
+  "_id": {
+    "$oid": "688c4e051817b89fa6e40507"
+  },
+  "firstName": "Bhakti ",
+  "lastName": "Naik",
+  "email": "nbhakti563@gmail.com",
+  "phone": "9767436602",
+  "college": "Pune university ",
+  "yearOfStudy": "3rd Year",
+  "department": "Computer Application ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-01T05:17:57.751Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-01T05:17:57.771Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E40507"
+},
+{
+  "_id": {
+    "$oid": "688cce6c1817b89fa6e412e0"
+  },
+  "firstName": "RUTUJA ",
+  "lastName": "BHAVAR",
+  "email": "rutujabhavar2006@gmail.com",
+  "phone": "9370737241",
+  "college": "savitribai phule pune university",
+  "yearOfStudy": "2nd Year",
+  "department": "computer science",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-01T14:25:48.827Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-01T14:25:48.835Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E412E0"
+},
+{
+  "_id": {
+    "$oid": "688da58c1817b89fa6e4143c"
+  },
+  "firstName": "Mahi",
+  "lastName": "Roy",
+  "email": "mahiroy8463@gmail.com",
+  "phone": "9209744072",
+  "college": "P.dr.v.v. Patil institute of technology and polytechnic loni ",
+  "yearOfStudy": "3rd Year",
+  "department": "Cloud computing and big data ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-02T05:43:40.517Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-02T05:43:40.524Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E4143C"
+},
+{
+  "_id": {
+    "$oid": "688e44771817b89fa6e41985"
+  },
+  "firstName": "Pradnya",
+  "lastName": "Narwade",
+  "email": "pradnyanarwade2003@gmail.com",
+  "phone": "9623628565",
+  "college": "Godavari Institute of Management & Research, Jalgaon",
+  "yearOfStudy": "Post Graduate",
+  "department": "Computer Science",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-02T17:01:43.887Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-02T17:02:25.916Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E41985",
+  "paymentId": "pay_R0XcctKxoVwBSs"
+},
+{
+  "_id": {
+    "$oid": "688eee431817b89fa6e419a8"
+  },
+  "firstName": "Devesh",
+  "lastName": "Danthara",
+  "email": "xa.devesh.danthara@gmail.com",
+  "phone": "9898577801",
+  "college": "Genba Sopanrao Moze College of engineering, Baner-Balewadi",
+  "yearOfStudy": "3rd Year",
+  "department": "Artificial intelligence and data science",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-03T05:06:11.504Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-03T05:07:31.245Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E419A8",
+  "paymentId": "pay_R0jyJokbLZCTo2"
+},
+{
+  "_id": {
+    "$oid": "688f63d71817b89fa6e41c39"
+  },
+  "firstName": "Jyotsana ",
+  "lastName": "Bagul",
+  "email": "baguljyotsana2004@gmail.com",
+  "phone": "9322196309",
+  "college": "K.k wagh Acs and cs college nashik ",
+  "yearOfStudy": "2nd Year",
+  "department": "Computer science ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-03T13:27:51.484Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-03T13:27:51.498Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E41C39"
+},
+{
+  "_id": {
+    "$oid": "6890a4181817b89fa6e42584"
+  },
+  "firstName": "Divya",
+  "lastName": "Wankhade",
+  "email": "divya.wankhade24@pccoepune.org",
+  "phone": "8275751159",
+  "college": "PCCOE, Nigdi",
+  "yearOfStudy": "2nd Year",
+  "department": "Computer science (artificial intelligence and machine learning)",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-04T12:14:16.429Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-04T12:14:16.443Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E42584"
+},
+{
+  "_id": {
+    "$oid": "6890b7711817b89fa6e4269e"
+  },
+  "firstName": "Dhruv",
+  "lastName": "Vaswani",
+  "email": "dhruv.vaswani24@pccoepune.org",
+  "phone": "8010317210",
+  "college": "Pimpri chinchwad college of engineering ",
+  "yearOfStudy": "2nd Year",
+  "department": "Artificial intelligence and machine learning ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-04T13:36:49.035Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-04T13:37:07.513Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E4269E",
+  "paymentId": "pay_R1HBpCa5mmIEXt"
+},
+{
+  "_id": {
+    "$oid": "6890bccd1817b89fa6e42727"
+  },
+  "firstName": "vaishnav",
+  "lastName": "Ghorpade",
+  "email": "vaishnavghorpade80@gmail.com",
+  "phone": "8010152487",
+  "college": "K k Wagh art commerce science and computer science college saraswati nagar nashik ",
+  "yearOfStudy": "2nd Year",
+  "department": "Msc computer science ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-04T13:59:41.890Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-04T14:00:09.224Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E42727",
+  "paymentId": "pay_R1Ha2F394INpnc"
+},
+{
+  "_id": {
+    "$oid": "6890c7021817b89fa6e42837"
+  },
+  "firstName": "Vaishnavi",
+  "lastName": "Shewale",
+  "email": "vaishnavishewale10@gmail.com",
+  "phone": "8468807561",
+  "college": "Guru Gobind Singh College of Engineering&  Research Centre ",
+  "yearOfStudy": "4th Year",
+  "department": "Computer Engineering ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-04T14:43:14.012Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-04T14:43:51.115Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E42837",
+  "paymentId": "pay_R1IK0HZcPLUWvW"
+},
+{
+  "_id": {
+    "$oid": "6890d3d91817b89fa6e428e9"
+  },
+  "firstName": "Chaitanya ",
+  "lastName": "Nikam ",
+  "email": "chaitanyanikam60@gmail.com",
+  "phone": "7028830919",
+  "college": "art,commerce & science college lasalgaon ",
+  "yearOfStudy": "Graduate",
+  "department": "computer science ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-04T15:38:01.905Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-04T15:38:33.149Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E428E9",
+  "paymentId": "pay_R1JFrHD7Li9Vlt"
+},
+{
+  "_id": {
+    "$oid": "6890e5c11817b89fa6e42aaf"
+  },
+  "firstName": "Sonal",
+  "lastName": "Narwade",
+  "email": "sonalvn31@gmail.com",
+  "phone": "9075714312",
+  "college": "Dr D Y Patil Vidyapeeth,pune",
+  "yearOfStudy": "2nd Year",
+  "department": "MCA(Computer Science)",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-04T16:54:25.344Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-04T16:55:13.314Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E42AAF",
+  "paymentId": "pay_R1KZFZbe0PEuUs"
+},
+{
+  "_id": {
+    "$oid": "689160711817b89fa6e42b42"
+  },
+  "firstName": "Raviraj ",
+  "lastName": "Kadam ",
+  "email": "ravirajkadam2006@gmail.com",
+  "phone": "9021766097",
+  "college": "Savitribai Phule Pune University ",
+  "yearOfStudy": "2nd Year",
+  "department": "Computer science ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-05T01:37:53.131Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-05T01:38:44.796Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E42B42",
+  "paymentId": "pay_R1TTtRCr1MBlXw"
+},
+{
+  "_id": {
+    "$oid": "6891a6c31817b89fa6e42d6e"
+  },
+  "firstName": "Gayatri ",
+  "lastName": "Jadhav ",
+  "email": "jadhavgayatri1803@gmail.com",
+  "phone": "8767036698",
+  "college": "K.v.n.naik college of engineering and research centre ",
+  "yearOfStudy": "4th Year",
+  "department": "Artificial intelligence and machine learning ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-05T06:37:55.209Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-05T06:37:55.219Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E42D6E"
+},
+{
+  "_id": {
+    "$oid": "6891ef5b1817b89fa6e430d7"
+  },
+  "firstName": "Mangesh ",
+  "lastName": "Gore",
+  "email": "goremangesh8352@gmail.com",
+  "phone": "9579612709",
+  "college": "Sppu",
+  "yearOfStudy": "Graduate",
+  "department": "Computer science ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-05T11:47:39.951Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-05T11:47:39.958Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E430D7"
+},
+{
+  "_id": {
+    "$oid": "6891fff51817b89fa6e4310a"
+  },
+  "firstName": "Ritika",
+  "lastName": "Mate",
+  "email": "ritikamate2424@gmail.com",
+  "phone": "8600316766",
+  "college": "Savitribai Phule Pune University ",
+  "yearOfStudy": "4th Year",
+  "department": "Artificial Intelligence and Data Science ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-05T12:58:29.239Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-05T12:58:29.251Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E4310A"
+},
+{
+  "_id": {
+    "$oid": "68920aa01817b89fa6e431dc"
+  },
+  "firstName": "Shruti",
+  "lastName": "Jadhav",
+  "email": "jadhavshruti2811@gmail.com",
+  "phone": "8668897967",
+  "college": "SNJB'S Collage of Enginering ",
+  "yearOfStudy": "Graduate",
+  "department": "Computer Enginering",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-05T13:44:00.112Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-05T13:44:00.120Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E431DC"
+},
+{
+  "_id": {
+    "$oid": "689233b31817b89fa6e432c5"
+  },
+  "firstName": "Mahi",
+  "lastName": "Roy",
+  "email": "mahiroy8463@gmail.com",
+  "phone": "9209744072",
+  "college": "P.dr.v.v. Patil institute of technology and polytechnic loni ",
+  "yearOfStudy": "3rd Year",
+  "department": "Cloud computing and big data ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-05T16:39:15.055Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-05T16:39:35.453Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E432C5",
+  "paymentId": "pay_R1iphSxtOmPwag"
+},
+{
+  "_id": {
+    "$oid": "68923fdc1817b89fa6e432f0"
+  },
+  "firstName": "Rani",
+  "lastName": "Jamkar ",
+  "email": "jamkarrani26@gmail.com",
+  "phone": "9607398971",
+  "college": "K. k. Wagh Art's Commerce Science and Computer science college Nashik ",
+  "yearOfStudy": "2nd Year",
+  "department": "Computer science ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-05T17:31:08.799Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-05T17:39:15.009Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E432F0",
+  "paymentId": "pay_R1jqZTfOxwahEH"
+},
+{
+  "_id": {
+    "$oid": "68924a5c1817b89fa6e4332f"
+  },
+  "firstName": "Arnav ",
+  "lastName": "Telangi ",
+  "email": "arnav.telangi24@pccoepune.org",
+  "phone": "8329401435",
+  "college": "Pccoe ",
+  "yearOfStudy": "2nd Year",
+  "department": "AIML",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-05T18:15:56.852Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-05T18:17:54.623Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E4332F",
+  "paymentId": "pay_R1kU9ti1dqCmjC"
+},
+{
+  "_id": {
+    "$oid": "68924d931817b89fa6e43341"
+  },
+  "firstName": "Siddhi",
+  "lastName": "Gangurde",
+  "email": "gangurdesiddhi786@gmail.com",
+  "phone": "9370174592",
+  "college": "Savitribai Phule pune university ",
+  "yearOfStudy": "Graduate",
+  "department": "Computer science ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-05T18:29:39.255Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-05T18:29:39.268Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E43341"
+},
+{
+  "_id": {
+    "$oid": "6893324d1817b89fa6e4344a"
+  },
+  "firstName": "Pravin ",
+  "lastName": "Avhad",
+  "email": "pravinavhad3597@gmail.com",
+  "phone": "7972800561",
+  "college": "Sanjivani college of Engineering Kopargaon",
+  "yearOfStudy": "4th Year",
+  "department": "Information Technology",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-06T10:45:33.468Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-06T10:45:33.475Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E4344A"
+},
+{
+  "_id": {
+    "$oid": "689437621817b89fa6e43531"
+  },
+  "firstName": "Dnyaneshwari",
+  "lastName": "Joshi",
+  "email": "joshidnyaneshari@gmail.com",
+  "phone": "9359803227",
+  "college": "Women's College of Homescience and BCA ",
+  "yearOfStudy": "3rd Year",
+  "department": "Computer ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-07T05:19:30.355Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-07T05:21:24.892Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E43531",
+  "paymentId": "pay_R2KK1wDpVUEk0Y"
+},
+{
+  "_id": {
+    "$oid": "689464641817b89fa6e438da"
+  },
+  "firstName": "ANIKET ",
+  "lastName": "MANWADE",
+  "email": "aniketmanwade2@gmail.com",
+  "phone": "8010816076",
+  "college": "K. P. G. College Igatpuri (savitribai phule pune university) ",
+  "yearOfStudy": "Graduate",
+  "department": "BSc. Computer Science",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-07T08:31:32.094Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-07T08:31:32.107Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E438DA"
+},
+{
+  "_id": {
+    "$oid": "6894707d1817b89fa6e438ec"
+  },
+  "firstName": "Sakshi",
+  "lastName": "Shitole",
+  "email": "sakshishitole1285@gmail.com",
+  "phone": "7709751460",
+  "college": "PCCOE - Pimpri Chinchwad College Of Engineering",
+  "yearOfStudy": "Graduate",
+  "department": "Computer science and Engineering ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-07T09:23:09.907Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-07T09:23:09.914Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E438EC"
+},
+{
+  "_id": {
+    "$oid": "6894777d1817b89fa6e43901"
+  },
+  "firstName": "Tushar",
+  "lastName": "Mahajan",
+  "email": "tusharmahajan0603@gmail.com",
+  "phone": "7666100610",
+  "college": "Pccoe",
+  "yearOfStudy": "Graduate",
+  "department": "CSE(AI&ML)",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-07T09:53:01.441Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-07T09:53:01.452Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E43901"
+},
+{
+  "_id": {
+    "$oid": "689479691817b89fa6e43910"
+  },
+  "firstName": "Dimpal ",
+  "lastName": "Jangale",
+  "email": "dimpaljangale@gmail.com",
+  "phone": "9322819594",
+  "college": "Kaviyatri Bahinabai Chaudhari North Maharashtra University,Jalgaon",
+  "yearOfStudy": "Graduate",
+  "department": "Computer Science ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-07T10:01:13.181Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-07T10:02:22.181Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E43910",
+  "paymentId": "pay_R2P7Rd546q1vn1"
+},
+{
+  "_id": {
+    "$oid": "6894a2771817b89fa6e43bf3"
+  },
+  "firstName": "Mohini",
+  "lastName": "Mahajan",
+  "email": "mohinimahajan2402@gmail.com",
+  "phone": "9022375135",
+  "college": "G H Raisoni College Of Engeeneering And Management Jalgoan ",
+  "yearOfStudy": "Graduate",
+  "department": "Bachelor of computer Application ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-07T12:56:23.027Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-07T12:56:23.035Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E43BF3"
+},
+{
+  "_id": {
+    "$oid": "6895b1591817b89fa6e43f5a"
+  },
+  "firstName": "Gaurav ",
+  "lastName": "Rasekar ",
+  "email": "gauravrasekar4@gmail.comg",
+  "phone": "8208353230",
+  "college": "Savitribai phule university pune ",
+  "yearOfStudy": "2nd Year",
+  "department": "Computer science ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-08T08:12:09.620Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-08T08:12:09.627Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E43F5A"
+},
+{
+  "_id": {
+    "$oid": "6895c7e81817b89fa6e43f98"
+  },
+  "firstName": "Akshada ",
+  "lastName": "Gawale ",
+  "email": "akshadagawale3@gmail.com",
+  "phone": "9226379289",
+  "college": "K k wagh college Nashik ",
+  "yearOfStudy": "Post Graduate",
+  "department": "Computer science ",
+  "experience": "",
+  "hidden": false,
+  "createdAt": {
+    "$date": "2025-08-08T09:48:24.532Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-08T09:48:24.539Z"
+  },
+  "__v": 0,
+  "registrationId": "QUIZ-E43F98"
+}]

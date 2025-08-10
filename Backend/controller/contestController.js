@@ -1,18 +1,77 @@
 import PDFDocument from "pdfkit";
+import { Session, User } from '../Models/DB.js';
 
 export const validateCredentials = async (req, res) => {
-  const { registeredId, phone } = req.body;
-  // TODO: DB lookup for contest & participant validation
-  return res.json({
-    contest: {
-      id: "1",
-      title: "QuizBuzz Demo",
-      startTime: new Date(Date.now() + 30 * 60000),
-      duration: 50,
-      participants: 123
+  try {
+    const { registeredId, phone, slug } = req.body;
+    const { device, userAgent } = extractDeviceInfo(req);
+    const ipAddress = req.ip;
+
+    // 1. Check if user exists and validate password
+    const user = await User.findOne({ registeredId });
+    if (!user) {
+      return res.status(401).json({ message: 'No User Found, Check your email for the correct credentials' });
     }
-  });
+
+    if (phone !== user.phone) return res.json({message: "The Registed-ID does not match the Phone no, Please enter the same phone no used during the registration"});
+
+
+    // 2. Check for existing active sessions
+    const existingSession = await Session.findOne({ 
+      userId: user._id, 
+      isActive: true 
+    });
+
+    // 3. If exists, invalidate the old session
+    if (existingSession) {
+      await Session.findByIdAndUpdate(existingSession._id, {
+        isActive: false,
+        endedAt: new Date()
+      });
+    }
+
+    // 4. Create new session
+    const sessionId = generateSessionId(); // UUID or crypto.randomBytes
+    const newSession = new Session({
+      userId: user._id,
+      sessionId,
+      device,
+      ipAddress,
+      userAgent,
+      isActive: true
+    });
+
+    await newSession.save();
+
+    // 5. Generate JWT with sessionId
+    const token = jwt.sign(
+      { 
+        userId: user._id, 
+        sessionId: sessionId,
+        email: user.email 
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      message: 'Login successful',
+      token,
+      user: { id: user._id, email: user.email, name: user.name, phone: user.phone },
+      contest: {
+            id: "1",
+            title: "QuizBuzz Demo",
+            startTime: new Date(Date.now() + 30 * 60000),
+            duration: 50,
+            participants: 123
+        }
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
 };
+
 
 
 export const getContestBySlug = async (req, res) => {

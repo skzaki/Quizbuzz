@@ -3,6 +3,7 @@ import slugify from "slugify";
 import mongoose from 'mongoose';
 
 const userSchema = new  mongoose.Schema({
+     registrationId: { type: String },
      firstName: {type: String },
      lastName: {type: String },
      password: { type: String},
@@ -34,12 +35,6 @@ const QuestionSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 
-contestSchema.pre("validate", function (next) {
-  if (this.title && !this.slug) {
-    this.slug = slugify(this.title, { lower: true, strict: true });
-  }
-  next();
-});
 
 const contestSchema = new mongoose.Schema({
     title: { type: String, required: true },
@@ -47,7 +42,7 @@ const contestSchema = new mongoose.Schema({
     description: { type: String },
     details: { type: String },
     topics: { type: String },
-    rules: { type: String },
+    rules: [ { type: String } ],
     registerFee: { type: Number, required: true },
     duration: { type: String },
     cutOff: { type: Number },
@@ -65,6 +60,14 @@ const contestSchema = new mongoose.Schema({
     isDeleted: { type: Boolean, default: false},
 
 }, { timestamps: true });
+
+contestSchema.pre("validate", function (next) {
+  if (this.title && !this.slug) {
+    this.slug = slugify(this.title, { lower: true, strict: true });
+  }
+  next();
+});
+
 
 const  certificatesSchema = new mongoose.Schema({
     userRef: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -88,14 +91,19 @@ const paymentsSchema = new mongoose.Schema({
 
 const sessionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  contestId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contest', required: true },
+  sessionId: { type: String, required: true, unique: true }, // Add this for JWT reference
+  isActive: { type: Boolean, default: true }, // Track active status
   joinedAt: { type: Date, default: Date.now },
   endedAt: { type: Date },
   device: { type: String },
   ipAddress: { type: String },
-  score: { type: Number }, 
-
+  userAgent: { type: String }, // Browser/app info
+  lastActivity: { type: Date, default: Date.now }, // Track activity
 }, { timestamps: true });
+
+// Index for faster queries
+sessionSchema.index({ userId: 1, isActive: 1 });
+sessionSchema.index({ sessionId: 1 });
 
 
 const submissionSchema = new mongoose.Schema({
