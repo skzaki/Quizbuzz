@@ -1,25 +1,31 @@
+import jwt from "jsonwebtoken";
 import PDFDocument from "pdfkit";
-import { Session, User } from '../Models/DB.js';
+import { Contest, Session, Submission, User } from '../Models/DB.js';
+import { extractDeviceInfo, generateSessionId } from '../utils/sessionHelper.js';
 
 export const validateCredentials = async (req, res) => {
   try {
-    const { registeredId, phone, slug } = req.body;
+    const { registrationId, phone, slug } = req.body;
     const { device, userAgent } = extractDeviceInfo(req);
     const ipAddress = req.ip;
+    
+    console.log(`${registrationId}: ${phone}: ${slug}`);
+
 
     // 1. Check if user exists and validate password
-    const user = await User.findOne({ registeredId });
+    const user = await User.findOne({ registrationId });
+    
     if (!user) {
       return res.status(401).json({ message: 'No User Found, Check your email for the correct credentials' });
     }
 
-    if (phone !== user.phone) return res.json({message: "The Registed-ID does not match the Phone no, Please enter the same phone no used during the registration"});
+    if (parseInt(phone) !== user.phone) return res.json({message: "The Register-ID does not match the Phone no, Please enter the same phone no used during the registration"});
 
 
     // 2. Check for existing active sessions
-    const existingSession = await Session.findOne({ 
-      userId: user._id, 
-      isActive: true 
+    const existingSession = await Session.findOne({
+      userId: user._id,
+      isActive: true
     });
 
     // 3. If exists, invalidate the old session
@@ -33,22 +39,22 @@ export const validateCredentials = async (req, res) => {
     // 4. Create new session
     const sessionId = generateSessionId(); // UUID or crypto.randomBytes
     const newSession = new Session({
-      userId: user._id,
-      sessionId,
-      device,
-      ipAddress,
-      userAgent,
-      isActive: true
+        userId: user._id,
+        sessionId,
+        device,
+        ipAddress,
+        userAgent,
+        isActive: true
     });
 
     await newSession.save();
 
     // 5. Generate JWT with sessionId
     const token = jwt.sign(
-      { 
-        userId: user._id, 
+      {
+        userId: user._id,
         sessionId: sessionId,
-        email: user.email 
+        email: user.email
       },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
@@ -57,7 +63,6 @@ export const validateCredentials = async (req, res) => {
     res.json({
       message: 'Login successful',
       token,
-      user: { id: user._id, email: user.email, name: user.name, phone: user.phone },
       contest: {
             id: "1",
             title: "QuizBuzz Demo",
@@ -68,6 +73,7 @@ export const validateCredentials = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -87,6 +93,7 @@ export const getContestBySlug = async (req, res) => {
 };
 
 export const getContestQuestions = async (req, res) => {
+    console.table(req.user);
   const { contestId } = req.params;
   // TODO: fetch from DB
   return res.json({
@@ -105,45 +112,45 @@ export const submitContest = async (req, res) => {
 };
 
 export const getContestResults = async (req, res) => {
-  try {
-    const { contestId } = req.params;
-    const userId = req.user.id; // Extracted from auth middleware
+    try {
+        const { contestId } = req.params;
+        const userId = req.user.id; // Extracted from auth middleware
 
-    // Fetch submission from DB
-    const submission = await Submission.findOne({ contestId, userId }).populate("questions");
+        // Fetch submission from DB
+        const submission = await Submission.findOne({ contestId, userId }).populate("questions");
 
-    if (!submission) {
-      return res.status(404).json({ message: "No submission found for this contest" });
+        if (!submission) {
+            return res.status(404).json({ message: "No submission found for this contest" });
+        }
+
+        // Build marksheet
+        const marksheet = submission.questions.map(q => ({
+            questionId: q._id,
+            question: q.text,
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+            userAnswer: submission.answers[q._id] || null,
+            status:
+            submission.answers[q._id] === q.correctAnswer
+                ? "correct"
+                : submission.answers[q._id]
+                ? "incorrect"
+                : "skipped"
+        }));
+
+        res.json({
+            contestId,
+            score: submission.score,
+            total: submission.questions.length,
+            correct: submission.correctCount,
+            incorrect: submission.incorrectCount,
+            skipped: submission.skippedCount,
+            marksheet
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
     }
-
-    // Build marksheet
-    const marksheet = submission.questions.map(q => ({
-      questionId: q._id,
-      question: q.text,
-      options: q.options,
-      correctAnswer: q.correctAnswer,
-      userAnswer: submission.answers[q._id] || null,
-      status:
-        submission.answers[q._id] === q.correctAnswer
-          ? "correct"
-          : submission.answers[q._id]
-          ? "incorrect"
-          : "skipped"
-    }));
-
-    res.json({
-      contestId,
-      score: submission.score,
-      total: submission.questions.length,
-      correct: submission.correctCount,
-      incorrect: submission.incorrectCount,
-      skipped: submission.skippedCount,
-      marksheet
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
-  }
 };
 
 

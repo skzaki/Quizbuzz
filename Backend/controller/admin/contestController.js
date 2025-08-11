@@ -1,5 +1,5 @@
 // controller/admin/contestController.js
-import Contest from "../../models/contestModel.js";
+import { Contest } from "../../Models/DB.js";
 
 /**
  * @desc    Create a new contest

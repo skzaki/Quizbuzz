@@ -3,22 +3,22 @@ import slugify from "slugify";
 import mongoose from 'mongoose';
 
 const userSchema = new  mongoose.Schema({
-     registrationId: { type: String },
-     firstName: {type: String },
-     lastName: {type: String },
-     password: { type: String},
-     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-     phone: {type: Number },
-     college: {type: String },
-     department: {type: String },
-     isDeleted: { type: Boolean, default: false},
+    registrationId: { type: String },
+    firstName: {type: String },
+    lastName: {type: String },
+    password: { type: String},
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    phone: {type: Number },
+    college: {type: String },
+    department: {type: String },
+    isDeleted: { type: Boolean, default: false},
 
 }, { timestamps: true });
 
 const AdminSchema = new  mongoose.Schema({
-     password: { type: String},
-     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-     isDeleted: { type: Boolean, default: false},
+    password: { type: String},
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    isDeleted: { type: Boolean, default: false},
 
 }, { timestamps: true });
 
@@ -62,10 +62,10 @@ const contestSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 contestSchema.pre("validate", function (next) {
-  if (this.title && !this.slug) {
-    this.slug = slugify(this.title, { lower: true, strict: true });
-  }
-  next();
+    if (this.title && !this.slug) {
+        this.slug = slugify(this.title, { lower: true, strict: true });
+    }
+    next();
 });
 
 
@@ -90,32 +90,32 @@ const paymentsSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const sessionSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  sessionId: { type: String, required: true, unique: true }, // Add this for JWT reference
-  isActive: { type: Boolean, default: true }, // Track active status
-  joinedAt: { type: Date, default: Date.now },
-  endedAt: { type: Date },
-  device: { type: String },
-  ipAddress: { type: String },
-  userAgent: { type: String }, // Browser/app info
-  lastActivity: { type: Date, default: Date.now }, // Track activity
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    sessionId: { type: String, required: true, unique: true }, // Add this for JWT reference
+    isActive: { type: Boolean, default: true }, // Track active status
+    joinedAt: { type: Date, default: Date.now },
+    endedAt: { type: Date },
+    device: { type: String },
+    ipAddress: { type: String },
+    userAgent: { type: String }, // Browser/app info
+    lastActivity: { type: Date, default: Date.now }, // Track activity
 }, { timestamps: true });
 
 // Index for faster queries
 sessionSchema.index({ userId: 1, isActive: 1 });
-sessionSchema.index({ sessionId: 1 });
+
 
 
 const submissionSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  contestId: { type: mongoose.Schema.Types.ObjectId, ref: "Contest", required: true },
-  answers: [{
-    questionId: { type: mongoose.Schema.Types.ObjectId, ref: "Question" },
-    selected: { type: String, enum: ['A', 'B', 'C', 'D'] },
-    submittedAt: { type: Date, default: Date.now },
-  }],
-  score: { type: Number },
-  status: { type: String, enum: ['submitted', 'evaluated'], default: 'submitted' }
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    contestId: { type: mongoose.Schema.Types.ObjectId, ref: "Contest", required: true },
+    answers: [{
+            questionId: { type: mongoose.Schema.Types.ObjectId, ref: "Question" },
+            selected: { type: String, enum: ['A', 'B', 'C', 'D'] },
+            submittedAt: { type: Date, default: Date.now },
+        }],
+    score: { type: Number },
+    status: { type: String, enum: ['submitted', 'evaluated'], default: 'submitted' }
 
 }, { timestamps: true });
 
@@ -129,17 +129,17 @@ export const User = mongoose.model("User", userSchema);
 export const Contest = mongoose.model("Contest", contestSchema);
 export const Payment = mongoose.model("Payment", paymentsSchema);
 export const Question = mongoose.model("Question", QuestionSchema);
-export const Certificate = mongoose.model("Certificate", certificatesSchema); 
+export const Certificate = mongoose.model("Certificate", certificatesSchema);
 export const Session = mongoose.model("Session", sessionSchema);
 export const Submission = mongoose.model("Submission", submissionSchema);
 
 
 export const connectDB = async () => {
-  try {
-    await mongoose.connect("mongodb://localhost:27017/quiz-data");
-    console.log('MongoDB connected');
-  } catch (error) {
-    console.error('MongoDB connection failed', error);
-    process.exit(1);
-  }
+    try {
+        await mongoose.connect(process.env.MONGODB_URL);
+        console.log('MongoDB connected');
+    } catch (error) {
+        console.error('MongoDB connection failed', error);
+        process.exit(1);
+    }
 };
