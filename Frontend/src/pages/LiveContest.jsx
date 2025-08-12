@@ -1,4 +1,4 @@
-import { ArrowRight, CameraOff, Clock, Flag, Star, Trophy } from 'lucide-react';
+import { ArrowRight, CameraOff, Clock, Star, Trophy } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { startFaceMonitor, stopFaceMonitor } from '../services/faceMonitor.js';
@@ -16,7 +16,7 @@ const LiveContest = () => {
   const [showThankYou, setShowThankYou] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [proctoringWarning, setProctoringWarning] = useState('');
-
+  const [warningCount, setWarningCount] = useState(0);
   
   // Camera and proctoring states
   const [cameraEnabled, setCameraEnabled] = useState(false);
@@ -277,17 +277,27 @@ const LiveContest = () => {
         try {
           await initializeFaceMonitor();
           
-          await startFaceMonitor({
+            await startFaceMonitor({
             videoEl: videoRef.current,
             onWarning: (msg) => {
-              setProctoringWarning(msg);
-              setFaceMonitorStatus('warning');
+                setProctoringWarning(msg);
+                setFaceMonitorStatus('warning');
+
+                setWarningCount(prev => {
+                const newCount = prev + 1;
+                if (newCount >= 7) {
+                    handleSubmitContest();
+                } else if ([3, 2, 1].includes(7 - newCount)) {
+                    alert(`You have last ${7 - newCount} warning(s) left & after that quiz will be auto submit`);
+                }
+                return newCount;
+                });
             },
             onClear: () => {
-              setProctoringWarning('');
-              setFaceMonitorStatus('active');
+                setProctoringWarning('');
+                setFaceMonitorStatus('active');
             }
-          });
+            });
           
           setFaceMonitorStatus('active');
           console.log('Face monitoring started successfully');
@@ -528,7 +538,7 @@ const LiveContest = () => {
       
       // Auto redirect after 30 seconds
       setTimeout(() => {
-        navigate('/dashboard');
+        navigate('/contest/result/');
       }, 30000);
     }
   };
@@ -613,13 +623,13 @@ const LiveContest = () => {
             {/* Action Buttons */}
             <div className="flex flex-col gap-3 md:gap-4">
               <button
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate('/contest/result')}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors font-medium text-sm md:text-base"
               >
                 Go to Dashboard
               </button>
               <button
-                onClick={() => navigate('/contests')}
+                onClick={() => navigate('/contest/result')}
                 className="w-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 px-6 py-3 rounded-lg transition-colors font-medium text-sm md:text-base"
               >
                 View Other Contests
@@ -700,58 +710,42 @@ const LiveContest = () => {
           <div className="space-y-4">
             {/* Camera Feed */}
             <div className="relative bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
-              <video
-                ref={videoRef}
-                autoPlay
-                muted
-                playsInline
-                className="w-full h-32 md:h-48 object-cover"
-                style={{ transform: 'scaleX(-1)' }}
-              />
-              {!cameraEnabled && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">
-                  <CameraOff className="h-8 w-8 text-gray-400" />
+                <video ref={videoRef} autoPlay muted playsInline
+                    className="w-full h-32 md:h-48 object-cover"
+                    style={{ transform: 'scaleX(-1)' }} />
+                {!cameraEnabled && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">
+                    <CameraOff className="h-8 w-8 text-gray-400" />
+                    </div>
+                )}
+                {cameraEnabled && (
+                    <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">REC</div>
+                )}
+                {/* Overlay proctoring status */}
+                <div className="absolute bottom-0 left-0 right-0 p-2">
+                    {renderProctoringStatus()}
                 </div>
-              )}
-              {cameraEnabled && (
-                <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">
-                  REC
-                </div>
-              )}
             </div>
-            
-            {/* Enhanced Proctoring Status */}
-            {renderProctoringStatus()}
+           
           </div>
         </div>
 
         {/* Question Content */}
         <div className="flex-1 p-4 md:p-8">
           <div className="max-w-4xl mx-auto">
-            {/* Question Header */}
-            <div className="flex items-center justify-between mb-4 md:mb-6">
-              <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
-                Question {currentQuestion + 1}
-              </h2>
-              <button
-                onClick={toggleFlag}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors text-sm ${
-                  flaggedQuestions.has(currentQuestion)
-                    ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'
-                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
-                <Flag className="h-4 w-4" />
-                <span className="hidden sm:inline">{flaggedQuestions.has(currentQuestion) ? 'Unflag' : 'Flag'}</span>
-              </button>
-            </div>
 
             {/* Question Text */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-8 shadow-sm border border-gray-200 dark:border-gray-700 mb-6 md:mb-8">
-              <p className="text-base md:text-lg text-gray-900 dark:text-white leading-relaxed">
-                {currentQ?.question}
-              </p>
-            </div>
+            {cameraEnabled && (
+                <>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-8 shadow-sm border mb-6">
+                    <p className="text-base md:text-lg text-gray-900 dark:text-white leading-relaxed">
+                        {`${currentQuestion + 1}. ${currentQ?.question}`}
+                    </p>
+                    </div>
+                    {/* answer options ... */}
+                    {/* navigation buttons ... */}
+                </>
+            )}
 
             {/* Answer Options */}
             <div className="space-y-3 md:space-y-4 mb-6 md:mb-8">
