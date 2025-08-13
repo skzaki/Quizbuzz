@@ -15,7 +15,7 @@ import TermsAndConditions from '../components/TermsAndConditions';
 const ContestJoin = () => {
   const navigate = useNavigate(); // Initialize navigation hook
   const [searchParams] = useSearchParams();
-  const [registeredId, setRegistrationId] = useState(searchParams.get("code") || "");
+  const [registrationId, setRegistrationId] = useState(searchParams.get("code") || "");
   const [phone, setPhone] = useState(searchParams.get("phone") || "");
   const [isValidating, setIsValidating] = useState(false);
   const [validationError, setValidationError] = useState('');
@@ -27,20 +27,8 @@ const ContestJoin = () => {
   const [showTerms, setShowTerms] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
-  // Mock contest data for validation
-  const mockContests = {
-    'QUIZ-123ABC': {
-      id: '1',
-      title: 'QuizBuzz 3',
-      startTime: '2025-08-04T18:12:00', // 30 minutes from now for demo
-      duration: 50,
-      status: 'waiting',
-      participants: 234
-    }
-  };
-
   const validateCredentials = async () => {
-    if (!registeredId.trim() || !phone.trim()) {
+    if (!registrationId.trim() || !phone.trim()) {
       setValidationError('Please enter both Registration ID and phone number');
       return;
     }
@@ -48,65 +36,53 @@ const ContestJoin = () => {
     setIsValidating(true);
     setValidationError('');
 
-    // TODO: Replace with actual API call for credential validation
-    // const response = await fetch('/api/contests/validate-credentials', {
-    //   method: 'POST',
-    //   headers: { 
-    //     'Content-Type': 'application/json',
-    //     'Authorization': `Bearer ${localStorage.getItem('authToken')}` // If auth is required
-    //   },
-    //   body: JSON.stringify({ 
-    //     registeredId: registeredId.trim(),
-    //     phone: phone.trim() 
-    //   })
-    // });
-    //
-    // if (!response.ok) {
-    //   const error = await response.json();
-    //   setValidationError(error.message || 'Validation failed');
-    //   setIsValidating(false);
-    //   return;
-    // }
-    //
-    // const data = await response.json();
-    // setContestInfo(data.contest);
-
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    const contest = mockContests[registeredId];
-    
-    if (!contest) {
-      setValidationError('Invalid Registration ID. Please check and try again.');
+    try {
+      // Actual API call for credential validation
+      const response = await fetch(`${import.meta.env.VITE_URL}/api/contests/validate-credentials`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          registrationId: registrationId.trim(),
+          phone: phone.trim(),
+          slug: 'quizbuzz-3'
+        })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        setValidationError(error.message || 'Validation failed');
+        setIsValidating(false);
+        return;
+      }
+      
+      const data = await response.json();
+      console.table(data.contest);
+      setContestInfo(data.contest);
       setIsValidating(false);
-      return;
-    }
-
-    // Mock phone validation
-    if (phone.length !== 10) {
-      setValidationError('Please enter a valid 10-digit phone number');
+      
+      // Show OTP modal after successful validation
+      setShowOTPModal(true);
+      
+      // TODO: API call to send OTP to user's phone
+      // await fetch('/api/auth/send-otp', {
+      //   method: 'POST',
+      //   headers: { 
+      //     'Content-Type': 'application/json' 
+      //   },
+      //   body: JSON.stringify({ 
+      //     phone: phone.trim(),
+      //     contestId: data.contest.id,
+      //     purpose: 'contest_verification' 
+      //   })
+      // });
+      
+    } catch (error) {
+      console.error('Validation error:', error);
+      setValidationError('Network error. Please check your connection and try again.');
       setIsValidating(false);
-      return;
     }
-
-    setContestInfo(contest);
-    setIsValidating(false);
-    
-    // Show OTP modal after successful validation
-    setShowOTPModal(true);
-    
-    // TODO: API call to send OTP to user's phone
-    // await fetch('/api/auth/send-otp', {
-    //   method: 'POST',
-    //   headers: { 
-    //     'Content-Type': 'application/json' 
-    //   },
-    //   body: JSON.stringify({ 
-    //     phone: phone.trim(),
-    //     contestId: contest.id,
-    //     purpose: 'contest_verification' 
-    //   })
-    // });
   };
 
   const handleOTPVerified = () => {
@@ -125,7 +101,7 @@ const ContestJoin = () => {
       state: { 
         contestInfo,
         userInfo: {
-          registeredId,
+          registrationId,
           phone
         }
       }
@@ -150,7 +126,7 @@ const ContestJoin = () => {
     //     // Join contest waiting room
     //     socket.emit('join-waiting-room', {
     //       contestId: contestInfo.id,
-    //       registeredId,
+    //       registrationId,
     //       phone
     //     });
     //   });
@@ -186,7 +162,7 @@ const ContestJoin = () => {
     //   },
     //   body: JSON.stringify({
     //     contestId: contestInfo.id,
-    //     registeredId,
+    //     registrationId,
     //     phone,
     //     userAgent: navigator.userAgent,
     //     timestamp: new Date().toISOString()
@@ -205,7 +181,7 @@ const ContestJoin = () => {
     //   headers: { 'Content-Type': 'application/json' },
     //   body: JSON.stringify({
     //     contestId: contestInfo?.id,
-    //     registeredId,
+    //     registrationId,
     //     timestamp: new Date().toISOString()
     //   })
     // });
@@ -259,9 +235,9 @@ const ContestJoin = () => {
                   <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                   <input
                     type="text"
-                    value={registeredId}
+                    value={registrationId}
                     onChange={(e) => setRegistrationId(e.target.value.toUpperCase())}
-                    placeholder="Enter Registration ID (e.g., QUIZ-123ABC)"
+                    placeholder="Enter Registration ID"
                     className="w-full pl-10 text-sm pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 font-mono"
                   />
                 </div>
@@ -325,11 +301,10 @@ const ContestJoin = () => {
           ) : null}
         </div>
 
-        {/* Demo Note */}
+        {/* Demo Note - Updated to reflect changes */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Demo credentials: Code: <code className="bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">QUIZ-123ABC</code>, 
-            Phone: any 10-digit number, OTP: <code className="bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">123456</code>
+            Demo OTP: <code className="bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">123456</code>
           </p>
         </div>
       </div>

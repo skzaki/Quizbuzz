@@ -79,6 +79,7 @@ const WaitingRoom = () => {
     } catch (error) {
       console.log('Permission API not supported, will check on camera request');
       setCameraPermission('prompt');
+      console.log(`ERROR: ${error}`);
     }
   };
 
@@ -312,37 +313,7 @@ const WaitingRoom = () => {
             </div>
           </div>
 
-          {/* Live Participants Counter */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
-                  Live Participants
-                </span>
-              </div>
-              <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                {participants}
-              </span>
-            </div>
-            <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-              More participants are joining...
-            </div>
-          </div>
-
-          {/* Important Instructions */}
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-            <div className="text-sm text-yellow-800 dark:text-yellow-300">
-              <strong>Important Instructions:</strong>
-              <ul className="mt-2 space-y-1 list-disc list-inside">
-                <li>Keep this page open - the contest will start automatically</li>
-                <li>Ensure you have a stable internet connection</li>
-                <li>Enable camera permission for contest monitoring</li>
-                <li>Do not refresh or close this page</li>
-                <li>Have a pen and paper ready if needed</li>
-              </ul>
-            </div>
-          </div>
+    
 
           {/* Technical Check */}
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
@@ -410,6 +381,21 @@ const WaitingRoom = () => {
               </div>
             </div>
           )}
+        
+
+        {/* Important Instructions */}
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+            <div className="text-sm text-yellow-800 dark:text-yellow-300">
+              <strong>Important Instructions:</strong>
+              <ul className="mt-2 space-y-1 list-disc list-inside">
+                <li>Keep this page open - the contest will start automatically</li>
+                <li>Ensure you have a stable internet connection</li>
+                <li>Enable camera permission for contest monitoring</li>
+                <li>Do not refresh or close this page</li>
+                <li>Have a pen and paper ready if needed</li>
+              </ul>
+            </div>
+          </div>
 
           {/* Mobile-specific instructions */}
           {isMobile && (

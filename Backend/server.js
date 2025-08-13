@@ -13,7 +13,7 @@ const server = http.createServer(app);
 // Attach WebSocket server
 const io = new Server(server, {
   cors: {
-    origin: "*", // Change to your frontend domain in prod
+    origin: ["http://localhost:5178/"], 
     methods: ["GET", "POST"]
   }
 });
