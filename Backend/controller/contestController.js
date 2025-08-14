@@ -1,83 +1,93 @@
 import jwt from "jsonwebtoken";
 import PDFDocument from "pdfkit";
 import { Contest, Session, Submission, User } from '../Models/DB.js';
-import { extractDeviceInfo, generateSessionId } from '../utils/sessionHelper.js';
+import { validateCredentialsSchema } from '../Models/zodSchmea.js';
+import { saveSession } from "../service/sessionService.js";
+import { extractDeviceInfo } from '../utils/sessionHelper.js';
+
 
 export const validateCredentials = async (req, res) => {
   try {
-    const { registrationId, phone, slug } = req.body;
+    // 1 Validate input
+    const parsed = validateCredentialsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ errors: parsed.error.format() });
+    }
+    const { registrationId, phone, slug } = parsed.data;
+
     const { device, userAgent } = extractDeviceInfo(req);
     const ipAddress = req.ip;
-    
-    console.log(`${registrationId}: ${phone}: ${slug}`);
 
-
-    // 1. Check if user exists and validate password
+    // 2 Check if user exists
     const user = await User.findOne({ registrationId });
-    
     if (!user) {
-      return res.status(401).json({ message: 'No User Found, Check your email for the correct credentials' });
+      return res
+        .status(401)
+        .json({ message: "No User Found, Check your email for the correct credentials" });
     }
 
-    if (parseInt(phone) !== user.phone) return res.json({message: "The Register-ID does not match the Phone no, Please enter the same phone no used during the registration"});
-
-
-    // 2. Check for existing active sessions
-    const existingSession = await Session.findOne({
-      userId: user._id,
-      isActive: true
-    });
-
-    // 3. If exists, invalidate the old session
-    if (existingSession) {
-      await Session.findByIdAndUpdate(existingSession._id, {
-        isActive: false,
-        endedAt: new Date()
+    if (parseInt(phone) !== user.phone) {
+      return res.json({
+        message:
+          "The Register-ID does not match the Phone no, Please enter the same phone no used during the registration",
       });
     }
 
-    // 4. Create new session
-    const sessionId = generateSessionId(); // UUID or crypto.randomBytes
-    const newSession = new Session({
-        userId: user._id,
-        sessionId,
-        device,
-        ipAddress,
-        userAgent,
-        isActive: true
-    });
+    // 3 Invalidate existing active session in DB
+    await Session.updateMany(
+      { userId: user._id, isActive: true },
+      { $set: { isActive: false, endedAt: new Date() } }
+    );
 
+    // 4 Create new session ID
+    const sessionId = crypto.randomUUID();
+
+    // 5 Save to MongoDB
+    const newSession = new Session({
+      userId: user._id,
+      sessionId,
+      device,
+      ipAddress,
+      userAgent,
+      isActive: true,
+      lastActivity: new Date(),
+    });
     await newSession.save();
 
-    // 5. Generate JWT with sessionId
+    // 6 Save to Redis (24 hours TTL)
+    await saveSession(sessionId, {
+      userId: user._id.toString(),
+      ipAddress,
+      userAgent,
+      isActive: true,
+      lastActivity: new Date().toISOString(),
+    }, 60 * 60 * 24);
+
+    // 7 Generate JWT
     const token = jwt.sign(
-      {
-        userId: user._id,
-        sessionId: sessionId,
-        email: user.email
-      },
+      { userId: user._id, sessionId, email: user.email },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: "24h" }
     );
 
     res.json({
-      message: 'Login successful',
+      message: "Login successful",
       token,
+      userInfo: {registrationId: registrationId},
       contest: {
-            id: "1",
-            title: "QuizBuzz Demo",
-            startTime: new Date(Date.now() + 30 * 60000),
-            duration: 50,
-            participants: 123
-        }
+        id: "1",
+        slug: "quizbuzz-3",
+        title: "QuizBuzz Demo",
+        startTime: new Date(Date.now() + 5 * 60000),
+        duration: 50,
+        participants: 123,
+      },
     });
-
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
 
 
 export const getContestBySlug = async (req, res) => {

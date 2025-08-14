@@ -6,29 +6,77 @@ import {
     Trophy,
     Users
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import io from 'socket.io-client';
 
 // Waiting Room Component
 const WaitingRoom = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  
-  // Get contest info from navigation state
-  const { contestInfo, userInfo } = location.state || {};
-  
-  // Redirect if no contest info (direct URL access)
-  useEffect(() => {
-    if (!contestInfo) {
-      navigate('/contest/join', { replace: true });
-      return;
-    }
-  }, [contestInfo, navigate]);
 
+  // Get contest info from navigation state
+   const userInfo = useRef();
+    const contestInfo = useRef();
+  
+
+  
   const [timeLeft, setTimeLeft] = useState(null);
   const [participants, setParticipants] = useState(contestInfo?.participants || 0);
   const [cameraPermission, setCameraPermission] = useState('prompt'); // 'granted', 'denied', 'prompt', 'requesting'
   const [cameraError, setCameraError] = useState('');
+
+  useEffect(() => {
+    userInfo.current = localStorage.getItem('userInfo');
+    contestInfo.current = localStorage.getItem('contestInfo');
+    
+    if (!contestInfo.current || !userInfo.current) return;
+
+    const socket = io(import.meta.env.VITE_WEBSOCKET_URL || "http://localhost:8080", {
+      transports: ["websocket"],
+      auth: { token: localStorage.getItem("authToken") }
+    });
+
+    socket.on("connect", () => {
+      console.log("✅ Connected:", socket.id);
+      socket.emit("join-waiting-room", {
+        contestId: contestInfo.current.slug,
+        userId: userInfo.current.registrationId,
+        startTime: contestInfo.current.startTime
+      });
+    });
+
+    socket.on("participant-joined", ({ userId }) => {
+      console.log(`📢 ${userId} joined`);
+      setParticipants(prev => prev + 1);
+    });
+
+    socket.on("participant-left", ({ userId }) => {
+      console.log(`🚪 ${userId} left`);
+      setParticipants(prev => Math.max(prev - 1, 0));
+    });
+
+    socket.on("quiz-started", ({ contestId }) => {
+      console.log(`🚀 Quiz started for ${contestId}`);
+      navigate(`/contest/live/${contestId}`, {
+        state: { contestInfo, userInfo }
+      });
+    });
+
+    socket.on("disconnect", () => {
+      console.log("❌ Disconnected");
+    });
+
+    return () => {
+      socket.emit("leave-waiting-room", {
+        contestId: contestInfo.current.slug,
+        userId: userInfo.current.registrationId
+      });
+      socket.disconnect();
+    };
+  }, []);
+
+
 
   // Don't render if no contest info
   if (!contestInfo) {
@@ -37,11 +85,10 @@ const WaitingRoom = () => {
 
   const handleContestStart = () => {
     // Navigate to live contest page with contest data
-    navigate(`/contest/live/${contestInfo.id}`, {
+    navigate(`/contest/live/${contestInfo.slug}`, {
       state: { 
-        contestInfo, 
+        contestInfo,
         userInfo,
-        joinedAt: new Date().toISOString()
       }
     });
   };

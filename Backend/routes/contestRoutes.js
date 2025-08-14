@@ -8,13 +8,16 @@ import {
     validateCredentials
 } from "../controller/contestController.js";
 
+import rateLimit from 'express-rate-limit';
 
 import { authMiddleware } from "../middleware/auth.js";
 
 const router = Router();
 
+const validateLimiter = rateLimit({ windowMs: 10*60*1000, max: 5 });
+
 // Public Routes
-router.post("/validate-credentials", validateCredentials);
+router.post("/validate-credentials", validateLimiter, validateCredentials);
 
 // Authenticated Participant Routes
 router.use(authMiddleware);

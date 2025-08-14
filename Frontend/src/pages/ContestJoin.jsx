@@ -49,19 +49,22 @@ const ContestJoin = () => {
           slug: 'quizbuzz-3'
         })
       });
+
       
       if (!response.ok) {
-        const error = await response.json();
-        setValidationError(error.message || 'Validation failed');
+          const error = await response.json();
+          setValidationError(error.message || 'Validation failed');
+          setIsValidating(false);
+          return;
+        }
+        
+        const data = await response.json();
+        console.table(data.contest);
+        setContestInfo(data.contest);
         setIsValidating(false);
-        return;
-      }
-      
-      const data = await response.json();
-      console.table(data.contest);
-      setContestInfo(data.contest);
-      setIsValidating(false);
-      
+        
+        localStorage.setItem("contestInfo",JSON.stringify(data.contest));
+        localStorage.setItem("userInfo",JSON.stringify(data.userInfo));
       // Show OTP modal after successful validation
       setShowOTPModal(true);
       
@@ -73,7 +76,7 @@ const ContestJoin = () => {
       //   },
       //   body: JSON.stringify({ 
       //     phone: phone.trim(),
-      //     contestId: data.contest.id,
+      //     contestId: data.contest.slug,
       //     purpose: 'contest_verification' 
       //   })
       // });
@@ -106,52 +109,6 @@ const ContestJoin = () => {
         }
       }
     });
-
-    // TODO: WebSocket connection setup for real-time updates
-    // This will be handled in the WaitingRoom component, but here's the structure:
-    //
-    // import io from 'socket.io-client';
-    //
-    // const setupWebSocket = () => {
-    //   const socket = io(process.env.REACT_APP_WEBSOCKET_URL || 'ws://localhost:8080', {
-    //     auth: {
-    //       token: localStorage.getItem('authToken'),
-    //       contestId: contestInfo.id,
-    //       userId: userInfo.id
-    //     }
-    //   });
-    //
-    //   socket.on('connect', () => {
-    //     console.log('Connected to contest server');
-    //     // Join contest waiting room
-    //     socket.emit('join-waiting-room', {
-    //       contestId: contestInfo.id,
-    //       registrationId,
-    //       phone
-    //     });
-    //   });
-    //
-    //   socket.on('disconnect', () => {
-    //     console.log('Disconnected from contest server');
-    //   });
-    //
-    //   socket.on('contest-update', (data) => {
-    //     // Handle real-time contest updates
-    //     console.log('Contest update:', data);
-    //   });
-    //
-    //   socket.on('participant-joined', (data) => {
-    //     // Update participant count
-    //     console.log('New participant joined:', data);
-    //   });
-    //
-    //   socket.on('contest-starting', (data) => {
-    //     // Contest is about to start
-    //     console.log('Contest starting:', data);
-    //   });
-    //
-    //   return socket;
-    // };
 
     // TODO: API call to officially join the contest waiting room
     // fetch('/api/contests/join-waiting-room', {

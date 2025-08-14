@@ -1,17 +1,15 @@
 import { ArrowRight, CameraOff, Clock, Star, Trophy } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import io from 'socket.io-client';
 import { startFaceMonitor, stopFaceMonitor } from '../services/faceMonitor.js';
 
-
 const LiveContest = () => {
-  const { id } = useParams();
   const navigate = useNavigate();
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [answers, setAnswers] = useState([]);
   const [timeLeft, setTimeLeft] = useState(7200); // 2 hours in seconds
-  const [flaggedQuestions, setFlaggedQuestions] = useState(new Set());
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -20,10 +18,59 @@ const LiveContest = () => {
   
   // Camera and proctoring states
   const [cameraEnabled, setCameraEnabled] = useState(false);
-  const [audioEnabled, setAudioEnabled] = useState(false);
   const [mediaStream, setMediaStream] = useState(null);
   const [faceMonitorStatus, setFaceMonitorStatus] = useState('loading'); // 'loading', 'active', 'warning', 'error'
   const videoRef = useRef(null);
+  const socketRef = useRef(null);
+
+  // Get contest info from navigation state
+  const userInfo = useRef();
+  const contestInfo = useRef();
+  
+
+  useEffect(() => {
+    userInfo.current = localStorage.getItem('userInfo');
+    contestInfo.current = localStorage.getItem('contestInfo');
+    socketRef.current = io(import.meta.env.VITE_WEBSOCKET_URL || "http://localhost:8080", {
+        transports: ["websocket"],
+        auth: { token: localStorage.getItem("authToken") }
+    });
+
+    socketRef.current.on("connect", () => {
+        console.log("✅ Live contest socket connected", socketRef.current.id);
+        socketRef.current.emit("join-waiting-room", {
+            contestId: contestInfo.current.slug,
+            userId: userInfo.current.registrationId,
+            startTime: Date.now()
+        });
+    });
+
+    socketRef.current.on("resume-quiz", (savedState) => {
+        setCurrentQuestion(savedState.currentQuestion);
+        console.log("🔄 Resuming quiz:", savedState);
+    });
+
+    socketRef.current.on("proctoring-alert", (data) => {
+        console.warn("⚠️ Proctoring alert:", data);
+    });
+
+    socketRef.current.on("contest-update", (data) => {
+        console.log("📢 Contest update:", data);
+    });
+
+    const heartbeat = setInterval(() => {
+        socketRef.current.emit("heartbeat", {
+            contestId: contestInfo.current.slug,
+            userId: userInfo.current.registrationId,
+            questionIndex: currentQuestion // Replace with your current question state
+        });
+    }, 30000);
+
+    return () => {
+        clearInterval(heartbeat);
+        socketRef.current.disconnect();
+    };
+}, []);
 
   // Mock questions data
   const questions = [
@@ -153,6 +200,8 @@ const LiveContest = () => {
     }
   }, [proctoringWarning, faceMonitorStatus]);
 
+  
+
   // API CALLS - Contest Management
   const saveAnswersToAPI = async () => {
     try {
@@ -182,45 +231,7 @@ const LiveContest = () => {
     }
   };
 
-  // WEBSOCKET - Real-time monitoring and proctoring
-  const initializeWebSocket = () => {
-    /*
-    // Socket.IO connection for real-time proctoring
-    const socket = io(`/contest-${id}`, {
-      auth: {
-        token: localStorage.getItem('token'),
-        contestId: id,
-        userId: getCurrentUserId()
-      }
-    });
 
-    // Listen for proctoring alerts
-    socket.on('proctoring-alert', (data) => {
-      console.log('Proctoring alert received:', data);
-      // Handle suspicious activity alerts
-    });
-
-    // Listen for contest updates
-    socket.on('contest-update', (data) => {
-      console.log('Contest update:', data);
-      // Handle real-time contest updates
-    });
-
-    // Send heartbeat every 30 seconds
-    const heartbeat = setInterval(() => {
-      socket.emit('heartbeat', {
-        contestId: id,
-        timestamp: new Date().toISOString(),
-        currentQuestion: currentQuestion
-      });
-    }, 30000);
-
-    return () => {
-      clearInterval(heartbeat);
-      socket.disconnect();
-    };
-    */
-  };
 
   // Enhanced camera initialization for proctoring
   const initializeProctoring = async () => {
@@ -234,7 +245,6 @@ const LiveContest = () => {
 
       setMediaStream(stream);
       setCameraEnabled(true);
-      setAudioEnabled(true);
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -309,7 +319,7 @@ const LiveContest = () => {
         }
       }
 
-      initializeWebSocket();
+    
       
     } catch (error) {
       console.error('Error accessing camera/microphone:', error);
@@ -454,16 +464,27 @@ const LiveContest = () => {
   };
 
   const handleSubmitAnswer = () => {
-    if (selectedAnswer !== null) {
-      const newAnswers = [...answers];
-      newAnswers[currentQuestion] = selectedAnswer;
-      setAnswers(newAnswers);
+  if (selectedAnswer !== null) {
+    const newAnswers = [...answers];
+    newAnswers[currentQuestion] = selectedAnswer;
+    setAnswers(newAnswers);
+
+    // Emit save-progress to backend
+    if (socketRef.current) {
+      socketRef.current.emit("save-progress", {
+        contestId: contestInfo.slug,
+        userId: userInfo.registrationId,
+        currentQuestion,
+        answers: newAnswers
+      });
+      console.log(`💾 Progress emitted for Q${currentQuestion}`);
     }
-    
-    if (currentQuestion < totalQuestions - 1) {
-      goToQuestion(currentQuestion + 1);
-    }
-  };
+  }
+
+  if (currentQuestion < totalQuestions - 1) {
+    goToQuestion(currentQuestion + 1);
+  }
+};
 
   const handleSkip = () => {
     if (currentQuestion < totalQuestions - 1) {
@@ -476,21 +497,13 @@ const LiveContest = () => {
     setSelectedAnswer(answers[questionIndex]);
   };
 
-  const toggleFlag = () => {
-    const newFlagged = new Set(flaggedQuestions);
-    if (newFlagged.has(currentQuestion)) {
-      newFlagged.delete(currentQuestion);
-    } else {
-      newFlagged.add(currentQuestion);
-    }
-    setFlaggedQuestions(newFlagged);
-  };
 
   const handleSubmitContest = async () => {
     setIsSubmitting(true);
     setShowSubmitConfirm(false);
     
     try {
+    // TODO:
       /*
       // Final API call to submit contest
       const response = await fetch(`/api/contests/${id}/submit`, {
@@ -504,7 +517,6 @@ const LiveContest = () => {
           answers: answers,
           submissionTime: new Date().toISOString(),
           timeSpent: 7200 - timeLeft,
-          flaggedQuestions: Array.from(flaggedQuestions)
         })
       });
 
@@ -813,10 +825,6 @@ const LiveContest = () => {
                   <div className="flex justify-between">
                     <span>Time Remaining:</span>
                     <span className="font-medium">{formatTime(timeLeft)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Flagged:</span>
-                    <span className="font-medium">{flaggedQuestions.size}</span>
                   </div>
                 </div>
               </div>

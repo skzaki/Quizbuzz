@@ -15,7 +15,7 @@ export default function initSocket(io) {
         socket.on("join-waiting-room", async ({ contestId, userId, startTime }) => {
             socket.userId = userId;
             socket.contestId = contestId;
-
+            
             // Check if the user already has saved state (resume flow)
             const savedState = await getUserState(contestId, userId);
             if (savedState) {
