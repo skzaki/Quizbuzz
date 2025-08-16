@@ -111,7 +111,7 @@ const submissionSchema = new mongoose.Schema({
     contestId: { type: mongoose.Schema.Types.ObjectId, ref: "Contest", required: true },
     answers: [{
             questionId: { type: mongoose.Schema.Types.ObjectId, ref: "Question" },
-            selected: { type: String, enum: ['A', 'B', 'C', 'D'] },
+            answer: { type: String },
             submittedAt: { type: Date, default: Date.now },
         }],
     score: { type: Number },

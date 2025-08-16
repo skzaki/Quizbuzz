@@ -73,12 +73,15 @@ export const validateCredentials = async (req, res) => {
     res.json({
       message: "Login successful",
       token,
-      userInfo: {registrationId: registrationId},
-      contest: {
+      userInfo: {
+        registrationId: user.registrationId,
+        _id: user._id
+    },
+      contestInfo: {
         id: "1",
         slug: "quizbuzz-3",
         title: "QuizBuzz Demo",
-        startTime: new Date(Date.now() + 5 * 60000),
+        startTime: new Date(Date.now() + 2 * 60000),
         duration: 50,
         participants: 123,
       },
@@ -104,14 +107,29 @@ export const getContestBySlug = async (req, res) => {
 
 export const getContestQuestions = async (req, res) => {
     console.table(req.user);
-  const { contestId } = req.params;
-  // TODO: fetch from DB
-  return res.json({
-    contestId,
-    questions: [
-      { id: 1, question: "Sample Q?", options: ["A", "B", "C", "D"] }
-    ]
-  });
+    const { contestSlug } = req.params;
+    
+    if(!contestSlug) return res.status(400).json({ message: "provide the contest slug"});
+    const questions = [];
+    try {
+        const Ques = await Contest.find(
+            {slug: contestSlug },
+            { QuestionBank: 1, _id:0 }
+        ).populate("QuestionBank", "questionText options");
+        
+        return res.json({
+            message: "Fetch Ques success",
+            questions: Ques[0].QuestionBank
+        })
+
+    } catch(error) {
+        console.log(`ERROR: ${error.message}`);
+        return res.status(500).json({
+            message: "Internal server error",
+            error: error.message
+        })
+    }
+  
 };
 
 export const submitContest = async (req, res) => {

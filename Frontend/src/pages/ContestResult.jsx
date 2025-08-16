@@ -42,7 +42,7 @@ const ContestResult = () => {
 
   const handleDownloadCertificate = () => {
     // 🚀 TODO: API call or PDF generation logic
-    alert("Certificate download triggered (replace with real download)");
+    alert("Certificate download triggered");
   };
 
   return (

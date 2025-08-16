@@ -6,7 +6,7 @@ import {
     Trophy,
     Users
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 
@@ -16,90 +16,17 @@ const WaitingRoom = () => {
   const navigate = useNavigate();
 
   // Get contest info from navigation state
-   const userInfo = useRef();
-    const contestInfo = useRef();
-  
-
+  const userInfo = useRef();
+  const [contestInfo, setContestInfo] = useState(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   
   const [timeLeft, setTimeLeft] = useState(null);
-  const [participants, setParticipants] = useState(contestInfo?.participants || 0);
+  const [participants, setParticipants] = useState(0);
   const [cameraPermission, setCameraPermission] = useState('prompt'); // 'granted', 'denied', 'prompt', 'requesting'
   const [cameraError, setCameraError] = useState('');
 
-  useEffect(() => {
-    userInfo.current = localStorage.getItem('userInfo');
-    contestInfo.current = localStorage.getItem('contestInfo');
-    
-    if (!contestInfo.current || !userInfo.current) return;
-
-    const socket = io(import.meta.env.VITE_WEBSOCKET_URL || "http://localhost:8080", {
-      transports: ["websocket"],
-      auth: { token: localStorage.getItem("authToken") }
-    });
-
-    socket.on("connect", () => {
-      console.log("✅ Connected:", socket.id);
-      socket.emit("join-waiting-room", {
-        contestId: contestInfo.current.slug,
-        userId: userInfo.current.registrationId,
-        startTime: contestInfo.current.startTime
-      });
-    });
-
-    socket.on("participant-joined", ({ userId }) => {
-      console.log(`📢 ${userId} joined`);
-      setParticipants(prev => prev + 1);
-    });
-
-    socket.on("participant-left", ({ userId }) => {
-      console.log(`🚪 ${userId} left`);
-      setParticipants(prev => Math.max(prev - 1, 0));
-    });
-
-    socket.on("quiz-started", ({ contestId }) => {
-      console.log(`🚀 Quiz started for ${contestId}`);
-      navigate(`/contest/live/${contestId}`, {
-        state: { contestInfo, userInfo }
-      });
-    });
-
-    socket.on("disconnect", () => {
-      console.log("❌ Disconnected");
-    });
-
-    return () => {
-      socket.emit("leave-waiting-room", {
-        contestId: contestInfo.current.slug,
-        userId: userInfo.current.registrationId
-      });
-      socket.disconnect();
-    };
-  }, []);
-
-
-
-  // Don't render if no contest info
-  if (!contestInfo) {
-    return null;
-  }
-
-  const handleContestStart = () => {
-    // Navigate to live contest page with contest data
-    navigate(`/contest/live/${contestInfo.slug}`, {
-      state: { 
-        contestInfo,
-        userInfo,
-      }
-    });
-  };
-
-  const handleBackToJoin = () => {
-    // TODO: API call to leave waiting room
-    navigate('/contest/join');
-  };
-
   // Enhanced camera permission check for mobile compatibility
-  const checkCameraPermission = async () => {
+  const checkCameraPermission = useCallback(async () => {
     try {
       // First check if we're on HTTPS (required for mobile)
       if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
@@ -128,7 +55,135 @@ const WaitingRoom = () => {
       setCameraPermission('prompt');
       console.log(`ERROR: ${error}`);
     }
-  };
+  }, [location.protocol, location.hostname]);
+
+  // Initialize user and contest info
+  useEffect(() => {
+    try {
+      const storedUserInfo = localStorage.getItem('userInfo');
+      const storedContestInfo = localStorage.getItem('contestInfo');
+      
+      if (storedUserInfo) {
+        userInfo.current = JSON.parse(storedUserInfo);
+      }
+      if (storedContestInfo) {
+        const parsedContestInfo = JSON.parse(storedContestInfo);
+        setContestInfo(parsedContestInfo);
+        setParticipants(parsedContestInfo?.participants || 0);
+      }
+      
+      setIsInitialized(true);
+    } catch (error) {
+      console.error('Error parsing stored data:', error);
+      setIsInitialized(true);
+    }
+  }, []);
+
+  // Socket connection effect
+  useEffect(() => {
+    if (!isInitialized || !contestInfo || !userInfo.current) return;
+
+    const socket = io(import.meta.env.VITE_WEBSOCKET_URL || "http://localhost:8080", {
+      transports: ["websocket"],
+      auth: { token: localStorage.getItem("authToken") }
+    });
+
+    socket.on("connect", () => {
+      console.log("✅ Connected:", socket.id);
+      socket.emit("join-waiting-room", {
+        contestId: contestInfo.slug,
+        userId: userInfo.current.registrationId,
+        startTime: contestInfo.startTime
+      });
+    });
+
+    socket.on("participant-joined", ({ userId }) => {
+      console.log(`📢 ${userId} joined`);
+      setParticipants(prev => prev + 1);
+    });
+
+    socket.on("participant-left", ({ userId }) => {
+      console.log(`🚪 ${userId} left`);
+      setParticipants(prev => Math.max(prev - 1, 0));
+    });
+
+    socket.on("quiz-started", ({ contestId }) => {
+      console.log(`🚀 Quiz started for ${contestId}`);
+      navigate(`/contest/live/${contestId}`, {
+        state: { contestInfo, userInfo: userInfo.current }
+      });
+    });
+
+    socket.on("disconnect", () => {
+      console.log("❌ Disconnected");
+    });
+
+    return () => {
+      socket.emit("leave-waiting-room", {
+        contestId: contestInfo.slug,
+        userId: userInfo.current.registrationId
+      });
+      socket.disconnect();
+    };
+  }, [isInitialized, contestInfo, navigate]);
+
+  // Timer and camera check effect
+  useEffect(() => {
+    if (!isInitialized || !contestInfo) return;
+
+    // Check camera permission status
+    checkCameraPermission();
+
+    // Timer calculation
+    const calculateTimeLeft = () => {
+      const now = new Date().getTime();
+      const contestStart = new Date(contestInfo.startTime).getTime();
+      const difference = contestStart - now;
+
+      if (difference > 0) {
+        const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+        return { days, hours, minutes, seconds, total: difference };
+      }
+      return null;
+    };
+
+    // Initial calculation
+    setTimeLeft(calculateTimeLeft());
+
+    // Update timer every second
+    const timer = setInterval(() => {
+      const time = calculateTimeLeft();
+      setTimeLeft(time);
+
+      // Auto-navigate when contest starts
+      if (!time) {
+        clearInterval(timer);
+        handleContestStart();
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isInitialized, contestInfo, checkCameraPermission]);
+
+  const handleContestStart = useCallback(() => {
+    if (!contestInfo) return;
+    // Navigate to live contest page with contest data
+    navigate(`/contest/live/${contestInfo.slug}`, {
+      state: { 
+        contestInfo,
+        userInfo: userInfo.current,
+      }
+    });
+  }, [contestInfo, navigate]);
+
+  const handleBackToJoin = useCallback(() => {
+    // TODO: API call to leave waiting room
+    navigate('/contest/join');
+  }, [navigate]);
 
   const requestCameraPermission = async () => {
     try {
@@ -174,45 +229,6 @@ const WaitingRoom = () => {
     }
   };
 
-  useEffect(() => {
-    // Check camera permission status
-    checkCameraPermission();
-
-    // Timer calculation
-    const calculateTimeLeft = () => {
-      const now = new Date().getTime();
-      const contestStart = new Date(contestInfo.startTime).getTime();
-      const difference = contestStart - now;
-
-      if (difference > 0) {
-        const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-
-        return { days, hours, minutes, seconds, total: difference };
-      }
-      return null;
-    };
-
-    // Initial calculation
-    setTimeLeft(calculateTimeLeft());
-
-    // Update timer every second
-    const timer = setInterval(() => {
-      const time = calculateTimeLeft();
-      setTimeLeft(time);
-
-      // Auto-navigate when contest starts
-      if (!time) {
-        clearInterval(timer);
-        handleContestStart();
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [contestInfo, userInfo, navigate]);
-
   const formatTimeUnit = (value) => {
     return value.toString().padStart(2, '0');
   };
@@ -235,6 +251,18 @@ const WaitingRoom = () => {
     }
   };
 
+  // Don't render if not initialized or no contest info
+  if (!isInitialized || !contestInfo) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Check if mobile device
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
@@ -254,7 +282,7 @@ const WaitingRoom = () => {
           <div className="text-center">
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">Waiting Room</h1>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              {userInfo?.registeredId}
+              {userInfo.current?.registeredId || userInfo.current?.registrationId}
             </p>
           </div>
           
@@ -360,8 +388,6 @@ const WaitingRoom = () => {
             </div>
           </div>
 
-    
-
           {/* Technical Check */}
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">System Check</h4>
@@ -429,7 +455,6 @@ const WaitingRoom = () => {
             </div>
           )}
         
-
         {/* Important Instructions */}
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
             <div className="text-sm text-yellow-800 dark:text-yellow-300">

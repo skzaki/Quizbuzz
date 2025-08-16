@@ -57,16 +57,17 @@ const ContestJoin = () => {
           setIsValidating(false);
           return;
         }
+
         
         const data = await response.json();
-        console.table(data.contest);
-        setContestInfo(data.contest);
+        setContestInfo(data);
         setIsValidating(false);
         
-        localStorage.setItem("contestInfo",JSON.stringify(data.contest));
-        localStorage.setItem("userInfo",JSON.stringify(data.userInfo));
-      // Show OTP modal after successful validation
-      setShowOTPModal(true);
+        localStorage.setItem("authToken", data.token);
+        
+        // Show OTP modal after successful validation
+        // localStorage will be set after OTP verification
+        setShowOTPModal(true);
       
       // TODO: API call to send OTP to user's phone
       // await fetch('/api/auth/send-otp', {
@@ -91,6 +92,13 @@ const ContestJoin = () => {
   const handleOTPVerified = () => {
     setShowOTPModal(false);
     setOtpVerified(true);
+    
+    // Set localStorage items after OTP verification
+    if (contestInfo) {
+      localStorage.setItem("contestInfo", JSON.stringify(contestInfo.contestInfo));
+      localStorage.setItem("userInfo", JSON.stringify(contestInfo.userInfo));
+    }
+    
     setShowTerms(true);
   };
 
@@ -100,15 +108,7 @@ const ContestJoin = () => {
     
     // Navigate to waiting room with contest info
     // Pass contest data through navigation state
-    navigate('/contest/waiting-room', { 
-      state: { 
-        contestInfo,
-        userInfo: {
-          registrationId,
-          phone
-        }
-      }
-    });
+    navigate('/contest/waiting-room');
 
     // TODO: API call to officially join the contest waiting room
     // fetch('/api/contests/join-waiting-room', {
@@ -168,94 +168,116 @@ const ContestJoin = () => {
     console.log('Resending OTP to:', phone);
   };
 
+  // Function to determine what to render based on current state
+  const renderContent = () => {
+    if (showTerms && contestInfo && otpVerified) {
+      return (
+        <TermsAndConditions
+          onAccept={handleTermsAccepted}
+          onDecline={handleTermsDeclined}
+        />
+      );
+    }
+    
+    if (contestInfo && otpVerified && !showTerms) {
+      // This is the state after terms are accepted but before navigation
+      // Show a loading state or success message
+      return (
+        <div className="text-center space-y-4">
+          <div className="text-green-600 dark:text-green-400">
+            <h3 className="text-lg font-semibold">Registration Complete!</h3>
+            <p className="text-sm mt-2">Redirecting to waiting room...</p>
+          </div>
+        </div>
+      );
+    }
+    
+    // Default: Show the join form
+    return (
+      <div className="space-y-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Registration ID
+          </label>
+          <div className="relative">
+            <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              value={registrationId}
+              onChange={(e) => setRegistrationId(e.target.value.toUpperCase())}
+              placeholder="Enter Registration ID"
+              className="w-full pl-10 text-sm pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 font-mono"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Registered Phone Number
+          </label>
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Enter your registered phone number"
+              className="w-full pl-10 text-sm pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+        </div>
+
+        {validationError && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+              <span className="text-sm text-red-800 dark:text-red-300">{validationError}</span>
+            </div>
+          </div>
+        )}
+
+        <button
+          onClick={validateCredentials}
+          disabled={isValidating}
+          className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-4 py-3 rounded-lg transition-colors font-medium flex items-center justify-center space-x-2"
+        >
+          {isValidating ? (
+            <>
+              <Loader className="h-5 w-5 animate-spin" />
+              <span>Validating...</span>
+            </>
+          ) : (
+            <>
+              <span>Validate & Send OTP</span>
+              <ArrowRight className="h-5 w-5" />
+            </>
+          )}
+        </button>
+
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="text-sm text-blue-800 dark:text-blue-300">
+            <strong>Need help?</strong> Your Registration ID was sent to you after registration. 
+            Check your Email for the contest invitation.
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8 mt-3">
-          
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Join Contest</h1>
           <p className="text-gray-600 dark:text-gray-400">
             Enter your contest credentials to join the live quiz
           </p>
         </div>
 
-        {/* Join Form */}
+        {/* Main Content */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-          {!contestInfo ? (
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Registration ID
-                </label>
-                <div className="relative">
-                  <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={registrationId}
-                    onChange={(e) => setRegistrationId(e.target.value.toUpperCase())}
-                    placeholder="Enter Registration ID"
-                    className="w-full pl-10 text-sm pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 font-mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Registered Phone Number
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="Enter your registered phone number"
-                    className="w-full pl-10 text-sm pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-              </div>
-
-              {validationError && (
-                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                  <div className="flex items-center space-x-2">
-                    <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
-                    <span className="text-sm text-red-800 dark:text-red-300">{validationError}</span>
-                  </div>
-                </div>
-              )}
-
-              <button
-                onClick={validateCredentials}
-                disabled={isValidating}
-                className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-4 py-3 rounded-lg transition-colors font-medium flex items-center justify-center space-x-2"
-              >
-                {isValidating ? (
-                  <>
-                    <Loader className="h-5 w-5 animate-spin" />
-                    <span>Validating...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Validate & Send OTP</span>
-                    <ArrowRight className="h-5 w-5" />
-                  </>
-                )}
-              </button>
-
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <div className="text-sm text-blue-800 dark:text-blue-300">
-                  <strong>Need help?</strong> Your Registration ID was sent to you after registration. 
-                  Check your Email for the contest invitation.
-                </div>
-              </div>
-            </div>
-          ) : showTerms ? (
-            <TermsAndConditions
-              onAccept={handleTermsAccepted}
-              onDecline={handleTermsDeclined}
-            />
-          ) : null}
+          {renderContent()}
         </div>
 
         {/* Demo Note - Updated to reflect changes */}

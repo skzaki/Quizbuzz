@@ -1,11 +1,18 @@
 // middleware/auth.js
 
 import jwt from "jsonwebtoken";
-import { getSession } from "../service/sessionService.js";
+import { getSession, saveSession } from "../service/sessionService.js";
 
 export const authMiddleware = async (req, res, next) => {
     try {
-        const token = req.header("Authorization")?.replace("Bearer ", "");
+        // Fix: Properly extract token from Authorization header
+        const authHeader = req.header("Authorization");
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            return res.status(401).json({ message: "Access denied" });
+        }
+        
+        const token = authHeader.slice(7); // Remove "Bearer " (7 characters)
+        
         if (!token) {
             return res.status(401).json({ message: "Access denied" });
         }
@@ -17,7 +24,7 @@ export const authMiddleware = async (req, res, next) => {
             return res.status(401).json({ message: "Session expired or invalid" });
         }
 
-        // Optional: Match IP/device
+        // Optional: Match IP/device (you might want to make this less strict)
         if (req.ip !== session.ipAddress || req.headers["user-agent"] !== session.userAgent) {
             return res.status(401).json({ message: "Device/IP mismatch" });
         }
@@ -30,6 +37,7 @@ export const authMiddleware = async (req, res, next) => {
         req.sessionId = decoded.sessionId;
         next();
     } catch (error) {
+        console.error("Auth middleware error:", error); // Add logging for debugging
         if (error.name === "TokenExpiredError") {
             return res.status(401).json({ message: "Token expired" });
         }

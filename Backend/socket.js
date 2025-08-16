@@ -69,10 +69,11 @@ export default function initSocket(io) {
         });
 
         socket.on("save-progress", async ({ contestId, userId, currentQuestion, answers }) => {
-            console.log(`💾 Progress saved for ${userId} in contest ${contestId}`);
+             console.log(`💾 Progress saved for ${userId} in contest ${contestId}`);
+            
             await saveUserState(contestId, userId, {
                 currentQuestion,
-                answers,
+                answers, //  [{ questionId, answer, submittedAt }]
                 disconnected: false
             });
         });

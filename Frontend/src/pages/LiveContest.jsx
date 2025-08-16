@@ -6,6 +6,7 @@ import { startFaceMonitor, stopFaceMonitor } from '../services/faceMonitor.js';
 
 const LiveContest = () => {
   const navigate = useNavigate();
+  const [questions, setQuestions] = useState([]);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [answers, setAnswers] = useState([]);
@@ -15,6 +16,8 @@ const LiveContest = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [proctoringWarning, setProctoringWarning] = useState('');
   const [warningCount, setWarningCount] = useState(0);
+  const [errorMessage, setErrorMessage] = useState();
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
   
   // Camera and proctoring states
   const [cameraEnabled, setCameraEnabled] = useState(false);
@@ -24,13 +27,59 @@ const LiveContest = () => {
   const socketRef = useRef(null);
 
   // Get contest info from navigation state
-  const userInfo = useRef();
-  const contestInfo = useRef();
-  
+  const userInfo = useRef({});
+  const contestInfo = useRef({});
 
+const getQuestions = async () => {
+  try {
+    setIsLoadingQuestions(true);
+    const response = await fetch(`${import.meta.env.VITE_URL}/api/contests/${contestInfo.current.slug}/questions`, {
+      method: 'GET',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.log(`Error fetching the questions:`, error);
+      setErrorMessage(error);
+      setIsLoadingQuestions(false);
+      return;
+    }
+
+    const data = await response.json();
+
+    let questionsArray = [];
+    if (data.questions && Array.isArray(data.questions)) {
+    questionsArray = data.questions;
+    } else if (Array.isArray(data)) {
+    questionsArray = data;
+    } else {
+    console.error('Unexpected questions format:', data);
+    }
+
+    setQuestions(questionsArray);
+    setAnswers(new Array(questionsArray.length).fill(null));
+    setIsLoadingQuestions(false);
+
+
+  } catch (error) {
+    console.error(`ERROR: ${error.message}`);
+    setErrorMessage(error.message);
+    setIsLoadingQuestions(false);
+  }
+};
+
+  
+ // WebSocket
   useEffect(() => {
-    userInfo.current = localStorage.getItem('userInfo');
-    contestInfo.current = localStorage.getItem('contestInfo');
+
+    userInfo.current = JSON.parse(localStorage.getItem('userInfo'));
+    contestInfo.current = JSON.parse(localStorage.getItem('contestInfo'));
+    getQuestions(); // get the questions
+
     socketRef.current = io(import.meta.env.VITE_WEBSOCKET_URL || "http://localhost:8080", {
         transports: ["websocket"],
         auth: { token: localStorage.getItem("authToken") }
@@ -58,68 +107,21 @@ const LiveContest = () => {
         console.log("📢 Contest update:", data);
     });
 
-    const heartbeat = setInterval(() => {
-        socketRef.current.emit("heartbeat", {
-            contestId: contestInfo.current.slug,
-            userId: userInfo.current.registrationId,
-            questionIndex: currentQuestion // Replace with your current question state
-        });
-    }, 30000);
+    // const heartbeat = setInterval(() => {
+    //     socketRef.current.emit("heartbeat", {
+    //         contestId: contestInfo.current.slug,
+    //         userId: userInfo.current.registrationId,
+    //         questionIndex: currentQuestion // Replace with your current question state
+    //     });
+    // }, 30000);
 
     return () => {
-        clearInterval(heartbeat);
+        /// clearInterval(heartbeat);
         socketRef.current.disconnect();
     };
 }, []);
 
-  // Mock questions data
-  const questions = [
-    {
-      id: 1,
-      question: "What is the output of console.log(typeof null) in JavaScript?",
-      options: [
-        "null",
-        "undefined", 
-        "object",
-        "boolean"
-      ],
-      correctAnswer: 2
-    },
-    {
-      id: 2,
-      question: "Which method is used to add an element to the end of an array in JavaScript?",
-      options: [
-        "push()",
-        "pop()",
-        "shift()",
-        "unshift()"
-      ],
-      correctAnswer: 0
-    },
-    {
-      id: 3,
-      question: "What does the 'this' keyword refer to in JavaScript?",
-      options: [
-        "The current function",
-        "The global object",
-        "The object that owns the method",
-        "The parent object"
-      ],
-      correctAnswer: 2
-    },
-    // Add more questions to reach 30
-    ...Array.from({ length: 27 }, (_, i) => ({
-      id: i + 4,
-      question: `Sample question ${i + 4} about JavaScript concepts and programming fundamentals?`,
-      options: [
-        `Option A for question ${i + 4}`,
-        `Option B for question ${i + 4}`,
-        `Option C for question ${i + 4}`,
-        `Option D for question ${i + 4}`
-      ],
-      correctAnswer: Math.floor(Math.random() * 4)
-    }))
-  ];
+ 
 
   const totalQuestions = questions.length;
 
@@ -170,16 +172,11 @@ const LiveContest = () => {
     // Auto-save answers every 30 seconds
     const autoSave = setInterval(() => {
       saveAnswersToAPI();
-    }, 30000);
+    }, 60000);
 
-    // Send proctoring data every 10 seconds
-    const proctoringInterval = setInterval(() => {
-      sendProctoringData();
-    }, 10000);
 
     return () => {
       clearInterval(autoSave);
-      clearInterval(proctoringInterval);
     };
   }, [answers]);
 
@@ -327,56 +324,14 @@ const LiveContest = () => {
       
       // More specific error messages
       if (error.name === 'NotAllowedError') {
-        setProctoringWarning('❌ Camera access denied. Please allow camera permissions and refresh.');
+        setProctoringWarning('⛔ Camera access denied. Please allow camera permissions and refresh.');
       } else if (error.name === 'NotFoundError') {
-        setProctoringWarning('❌ No camera found. Please connect a camera and refresh.');
+        setProctoringWarning('⛔ No camera found. Please connect a camera and refresh.');
       } else if (error.name === 'NotReadableError') {
-        setProctoringWarning('❌ Camera is being used by another application. Please close other apps and refresh.');
+        setProctoringWarning('⛔ Camera is being used by another application. Please close other apps and refresh.');
       } else {
-        setProctoringWarning('❌ Failed to access camera. Please check your device and refresh.');
+        setProctoringWarning('⛔ Failed to access camera. Please check your device and refresh.');
       }
-    }
-  };
-
-  // Send proctoring data to server
-  const sendProctoringData = async () => {
-    try {
-      // Capture frame from video for analysis
-      if (videoRef.current && cameraEnabled) {
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.width = videoRef.current.videoWidth;
-        canvas.height = videoRef.current.videoHeight;
-        context.drawImage(videoRef.current, 0, 0);
-        
-        const imageData = canvas.toDataURL('image/jpeg', 0.8);
-        
-        /*
-        // API call to send proctoring data
-        await fetch(`/api/contests/${id}/proctoring-data`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({
-            contestId: id,
-            timestamp: new Date().toISOString(),
-            imageData: imageData,
-            currentQuestion: currentQuestion,
-            tabActive: document.hasFocus(),
-            windowSize: {
-              width: window.innerWidth,
-              height: window.innerHeight
-            }
-          })
-        });
-        */
-        
-        console.log('Proctoring data sent');
-      }
-    } catch (error) {
-      console.error('Error sending proctoring data:', error);
     }
   };
 
@@ -471,12 +426,19 @@ const LiveContest = () => {
 
     // Emit save-progress to backend
     if (socketRef.current) {
-      socketRef.current.emit("save-progress", {
-        contestId: contestInfo.slug,
-        userId: userInfo.registrationId,
-        currentQuestion,
-        answers: newAnswers
-      });
+       // Create structured answers array
+        const structuredAnswers = answers.map((answer, index) => ({
+            questionId: questions[index]._id, // ObjectId of the question
+            answer: answer, // The answer as string (could be option text, index as string, etc.)
+            submittedAt: new Date()
+        })).filter(answer => answer.answer !== null && answer.answer !== undefined && answer.answer !== "");
+
+        socketRef.current.emit("save-progress", {
+            contestId: contestInfo.current.slug, // ObjectId instead of slug
+            userId: userInfo.current.registrationId,       // ObjectId instead of registrationId
+            currentQuestion,
+            answers: structuredAnswers
+        });
       console.log(`💾 Progress emitted for Q${currentQuestion}`);
     }
   }
@@ -506,14 +468,14 @@ const LiveContest = () => {
     // TODO:
       /*
       // Final API call to submit contest
-      const response = await fetch(`/api/contests/${id}/submit`, {
+      const response = await fetch(`/api/contests/${userInfo.current.registrationId}/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
         body: JSON.stringify({
-          contestId: id,
+          contestId: contestInfo.current.slug,
           answers: answers,
           submissionTime: new Date().toISOString(),
           timeSpent: 7200 - timeLeft,
@@ -554,10 +516,81 @@ const LiveContest = () => {
       }, 30000);
     }
   };
-
   const currentQ = questions[currentQuestion];
   const answeredCount = answers.filter(a => a !== null).length;
-  const progress = ((currentQuestion + 1) / totalQuestions) * 100;
+  const progress = totalQuestions > 0 ? ((currentQuestion + 1) / totalQuestions) * 100 : 0;
+  
+  
+// Add this right before your question display JSX
+
+  // Loading screen for questions
+  if (isLoadingQuestions) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="text-center w-full max-w-md">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-8 md:p-12 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="animate-spin rounded-full h-12 w-12 md:h-16 md:w-16 border-b-2 border-purple-600 mx-auto mb-4 md:mb-6"></div>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-3 md:mb-4">Loading Questions</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-2 text-sm md:text-base">Please wait while we fetch the contest questions...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (errorMessage) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="text-center w-full max-w-md">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-8 md:p-12 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="text-red-500 mb-4">
+              <Clock className="h-12 w-12 mx-auto" />
+            </div>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-3 md:mb-4">Error Loading Contest</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-4 text-sm md:text-base">
+              {typeof errorMessage === 'string' ? errorMessage : 'Failed to load contest questions'}
+            </p>
+            <button
+              onClick={() => {
+                setErrorMessage(null);
+                setIsLoadingQuestions(true);
+                getQuestions();
+              }}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors font-medium text-sm md:text-base"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // No questions found
+  if (!isLoadingQuestions && questions.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="text-center w-full max-w-md">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-8 md:p-12 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="text-gray-500 mb-4">
+              <Clock className="h-12 w-12 mx-auto" />
+            </div>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-3 md:mb-4">No Questions Found</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-4 text-sm md:text-base">
+              This contest doesn't have any questions available yet.
+            </p>
+            <button
+              onClick={() => navigate('/contests')}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors font-medium text-sm md:text-base"
+            >
+              Back to Contests
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Thank You Screen
   if (showThankYou) {
@@ -745,23 +778,17 @@ const LiveContest = () => {
         {/* Question Content */}
         <div className="flex-1 p-4 md:p-8">
           <div className="max-w-4xl mx-auto">
-
+                    
             {/* Question Text */}
-            {cameraEnabled && (
-                <>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-8 shadow-sm border mb-6">
-                    <p className="text-base md:text-lg text-gray-900 dark:text-white leading-relaxed">
-                        {`${currentQuestion + 1}. ${currentQ?.question}`}
-                    </p>
-                    </div>
-                    {/* answer options ... */}
-                    {/* navigation buttons ... */}
-                </>
-            )}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-8 shadow-sm border mb-6">
+              <p className="text-base md:text-lg text-gray-900 dark:text-white leading-relaxed">
+                {currentQ ? `${currentQuestion + 1}. ${currentQ.questionText || currentQ.question || 'Question text not available'}` : 'Loading question...'}
+              </p>
+            </div>
 
             {/* Answer Options */}
             <div className="space-y-3 md:space-y-4 mb-6 md:mb-8">
-              {currentQ?.options.map((option, index) => (
+              {currentQ?.options?.map((option, index) => (
                 <button
                   key={index}
                   onClick={() => handleAnswerSelect(index)}
@@ -782,7 +809,11 @@ const LiveContest = () => {
                     <span className="text-sm md:text-lg">{option}</span>
                   </div>
                 </button>
-              ))}
+              )) || (
+                <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+                  {currentQ ? 'No options available for this question' : 'Loading answer options...'}
+                </div>
+              )}
             </div>
 
             {/* Navigation Buttons */}
