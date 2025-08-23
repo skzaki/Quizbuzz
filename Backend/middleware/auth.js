@@ -1,7 +1,7 @@
 // middleware/auth.js
 
 import jwt from "jsonwebtoken";
-import { getSession, saveSession } from "../service/sessionService.js";
+import { getSession, saveSession } from "../store/sessionService.js";
 
 export const authMiddleware = async (req, res, next) => {
     try {
@@ -37,7 +37,7 @@ export const authMiddleware = async (req, res, next) => {
         req.sessionId = decoded.sessionId;
         next();
     } catch (error) {
-        console.error("Auth middleware error:", error); // Add logging for debugging
+        console.error("Auth middleware error:", error.message); // Add logging for debugging
         if (error.name === "TokenExpiredError") {
             return res.status(401).json({ message: "Token expired" });
         }

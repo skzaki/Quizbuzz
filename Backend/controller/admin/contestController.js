@@ -195,7 +195,6 @@ export const addQuestionsToContest = async (req, res) => {
             }
         });
 
-        // Declare variables for results
         let insertedQuestions = [];
         let insertedQuestionIds = [];
 

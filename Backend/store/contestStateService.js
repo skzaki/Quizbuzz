@@ -1,10 +1,7 @@
 // service/contestStateService.js
-import { createClient } from "redis";
+import redisClient from "../redis.js";
 
-const redis = createClient({ url: "redis://localhost:6379" });
 
-redis.on("error", (err) => console.error("❌ Redis Client Error", err));
-await redis.connect();
 
 function getKey(contestId, userId) {
     return `contest:${contestId}:user:${userId}`;
@@ -16,7 +13,7 @@ export async function saveUserState(contestId, userId, stateData) {
     const existing = await getUserState(contestId, userId) || {};
     const updated = { ...existing, ...stateData, updatedAt: Date.now() };
 
-    await redis.set(key, JSON.stringify(updated), {
+    await redisClient.set(key, JSON.stringify(updated), {
         EX: 60 * 60 * 3 // expires in 3 hours
     });
 
@@ -25,7 +22,7 @@ export async function saveUserState(contestId, userId, stateData) {
 
 export async function getUserState(contestId, userId) {
     const key = getKey(contestId, userId);
-    const data = await redis.get(key);
+    const data = await redisClient.get(key);
     return data ? JSON.parse(data) : null;
 }
 
@@ -38,5 +35,25 @@ export async function markUserReconnected(contestId, userId) {
 }
 
 export async function deleteUserState(contestId, userId) {
-    await redis.del(getKey(contestId, userId));
+    await redisClient.del(getKey(contestId, userId));
 }
+
+
+// Helper function to get correct answers (call this when contest is created)
+export const storeCorrectAnswers = async (contestSlug, questions) => {
+  const correctAnswers = questions.map(q => ({
+    questionId: q._id.toString(),
+    correctAnswer: q.correctOptionText,   // text
+    correctAnswerIndex: q.correctOptionIndex // index
+  }));
+
+  const correctAnswersKey = `contest:${contestSlug}:correct_answers`;
+
+  await redisClient.setEx(
+    correctAnswersKey,
+    24 * 60 * 60, // 24 hours
+    JSON.stringify(correctAnswers)
+  );
+
+  console.log(`💾 Stored correct answers for contest: ${contestSlug}`);
+};

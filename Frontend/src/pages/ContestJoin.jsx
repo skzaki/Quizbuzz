@@ -61,30 +61,46 @@ const ContestJoin = () => {
         
         const data = await response.json();
         setContestInfo(data);
-        setIsValidating(false);
         
         localStorage.setItem("authToken", data.token);
         
-        // Show OTP modal after successful validation
-        // localStorage will be set after OTP verification
-        setShowOTPModal(true);
-      
-      // TODO: API call to send OTP to user's phone
-      // await fetch('/api/auth/send-otp', {
-      //   method: 'POST',
-      //   headers: { 
-      //     'Content-Type': 'application/json' 
-      //   },
-      //   body: JSON.stringify({ 
-      //     phone: phone.trim(),
-      //     contestId: data.contest.slug,
-      //     purpose: 'contest_verification' 
-      //   })
-      // });
-      
+        // Send OTP after successful validation
+        await sendOTP();
+        
     } catch (error) {
       console.error('Validation error:', error);
       setValidationError('Network error. Please check your connection and try again.');
+      setIsValidating(false);
+    }
+  };
+
+  const sendOTP = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_URL}/api/auth/send-otp`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        },
+        body: JSON.stringify({ 
+          phone: phone.trim()
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        setValidationError(error.message || 'Failed to send OTP');
+        setIsValidating(false);
+        return;
+      }
+
+      // Show OTP modal after successful OTP send
+      setIsValidating(false);
+      setShowOTPModal(true);
+      
+    } catch (error) {
+      console.error('Error sending OTP:', error);
+      setValidationError('Failed to send OTP. Please try again.');
       setIsValidating(false);
     }
   };
@@ -145,27 +161,28 @@ const ContestJoin = () => {
   };
 
   const handleResendOTP = async () => {
-    // TODO: API call to resend OTP with rate limiting
-    // try {
-    //   const response = await fetch('/api/auth/resend-otp', {
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({ 
-    //       phone: phone.trim(),
-    //       contestId: contestInfo.id 
-    //     })
-    //   });
-    //   
-    //   if (!response.ok) {
-    //     throw new Error('Failed to resend OTP');
-    //   }
-    //   
-    //   console.log('OTP resent successfully');
-    // } catch (error) {
-    //   console.error('Error resending OTP:', error);
-    // }
-    
-    console.log('Resending OTP to:', phone);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_URL}/api/auth/send-otp`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        },
+        body: JSON.stringify({ 
+          phone: phone.trim()
+        })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to resend OTP');
+      }
+      
+      console.log('OTP resent successfully');
+    } catch (error) {
+      console.error('Error resending OTP:', error);
+      // You might want to show an error message to the user here
+    }
   };
 
   // Function to determine what to render based on current state
@@ -278,13 +295,6 @@ const ContestJoin = () => {
         {/* Main Content */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
           {renderContent()}
-        </div>
-
-        {/* Demo Note - Updated to reflect changes */}
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Demo OTP: <code className="bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">123456</code>
-          </p>
         </div>
       </div>
 

@@ -1,3 +1,4 @@
+import CryptoJS from "crypto-js";
 import { ArrowRight, CameraOff, Clock, Star, Trophy } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -19,6 +20,9 @@ const LiveContest = () => {
   const [errorMessage, setErrorMessage] = useState();
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
   
+  const [submissionId, setSubmissionId] = useState();
+  const [jobId, setJobId] = useState();
+  
   // Camera and proctoring states
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [mediaStream, setMediaStream] = useState(null);
@@ -30,16 +34,44 @@ const LiveContest = () => {
   const userInfo = useRef({});
   const contestInfo = useRef({});
 
+
+
+// const SECRET_KEY = "quiz-secret-key"; // ⚠️ Move this to env in production
+
 const getQuestions = async () => {
   try {
     setIsLoadingQuestions(true);
-    const response = await fetch(`${import.meta.env.VITE_URL}/api/contests/${contestInfo.current.slug}/questions`, {
-      method: 'GET',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+
+    // Step 1: Check localStorage
+    const encrypted = localStorage.getItem(`questions_${contestInfo.current.slug}`);
+    if (encrypted) {
+      try {
+        const bytes = CryptoJS.AES.decrypt(encrypted, import.meta.env.VITE_SECRET_KEY);
+        const decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+        if (Array.isArray(decryptedData) && decryptedData.length > 0) {
+          console.log("📂 Loaded questions from localStorage");
+          setQuestions(decryptedData);
+          setAnswers(new Array(decryptedData.length).fill(null));
+          setIsLoadingQuestions(false);
+          return; // ✅ Stop here, no API call
+        }
+      } catch (error) {
+        console.warn("⚠️ Failed to decrypt local questions, refetching...");
+        console.warn(`ERROR: ${error.message}`);
       }
-    });
+    }
+
+    // Step 2: Fetch from API (only if not in localStorage)
+    const response = await fetch(
+      `${import.meta.env.VITE_URL}/api/contests/${contestInfo.current.slug}/questions`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      }
+    );
 
     if (!response.ok) {
       const error = await response.json();
@@ -50,27 +82,36 @@ const getQuestions = async () => {
     }
 
     const data = await response.json();
-
     let questionsArray = [];
+
     if (data.questions && Array.isArray(data.questions)) {
-    questionsArray = data.questions;
+      questionsArray = data.questions;
     } else if (Array.isArray(data)) {
-    questionsArray = data;
+      questionsArray = data;
     } else {
-    console.error('Unexpected questions format:', data);
+      console.error("Unexpected questions format:", data);
     }
 
+    // Step 3: Save in state & localStorage (encrypted)
     setQuestions(questionsArray);
     setAnswers(new Array(questionsArray.length).fill(null));
+
+    const encryptedData = CryptoJS.AES.encrypt(
+      JSON.stringify(questionsArray),
+      import.meta.env.VITE_SECRET_KEY
+    ).toString();
+
+    localStorage.setItem(`questions_${contestInfo.current.slug}`, encryptedData);
+    console.log("🔒 Questions stored in encrypted localStorage");
+
     setIsLoadingQuestions(false);
-
-
   } catch (error) {
     console.error(`ERROR: ${error.message}`);
     setErrorMessage(error.message);
     setIsLoadingQuestions(false);
   }
 };
+
 
   
  // WebSocket
@@ -95,9 +136,25 @@ const getQuestions = async () => {
     });
 
     socketRef.current.on("resume-quiz", (savedState) => {
-        setCurrentQuestion(savedState.currentQuestion);
-        console.log("🔄 Resuming quiz:", savedState);
+        if (savedState.answers && Array.isArray(savedState.answers)) {
+            // initialize blank answers array
+            const restoredAnswers = new Array(questions.length).fill(null);
+
+            savedState.answers.forEach(ans => {
+            const qIndex = questions.findIndex(q => q._id === ans.questionId);
+            if (qIndex !== -1 && ans.answerIndex !== null && ans.answerIndex !== "") {
+                restoredAnswers[qIndex] = ans.answerIndex; // ✅ direct restore
+            }
+            });
+
+            setAnswers(restoredAnswers);
+            console.log("✅ Restored answers from Redis:", restoredAnswers);
+        }
+
+        setCurrentQuestion(savedState.currentQuestion || 0);
+        console.log("🔄 Resuming quiz at Q", (savedState.currentQuestion || 0) + 1);
     });
+
 
     socketRef.current.on("proctoring-alert", (data) => {
         console.warn("⚠️ Proctoring alert:", data);
@@ -107,16 +164,7 @@ const getQuestions = async () => {
         console.log("📢 Contest update:", data);
     });
 
-    // const heartbeat = setInterval(() => {
-    //     socketRef.current.emit("heartbeat", {
-    //         contestId: contestInfo.current.slug,
-    //         userId: userInfo.current.registrationId,
-    //         questionIndex: currentQuestion // Replace with your current question state
-    //     });
-    // }, 30000);
-
     return () => {
-        /// clearInterval(heartbeat);
         socketRef.current.disconnect();
     };
 }, []);
@@ -168,17 +216,39 @@ const getQuestions = async () => {
   }, []);
 
   // Auto-save and proctoring monitoring
-  useEffect(() => {
-    // Auto-save answers every 30 seconds
-    const autoSave = setInterval(() => {
-      saveAnswersToAPI();
-    }, 60000);
+    useEffect(() => {
+        const autoSave = setInterval(() => {
+            const structuredAnswers = questions
+            .map((q, i) => {
+                if (answers[i] !== null && answers[i] !== undefined && answers[i] !== "") {
+                return {
+                    questionId: q._id,
+                    answer: q.options[answers[i]], //  text
+                    answerIndex: answers[i],       //  index
+                    submittedAt: new Date()
+                };
+                }
+                return null;
+            })
+            .filter(Boolean);
+
+            if (structuredAnswers.length > 0 && socketRef.current) {
+            socketRef.current.emit("save-progress", {
+                contestId: contestInfo.current.slug,
+                userId: userInfo.current.registrationId,
+                currentQuestion,
+                answers: structuredAnswers // only answered questions
+            });
+
+            console.log("📦 Full snapshot auto-saved with answered questions only");
+            }
+        }, 60000); // every 60s
+
+        return () => clearInterval(autoSave);
+    }, [answers, questions, currentQuestion]);
 
 
-    return () => {
-      clearInterval(autoSave);
-    };
-  }, [answers]);
+
 
   // Auto-clear certain warnings
   useEffect(() => {
@@ -197,36 +267,6 @@ const getQuestions = async () => {
     }
   }, [proctoringWarning, faceMonitorStatus]);
 
-  
-
-  // API CALLS - Contest Management
-  const saveAnswersToAPI = async () => {
-    try {
-      // API call to save current progress
-      /*
-      const response = await fetch(`/api/contests/${id}/save-progress`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          contestId: id,
-          answers: answers,
-          currentQuestion: currentQuestion,
-          timestamp: new Date().toISOString()
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to save progress');
-      }
-      */
-      console.log('Auto-saving answers:', answers);
-    } catch (error) {
-      console.error('Error saving progress:', error);
-    }
-  };
 
 
 
@@ -418,41 +458,65 @@ const getQuestions = async () => {
     setAnswers(newAnswers);
   };
 
-  const handleSubmitAnswer = () => {
-  if (selectedAnswer !== null) {
-    const newAnswers = [...answers];
-    newAnswers[currentQuestion] = selectedAnswer;
-    setAnswers(newAnswers);
+    const handleSubmitAnswer = () => {
+        if (selectedAnswer !== null) {
+            const newAnswers = [...answers];
+            newAnswers[currentQuestion] = selectedAnswer;
+            setAnswers(newAnswers);
+        }
 
-    // Emit save-progress to backend
-    if (socketRef.current) {
-       // Create structured answers array
-        const structuredAnswers = answers.map((answer, index) => ({
-            questionId: questions[index]._id, // ObjectId of the question
-            answer: answer, // The answer as string (could be option text, index as string, etc.)
-            submittedAt: new Date()
-        })).filter(answer => answer.answer !== null && answer.answer !== undefined && answer.answer !== "");
+        if (socketRef.current) {
+            // Delta: only the current question
+            const structuredAnswer = {
+                questionId: questions[currentQuestion]._id,
+                answer: selectedAnswer !== null ? questions[currentQuestion].options[selectedAnswer] : "",
+                answerIndex: selectedAnswer ?? "",
+                submittedAt: new Date()
+            };
 
-        socketRef.current.emit("save-progress", {
-            contestId: contestInfo.current.slug, // ObjectId instead of slug
-            userId: userInfo.current.registrationId,       // ObjectId instead of registrationId
-            currentQuestion,
-            answers: structuredAnswers
-        });
-      console.log(`💾 Progress emitted for Q${currentQuestion}`);
-    }
-  }
+            socketRef.current.emit("save-progress", {
+                contestId: contestInfo.current.slug,
+                userId: userInfo.current.registrationId,
+                currentQuestion: currentQuestion + 1, // resume → next question
+                answers: [structuredAnswer] // only this question
+            });
 
-  if (currentQuestion < totalQuestions - 1) {
-    goToQuestion(currentQuestion + 1);
-  }
-};
+            console.log(`💾 Delta progress emitted for Q${currentQuestion + 1}`);
+        }
 
-  const handleSkip = () => {
-    if (currentQuestion < totalQuestions - 1) {
-      goToQuestion(currentQuestion + 1);
-    }
-  };
+        if (currentQuestion === totalQuestions - 1) {
+            handleSubmitContest(); // auto-submit on last
+        } else {
+            goToQuestion(currentQuestion + 1);
+        }
+    };
+
+
+   const handleSkip = () => {
+        if (socketRef.current) {
+            const structuredAnswer = {
+                questionId: questions[currentQuestion]._id,
+                answer: "", // skipped
+                answerIndex: "",
+                submittedAt: new Date()
+            };
+
+            socketRef.current.emit("save-progress", {
+                contestId: contestInfo.current.slug,
+                userId: userInfo.current.registrationId,
+                currentQuestion: currentQuestion + 1,
+                answers: [structuredAnswer]
+            });
+
+            console.log(`💾 Delta progress emitted for skipped Q${currentQuestion + 1}`);
+        }
+
+        if (currentQuestion < totalQuestions - 1) {
+            goToQuestion(currentQuestion + 1);
+        }
+    };
+
+
 
   const goToQuestion = (questionIndex) => {
     setCurrentQuestion(questionIndex);
@@ -461,61 +525,58 @@ const getQuestions = async () => {
 
 
   const handleSubmitContest = async () => {
-    setIsSubmitting(true);
-    setShowSubmitConfirm(false);
-    
-    try {
-    // TODO:
-      /*
-      // Final API call to submit contest
-      const response = await fetch(`/api/contests/${userInfo.current.registrationId}/submit`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          contestId: contestInfo.current.slug,
-          answers: answers,
-          submissionTime: new Date().toISOString(),
-          timeSpent: 7200 - timeLeft,
-        })
-      });
+        setIsSubmitting(true);
+        setShowSubmitConfirm(false);
 
-      if (!response.ok) {
-        throw new Error('Failed to submit contest');
-      }
+        try {
+            const response = await fetch(`${import.meta.env.VITE_URL}/api/contests/${contestInfo.current.slug}/submit`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${localStorage.getItem("authToken")}`
+                },
+                body: JSON.stringify({
+                    contestSlug: contestInfo.current.slug,
+                    userRegistrationId: userInfo.current.registrationId
+                })
+            });
 
-      const result = await response.json();
-      console.log('Contest submitted successfully:', result);
-      */
-      
-      // Simulate submission processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-    } catch (error) {
-      console.error('Error submitting contest:', error);
-    } finally {
-      setIsSubmitting(false);
-      setShowThankYou(true);
-      
-      // Cleanup resources
-      try {
-        stopFaceMonitor();
-      } catch (error) {
-        console.warn('Error stopping face monitor:', error);
-      }
-      
-      if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-      }
-      
-      // Auto redirect after 30 seconds
-      setTimeout(() => {
-        navigate('/contest/result/');
-      }, 30000);
-    }
-  };
+            if (!response.ok) {
+                throw new Error("Failed to submit contest");
+            }
+
+            const result = await response.json();
+            console.log("Contest submitted successfully:", result);
+
+            setSubmissionId(result.submissionId); // keep in state
+            setJobId(result.jobId);
+
+            setTimeout( () => {
+                navigate(`/contest/result/${result.submissionId}`);
+            }, 10000);
+
+        } catch (error) {
+            console.error("Error submitting contest:", error);
+        } finally {
+            setIsSubmitting(false);
+            setShowThankYou(true);
+
+            try {
+                stopFaceMonitor();
+            } catch (error) {
+            console.warn("Error stopping face monitor:", error);
+            }
+
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+            }
+
+            
+        }
+    };
+
+
+
   const currentQ = questions[currentQuestion];
   const answeredCount = answers.filter(a => a !== null).length;
   const progress = totalQuestions > 0 ? ((currentQuestion + 1) / totalQuestions) * 100 : 0;
@@ -725,9 +786,7 @@ const getQuestions = async () => {
           </div>
           
           <div className="flex items-center space-x-2 md:space-x-4">
-            <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-              {answeredCount}/{totalQuestions}
-            </div>
+            
             <button
               onClick={() => setShowSubmitConfirm(true)}
               className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 md:px-4 md:py-2 rounded-lg transition-colors font-medium text-xs md:text-sm"

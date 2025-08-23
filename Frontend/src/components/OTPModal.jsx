@@ -2,15 +2,14 @@ import {
     AlertCircle,
     ArrowRight,
     Loader,
-    Shield,
-    X
+    Shield
 } from 'lucide-react';
 import { useState } from 'react';
 
 
 // OTP Modal Component
 const OTPModal = ({ isOpen, onClose, phone, onVerifySuccess, onResendOTP }) => {
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otp, setOtp] = useState(['', '', '', '']);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationError, setVerificationError] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -22,7 +21,7 @@ const OTPModal = ({ isOpen, onClose, phone, onVerifySuccess, onResendOTP }) => {
     setOtp(newOtp);
 
     // Auto-focus next input
-    if (value && index < 5) {
+    if (value && index < 3) {
       const nextInput = document.getElementById(`otp-${index + 1}`);
       if (nextInput) nextInput.focus();
     }
@@ -37,30 +36,47 @@ const OTPModal = ({ isOpen, onClose, phone, onVerifySuccess, onResendOTP }) => {
 
   const verifyOTP = async () => {
     const otpString = otp.join('');
-    if (otpString.length !== 6) {
-      setVerificationError('Please enter complete OTP');
+    if (otpString.length !== 4) {
+      setVerificationError('Please enter complete 4-digit OTP');
       return;
     }
 
     setIsVerifying(true);
     setVerificationError('');
 
-    // Simulate OTP verification
-    // TODO: Replace with actual API call
-    // const response = await fetch('/api/verify-otp', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ phone, otp: otpString })
-    // });
+    try {
+      const response = await fetch(`${import.meta.env.VITE_URL}/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        },
+        body: JSON.stringify({ 
+          phone: phone.trim(), 
+          otp: otpString 
+        })
+      });
 
-    await new Promise(resolve => setTimeout(resolve, 1500));
+      if (!response.ok) {
+        const error = await response.json();
+        setVerificationError(error.message || 'Invalid OTP. Please try again.');
+        setIsVerifying(false);
+        return;
+      }
 
-    // Mock validation - accept '123456' as valid OTP
-    if (otpString === '123456') {
+      const data = await response.json();
+      
+      // If the API returns updated token or additional data, handle it here
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+      }
+
       setIsVerifying(false);
       onVerifySuccess();
-    } else {
-      setVerificationError('Invalid OTP. Please try again.');
+      
+    } catch (error) {
+      console.error('OTP verification error:', error);
+      setVerificationError('Network error. Please check your connection and try again.');
       setIsVerifying(false);
     }
   };
@@ -68,13 +84,6 @@ const OTPModal = ({ isOpen, onClose, phone, onVerifySuccess, onResendOTP }) => {
   const resendOTP = async () => {
     setResendCooldown(30);
     
-    // TODO: Replace with actual API call
-    // await fetch('/api/resend-otp', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ phone })
-    // });
-
     const interval = setInterval(() => {
       setResendCooldown(prev => {
         if (prev <= 1) {
@@ -85,6 +94,7 @@ const OTPModal = ({ isOpen, onClose, phone, onVerifySuccess, onResendOTP }) => {
       });
     }, 1000);
 
+    // Call the parent's resend function which handles the API call
     onResendOTP();
   };
 
@@ -95,12 +105,12 @@ const OTPModal = ({ isOpen, onClose, phone, onVerifySuccess, onResendOTP }) => {
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Verify OTP</h2>
-          <button
+          {/* <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
           >
             <X className="h-6 w-6" />
-          </button>
+          </button> */}
         </div>
 
         <div className="text-center mb-6">
@@ -108,7 +118,7 @@ const OTPModal = ({ isOpen, onClose, phone, onVerifySuccess, onResendOTP }) => {
             <Shield className="h-10 w-10 text-blue-600 dark:text-blue-400" />
           </div>
           <p className="text-gray-600 dark:text-gray-400">
-            We've sent a 6-digit OTP to
+            We've sent a 4-digit OTP to
           </p>
           <p className="font-medium text-gray-900 dark:text-white">
             +91 {phone}
@@ -117,9 +127,6 @@ const OTPModal = ({ isOpen, onClose, phone, onVerifySuccess, onResendOTP }) => {
 
         <div className="space-y-6">
           <div>
-            {/* <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Enter OTP
-            </label> */}
             <div className="flex space-x-2 justify-center">
               {otp.map((digit, index) => (
                 <input
@@ -179,12 +186,6 @@ const OTPModal = ({ isOpen, onClose, phone, onVerifySuccess, onResendOTP }) => {
                 Resend OTP
               </button>
             )}
-          </div>
-
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-            <div className="text-sm text-yellow-800 dark:text-yellow-300">
-              <strong>Demo:</strong> Use OTP <code className="bg-yellow-200 dark:bg-yellow-800 px-1 rounded">123456</code> to proceed
-            </div>
           </div>
         </div>
       </div>

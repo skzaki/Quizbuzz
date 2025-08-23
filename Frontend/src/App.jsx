@@ -12,7 +12,7 @@ function App() {
             <Route path="/contest/join" element={<ContestJoin />} />
             <Route path="/contest/waiting-room" element={<WaitingRoom />} />
             <Route path="/contest/live/:contestId" element={<LiveContest />} />
-            <Route path="/contest/result/" element={<ContestResult/>} />
+            <Route path="/contest/result/:submissionId" element={<ContestResult/>} />
       </Routes>
     </BrowserRouter>
   );

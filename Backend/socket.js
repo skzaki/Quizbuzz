@@ -1,9 +1,11 @@
+import { Contest } from "./Models/DB.js";
 import {
     getUserState,
     markUserDisconnected,
     markUserReconnected,
-    saveUserState
-} from "./service/contestStateService.js";
+    saveUserState,
+    storeCorrectAnswers
+} from "./store/contestStateService.js";
 
 export default function initSocket(io) {
     console.log("Initial websockets");
@@ -68,15 +70,38 @@ export default function initSocket(io) {
             scheduledStarts.set(contestId, { started: true });
         });
 
-        socket.on("save-progress", async ({ contestId, userId, currentQuestion, answers }) => {
-             console.log(`💾 Progress saved for ${userId} in contest ${contestId}`);
-            
-            await saveUserState(contestId, userId, {
-                currentQuestion,
-                answers, //  [{ questionId, answer, submittedAt }]
-                disconnected: false
-            });
-        });
+      socket.on("save-progress", async ({ contestId, userId, currentQuestion, answers }) => {
+        console.log(`💾 Progress received for ${userId} in contest ${contestId}: Q${currentQuestion}`);
+
+        const existing = await getUserState(contestId, userId) || {};
+        let mergedAnswers = existing.answers || [];
+
+        const map = new Map(mergedAnswers.map(a => [a.questionId, a]));
+
+        for (const ans of answers) {
+            if (ans.answer !== "" && ans.answer !== null && ans.answer !== undefined) {
+                // overwrite only if new answer is valid
+                map.set(ans.questionId, ans);
+            } else if (!map.has(ans.questionId)) {
+                // if question has never been saved before, store it as unanswered
+                map.set(ans.questionId, ans);
+            }
+            // else: skip empty overwrite to preserve previous answer
+        }
+
+        const updated = {
+            ...existing,
+            currentQuestion,
+            answers: Array.from(map.values()),
+            disconnected: false,
+            updatedAt: Date.now()
+        };
+
+        await saveUserState(contestId, userId, updated);
+
+        console.log(`💾 Saved state for ${userId} in ${contestId} (answers: ${updated.answers.length})`);
+    });
+
 
         socket.on("heartbeat", async ({ contestId, userId, questionIndex }) => {
             console.log(`💓 Heartbeat from ${userId} at Q${questionIndex}`);
@@ -130,20 +155,46 @@ export default function initSocket(io) {
         });
     });
 
-    function scheduleQuizStart(io, contestId, startTime) {
+   async function scheduleQuizStart(io, contestSlug, startTime) {
         const delay = new Date(startTime) - new Date();
+        
         if (delay > 0) {
-            console.log(`⏳ Quiz ${contestId} will start in ${delay / 1000} seconds`);
-            const timeout = setTimeout(() => {
-                console.log(`🚀 Starting quiz ${contestId}`);
-                io.in(`waiting-${contestId}`).socketsJoin(`quiz-${contestId}`);
-                io.in(`waiting-${contestId}`).socketsLeave(`waiting-${contestId}`);
-                io.to(`quiz-${contestId}`).emit("quiz-started", { contestId });
-                scheduledStarts.set(contestId, { started: true });
+            console.log(`⏳ Quiz ${contestSlug} will start in ${delay / 1000} seconds`);
+
+            const timeout = setTimeout(async () => {
+                console.log(`🚀 Starting quiz ${contestSlug}`);
+
+                // Move participants from waiting room to quiz room
+                io.in(`waiting-${contestSlug}`).socketsJoin(`quiz-${contestSlug}`);
+                io.in(`waiting-${contestSlug}`).socketsLeave(`waiting-${contestSlug}`);
+
+                // Notify clients
+                io.to(`quiz-${contestSlug}`).emit("quiz-started", { contestId: contestSlug });
+                
+                scheduledStarts.set(contestSlug, { started: true });
             }, delay);
-            scheduledStarts.set(contestId, { timeout, startTime, started: false });
+
+            scheduledStarts.set(contestSlug, { timeout, startTime, started: false });
+
+            // Fetch contest + questions (with correct answers)
+            const contest = await Contest.findOne({ slug: contestSlug })
+                .select('_id title QuestionBank')
+                .populate('QuestionBank');
+
+            if (!contest) {
+                console.error(`❌ Contest not found: ${contestSlug}`);
+                return;
+            }
+
+            // Extract correct answers
+            const questions = contest.QuestionBank;
+            
+            await storeCorrectAnswers(contestSlug, questions);
+
         } else {
-            scheduledStarts.set(contestId, { started: true });
+            console.log(`⚡ Contest ${contestSlug} already started`);
+            scheduledStarts.set(contestSlug, { started: true });
         }
     }
+
 }

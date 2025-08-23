@@ -6,21 +6,26 @@
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
         "dev": "nodemon server.js",
-        "build": "node server.js"
+        "start": "node server.js",
+        "worker": "node worker/evaluationWorker.js"
     },
     "keywords": [],
     "author": "Austin Makasare",
     "license": "ISC",
     "description": "",
     "dependencies": {
+        "bull": "^4.16.5",
+        "bullmq": "^5.58.0",
         "cors": "^2.8.5",
         "dotenv": "^17.2.1",
         "express": "^5.1.0",
         "express-rate-limit": "^8.0.1",
         "jsonwebtoken": "^9.0.2",
+        "libphonenumber-js": "^1.12.13",
         "mongoose": "^8.17.0",
         "node-cron": "^4.2.1",
         "nodemon": "^3.1.10",
+        "otp-generator": "^4.0.1",
         "pdfkit": "^0.17.1",
         "redis": "^5.8.0",
         "slugify": "^1.6.6",

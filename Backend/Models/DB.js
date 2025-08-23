@@ -112,9 +112,12 @@ const submissionSchema = new mongoose.Schema({
     answers: [{
             questionId: { type: mongoose.Schema.Types.ObjectId, ref: "Question" },
             answer: { type: String },
+            answerIndex: Number,
+            isCorrect: Boolean,
             submittedAt: { type: Date, default: Date.now },
         }],
     score: { type: Number },
+    totalQuestions: Number,
     status: { type: String, enum: ['submitted', 'evaluated'], default: 'submitted' }
 
 }, { timestamps: true });

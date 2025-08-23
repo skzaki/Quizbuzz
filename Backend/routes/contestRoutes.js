@@ -3,13 +3,15 @@ import {
     getContestBySlug,
     getContestCertificate,
     getContestQuestions,
-    getContestResults,
+    getSubmissionResult,
+    getSubmissionStatus,
     submitContest,
     validateCredentials
 } from "../controller/contestController.js";
 
 import rateLimit from 'express-rate-limit';
 import { authMiddleware } from './../middleware/auth.js';
+
 
 
 const router = Router();
@@ -24,7 +26,8 @@ router.use(authMiddleware);
 
 router.get("/:contestSlug/questions", getContestQuestions);
 router.post("/:contestSlug/submit", submitContest);
-router.get("/:contestSlug/results", getContestResults);
+router.get("/:submissionId/status", getSubmissionStatus);
+router.get("/:submissionId/results", getSubmissionResult);
 router.get("/:contestSlug/certificate", getContestCertificate);
 router.get("/:contestSlug", getContestBySlug);
 
