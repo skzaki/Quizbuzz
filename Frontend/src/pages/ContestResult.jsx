@@ -1,6 +1,7 @@
 import { Award, CheckCircle, Clock, Loader2, TrendingUp, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import downloadCertificate from "../utils/downloadCertificate";
 
 const ContestResult = () => {
   const { submissionId } = useParams();
@@ -204,15 +205,15 @@ const ContestResult = () => {
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              {percentage >= 70 && (
+              {/* {percentage >= 70 && ( */}
                 <button
-                  onClick={handleDownloadCertificate}
+                  onClick={() => downloadCertificate(resultData.userName, 'pdf')}
                   className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-black px-5 py-3 rounded-lg font-semibold shadow-md transition-colors"
                 >
                   <Award className="h-5 w-5" />
                   Download Certificate
                 </button>
-              )}
+              {/* )} */}
               <div className="text-right text-sm opacity-90">
                 <p>Submitted: {new Date(resultData.createdAt).toLocaleDateString()}</p>
                 <p>Evaluated: {new Date(resultData.updatedAt).toLocaleDateString()}</p>
@@ -262,9 +263,11 @@ const ContestResult = () => {
                         idx % 2 === 0 ? "bg-gray-50 dark:bg-gray-900/20" : ""
                       }`}
                     >
+                        {/* Q no */}
                       <td className="p-3 text-gray-800 dark:text-gray-200 font-medium">
                         {question.questionNo}
                       </td>
+                      {/* Question Text */}
                       <td className="p-3 text-gray-800 dark:text-gray-200 max-w-xs">
                         <div className="truncate" title={question.questionText}>
                           {question.questionText}
@@ -279,11 +282,13 @@ const ContestResult = () => {
                           </span>
                         )}
                       </td>
+                      {/* Your Answer */}
                       <td className="p-3 text-gray-800 dark:text-gray-200">
                         <span className={`${question.isCorrect ? 'text-gray-800 dark:text-gray-200' : 'text-red-600 dark:text-red-400'}`}>
                           {question.userAnswer || 'No answer'}
                         </span>
                       </td>
+                      {/* Correct Answer */}
                       <td className="p-3 text-green-600 dark:text-green-400 font-medium">
                         {question.correctAnswer}
                       </td>

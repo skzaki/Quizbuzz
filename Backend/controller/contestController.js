@@ -292,9 +292,10 @@ export const getSubmissionStatus = async (req, res) => {
 
 export const getSubmissionResult = async (req, res) => {
   try {
+        console.log(`In getSubmissionResult:`);  
+    console.table(req.user);
     const { submissionId } = req.params;
     const userId = req.user.userId; // Assuming user ID comes from auth middleware
-
     
     console.log("In getSubmissionResult:")
     console.log(`submissionId: ${submissionId}`);
@@ -306,14 +307,13 @@ export const getSubmissionResult = async (req, res) => {
     // Check Redis cache first for complete results
     const cachedResults = await redisClient.get(`submission:${submissionId}:results`);
     if (cachedResults) {
-        console.log(`cachedResults`);
-        console.table(cachedResults);
+        console.log("From CachedResults");
       return res.json(JSON.parse(cachedResults));
     }
 
     // Fetch submission with user, contest, and populate question details for answers
     const submission = await Submission.findById(submissionId)
-      .populate('userId', 'name email')
+      .populate('userId', 'firstName lastName email')
       .populate('contestId', 'title')
       .populate('answers.questionId') // Populate question details
       .lean();
@@ -358,8 +358,7 @@ export const getSubmissionResult = async (req, res) => {
         questionType: question?.type || 'multiple_choice',
         userAnswer: answer.answer,
         userAnswerIndex: answer.answerIndex,
-        correctAnswer: question?.correctAnswer,
-        correctAnswerIndex: question?.correctAnswerIndex,
+        correctAnswer: answer?.correctAnswer,
         isCorrect: answer.isCorrect,
         points: answer.isCorrect ? (question?.points || 1) : 0,
         maxPoints: question?.points || 1,
@@ -409,7 +408,7 @@ export const getSubmissionResult = async (req, res) => {
     const response = {
       submissionId,
       status: submission.status,
-      userName: `${submission.userId.firstName} ${submission.userId.LastName}`,
+      userName: `${submission.userId.firstName} ${submission.userId.lastName}`,
       userEmail: submission.userId.email,
       contestTitle: submission.contestId.title,
       
@@ -469,7 +468,7 @@ export const getSubmissionResult = async (req, res) => {
       3600, // 1 hour
       JSON.stringify(response)
     );
-
+    
     res.json(response);
 
   } catch (error) {

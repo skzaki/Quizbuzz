@@ -52,14 +52,20 @@ export const evaluationWorker = new Worker('contest-evaluation', async (job) => 
             if (userAnswer) {
                 // user attempted this question
                 const isCorrect = userAnswer.answer === q.correctAnswer;
-                userAnswer.isCorrect = isCorrect;
-                evaluatedAnswers.push(userAnswer);
+                
+                evaluatedAnswers.push({
+                    ...userAnswer.toObject(),
+                    isCorrect,
+                    correctAnswer: q.correctAnswer
+                });
+
                 if (isCorrect) score++;
             } else {
                 // unanswered -> mark wrong
                 evaluatedAnswers.push({
                     questionId: q.questionId,
                     answer: "",
+                    correctAnswer: q.correctAnswer,
                     answerIndex: null,
                     isCorrect: false,
                     submittedAt: null
@@ -152,7 +158,7 @@ const gracefulShutdown = async () => {
   console.log('🔄 Shutting down evaluation worker...');
   await evaluationWorker.close();
   await evaluationQueue.close();
-  await redis.quit();
+  await redisClient.quit();
   process.exit(0);
 };
 

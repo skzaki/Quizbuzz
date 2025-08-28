@@ -114,6 +114,7 @@ const submissionSchema = new mongoose.Schema({
             answer: { type: String },
             answerIndex: Number,
             isCorrect: Boolean,
+            correctAnswer: String,
             submittedAt: { type: Date, default: Date.now },
         }],
     score: { type: Number },
