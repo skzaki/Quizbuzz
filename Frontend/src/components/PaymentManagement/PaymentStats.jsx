@@ -4,11 +4,11 @@ import StatCard from '../UI/StatCard';
 
 const PaymentStats = ({ payments }) => {
   const totalRevenue = payments
-    .filter(p => p.status === 'completed')
+    .filter(p => p.status === 'paid')
     .reduce((sum, p) => sum + p.amount, 0);
 
   const totalTransactions = payments.length;
-  const completedTransactions = payments.filter(p => p.status === 'completed').length;
+  const paidTransactions = payments.filter(p => p.status === 'paid').length;
   const pendingTransactions = payments.filter(p => p.status === 'pending').length;
 
   return (
@@ -28,11 +28,11 @@ const PaymentStats = ({ payments }) => {
         trend={{ value: 8, isPositive: true }}
       />
       <StatCard
-        title="Completed"
-        value={completedTransactions}
+        title="paid"
+        value={paidTransactions}
         icon={TrendingUp}
         color="purple"
-        subtitle={`${Math.round((completedTransactions / totalTransactions) * 100)}% success rate`}
+        subtitle={`${Math.round((paidTransactions / totalTransactions) * 100)}% success rate`}
       />
       <StatCard
         title="Pending"

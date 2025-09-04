@@ -11,11 +11,12 @@ const userSchema = new  mongoose.Schema({
     phone: {type: Number },
     college: {type: String },
     department: {type: String },
+    isAdmin: { type: Boolean, default: false },
     isDeleted: { type: Boolean, default: false},
 
 }, { timestamps: true });
 
-const AdminSchema = new  mongoose.Schema({
+const adminSchema = new  mongoose.Schema({
     password: { type: String},
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     isDeleted: { type: Boolean, default: false},
@@ -41,7 +42,7 @@ const contestSchema = new mongoose.Schema({
     slug: { type: String, required: true, unique: true, immutable: true},
     description: { type: String },
     details: { type: String },
-    topics: { type: String },
+    topics: [ { type: String } ],
     rules: [ { type: String } ],
     registerFee: { type: Number, required: true },
     duration: { type: String },
@@ -85,7 +86,14 @@ const paymentsSchema = new mongoose.Schema({
     amount: { type: Number },
     status: {type: String, default: "pending" },
     description: { type: String, },
+    adminNote: { type: String },
+    provider: { type: String, default: 'RarorPay' },
+    metadata: {
+        ip: { type: String },
+        userAgent: { type: String }
+    },
     isDeleted: { type: Boolean, default: false},
+
 
 }, { timestamps: true });
 
@@ -128,14 +136,14 @@ submissionSchema.index({ userId: 1, contestId: 1 }, { unique: true });
 sessionSchema.index({ userId: 1, contestId: 1 });
 
 
-export const Admin = mongoose.model("Admin", AdminSchema);
-export const User = mongoose.model("User", userSchema);
-export const Contest = mongoose.model("Contest", contestSchema);
-export const Payment = mongoose.model("Payment", paymentsSchema);
-export const Question = mongoose.model("Question", QuestionSchema);
-export const Certificate = mongoose.model("Certificate", certificatesSchema);
-export const Session = mongoose.model("Session", sessionSchema);
-export const Submission = mongoose.model("Submission", submissionSchema);
+export const Admin = mongoose.models.Admin || mongoose.model('Admin', adminSchema);
+export const User = mongoose.models.User || mongoose.model("User", userSchema);
+export const Contest = mongoose.models.Contest || mongoose.model("Contest", contestSchema);
+export const Payment = mongoose.models.Payment || mongoose.model("Payment", paymentsSchema);
+export const Question = mongoose.models.Question || mongoose.model("Question", QuestionSchema);
+export const Certificate = mongoose.models.Certificate || mongoose.model("Certificate", certificatesSchema);
+export const Session = mongoose.models.Session || mongoose.model("Session", sessionSchema);
+export const Submission = mongoose.models.Submission || mongoose.model("Submission", submissionSchema);
 
 
 export const connectDB = async () => {

@@ -12,7 +12,7 @@ const LiveContest = () => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [answers, setAnswers] = useState([]);
-  const [timeLeft, setTimeLeft] = useState(7200); // 2 hours in seconds
+  const [timeLeft, setTimeLeft] = useState(3600); // 1 hours in seconds
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,15 +35,11 @@ const LiveContest = () => {
   const userInfo = useRef({});
   const contestInfo = useRef({});
 
-
-
-// const SECRET_KEY = "quiz-secret-key"; // ⚠️ Move this to env in production
-
 const getQuestions = async () => {
   try {
     setIsLoadingQuestions(true);
 
-    // Step 1: Check localStorage
+    // 1: Check localStorage
     const encrypted = localStorage.getItem(`questions_${contestInfo.current.slug}`);
     if (encrypted) {
       try {
@@ -62,7 +58,7 @@ const getQuestions = async () => {
       }
     }
 
-    // Step 2: Fetch from API (only if not in localStorage)
+    // 2: Fetch from API (only if not in localStorage)
     const response = await fetch(
       `${import.meta.env.VITE_URL}/api/contests/${contestInfo.current.slug}/questions`,
       {
@@ -93,7 +89,7 @@ const getQuestions = async () => {
       console.error("Unexpected questions format:", data);
     }
 
-    // Step 3: Save in state & localStorage (encrypted)
+    // 3: Save in state & localStorage (encrypted)
     setQuestions(questionsArray);
     setAnswers(new Array(questionsArray.length).fill(null));
 
@@ -144,7 +140,7 @@ const getQuestions = async () => {
             savedState.answers.forEach(ans => {
             const qIndex = questions.findIndex(q => q._id === ans.questionId);
             if (qIndex !== -1 && ans.answerIndex !== null && ans.answerIndex !== "") {
-                restoredAnswers[qIndex] = ans.answerIndex; // ✅ direct restore
+                restoredAnswers[qIndex] = ans.answerIndex; //  direct restore
             }
             });
 
@@ -808,7 +804,7 @@ if (showThankYou) {
 
       {/* Submit Confirmation Modal */}
       {showSubmitConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Submit Contest?</h3>
             <div className="space-y-3 mb-6">
@@ -817,11 +813,11 @@ if (showThankYou) {
               </p>
               <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                 <div className="text-sm space-y-1">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-white">
                     <span>Answered:</span>
                     <span className="font-medium">{answeredCount}/{totalQuestions}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-white">
                     <span>Time Remaining:</span>
                     <span className="font-medium">{formatTime(timeLeft)}</span>
                   </div>

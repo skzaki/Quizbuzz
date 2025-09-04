@@ -1,9 +1,8 @@
-import { createContext, useContext, useState } from "react";
+import { jwtDecode } from "jwt-decode";
+import { createContext, useContext, useEffect, useState } from "react";
 
-// Create context
 const AuthContext = createContext(undefined);
 
-// Hook to use Auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -12,72 +11,46 @@ export const useAuth = () => {
   return context;
 };
 
-// Mock user data
-const mockUser = {
-  id: "1",
-  name: "Austin Makasare",
-  email: "austin@example.com",
-  avatar:
-    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQIf4R5qPKHPNMyAqV-FjS_OTBB8pfUV29Phg&s",
-  xp: 12450,
-  level: 15,
-  streak: 7,
-  globalRank: 42,
-  badges: [
-    {
-      id: "1",
-      name: "First Win",
-      icon: "🏆",
-      description: "Won your first contest",
-      earnedAt: "2024-01-15",
-    },
-    {
-      id: "2",
-      name: "Streak Master",
-      icon: "🔥",
-      description: "7-day streak achieved",
-      earnedAt: "2024-01-20",
-    },
-    {
-      id: "3",
-      name: "Top Scorer",
-      icon: "⭐",
-      description: "Scored 100% in a contest",
-      earnedAt: "2024-01-18",
-    },
-  ],
-  isAdmin: true,
-};
-
-// AuthProvider component
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(mockUser);
+  const [user, setUser] = useState(null);
 
-  const login = async (email, password) => {
-    // TODO: Replace with real login API
-    setUser(mockUser);
+  const parseToken = (token) => {
+    try {
+      const decoded = jwtDecode(token);
+
+      // ✅ Map role → isAdmin
+      return {
+        ...decoded,
+        isAdmin: decoded.role === "admin",
+      };
+    } catch (err) {
+      console.error("Invalid token:", err);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+    if (token) {
+      const parsedUser = parseToken(token);
+      if (parsedUser) setUser(parsedUser);
+      else localStorage.removeItem("authToken");
+    }
+  }, []);
+
+  const login = (token) => {
+    // localStorage.setItem("authToken", token);
+    const parsedUser = parseToken(token);
+    setUser(parsedUser);
   };
 
   const logout = () => {
+    localStorage.removeItem("authToken");
     setUser(null);
   };
 
-  const switchToAdmin = () => {
-    if (user) {
-      setUser({ ...user, isAdmin: true });
-    }
-  };
-
-  const switchToUser = () => {
-    if (user) {
-      setUser({ ...user, isAdmin: false });
-    }
-  };
-
   return (
-    <AuthContext.Provider
-      value={{ user, login, logout, switchToAdmin, switchToUser }}
-    >
+    <AuthContext.Provider value={{ user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

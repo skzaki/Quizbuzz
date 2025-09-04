@@ -1,17 +1,19 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import AdminRoute from "./components/AdminRoute";
 import Layout from './components/Layout/Layout';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
-import ContestJoin from './pages/ContestJoin';
-import ContestResult from './pages/ContestResult';
-import LiveContest from './pages/LiveContest';
-import WaitingRoom from './pages/WaitingRoom';
 import AdminContestDetail from './pages/admin/AdminContestDetail';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import Analytics from './pages/admin/Analytics';
 import ContestManagement from './pages/admin/ContestManagement';
 import PaymentManagement from './pages/admin/PaymentManagement';
 import QuestionBank from './pages/admin/QuestionBank';
+import ContestJoin from './pages/ContestJoin';
+import ContestResult from './pages/ContestResult';
+import LiveContest from './pages/LiveContest';
+import Login from './pages/Login';
+import WaitingRoom from './pages/WaitingRoom';
 
 function App() {
 
@@ -21,22 +23,26 @@ function App() {
                 <BrowserRouter >
                 {/* User Routes */}
                     <Routes>
+                        <Route path="/login" element={<Login />} />
+                        
                         <Route path="/" element={<Layout/>} > 
-                            {/*User Routes*/}
+    
+                            {/* Admin Routes */}
+                            <Route path="/admin" element={<AdminRoute> <AdminDashboard /> </AdminRoute>} />
+                            <Route path="/admin/contests" element={<AdminRoute> <ContestManagement /> </AdminRoute>} />
+                            <Route path="/admin/contests/:id" element={<AdminRoute> <AdminContestDetail /> </AdminRoute>} />
+                            <Route path="/admin/questions" element={<AdminRoute> <QuestionBank /> </AdminRoute>} />
+                            <Route path="/admin/payments" element={<AdminRoute> <PaymentManagement /> </AdminRoute>} />
+                            <Route path="/admin/analytics" element={<AdminRoute> <Analytics /> </AdminRoute>} />
+
+
+
+                        </Route>
+                         {/*User Routes*/}
                             <Route path="/contest/join" element={<ContestJoin />} />
                             <Route path="/contest/waiting-room" element={<WaitingRoom />} />
                             <Route path="/contest/live/:contestId" element={<LiveContest />} />
                             <Route path="/contest/result/:submissionId" element={<ContestResult/>} />
-
-                            {/*Admin Routes */}
-                            <Route path="/admin" element={<AdminDashboard/>} />
-                            <Route path="/admin/contests" element={<ContestManagement />} />
-                            <Route path="/admin/contests/:id" element={<AdminContestDetail/>} />
-                            <Route path="/admin/questions" element={<QuestionBank />} />
-                            <Route path="/admin/payments" element={<PaymentManagement />} />
-                            <Route path="/admin/analytics" element={<Analytics />} />
-
-                        </Route>
                 </Routes>
                 </BrowserRouter >
             </AuthProvider>

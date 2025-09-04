@@ -1,23 +1,17 @@
 import {
-    ArrowLeft,
-    BarChart3,
-    Edit,
-    Play,
-    Trophy,
-    Users,
+    ArrowLeft, BarChart3, Edit, Play, Trophy, Users,
 } from 'lucide-react';
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 
-// Lazy load tab components
 const OverviewTab = lazy(() => import('../../components/AdminContestDetail/OverviewTab'));
 const ParticipantsTab = lazy(() => import('../../components/AdminContestDetail/ParticipantsTab'));
 const AnalyticsTab = lazy(() => import('../../components/AdminContestDetail/AnalyticsTab'));
-
-// Lazy load modals
 const CertificateModal = lazy(() => import('../../components/CertificateModal'));
 const EditModal = lazy(() => import('../../components/EditModal'));
+
+const BASE_URL = `${import.meta.env.VITE_URL}/api/admin`;
 
 const AdminContestDetail = () => {
   const { id } = useParams();
@@ -29,104 +23,23 @@ const AdminContestDetail = () => {
   const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  // Mock data - Replace with actual API calls
+  const token = localStorage.getItem("authToken"); // Assuming JWT stored here
+
   useEffect(() => {
     const fetchContestData = async () => {
       try {
         setLoading(true);
-        
-        // TODO: Replace with actual API call
-        // const contestResponse = await fetch(`/api/admin/contests/${id}`);
-        // const contestData = await contestResponse.json();
-        // setContest(contestData);
 
-        // Mock contest data
-        const mockContest = {
-          id: '1',
-          title: 'JavaScript Fundamentals Championship',
-          description: 'Test your JavaScript knowledge with advanced concepts including ES6+, async programming, closures, and modern JavaScript patterns.',
-          status: 'completed',
-          topics: ['JavaScript', 'ES6+', 'Async/Await', 'Closures'],
-          startDate: '2024-01-20T14:00:00',
-          endDate: '2024-01-20T16:00:00',
-          duration: 120,
-          difficulty: 'medium',
-          maxParticipants: 500,
-          registrationFee: 25,
-          prizePool: 1000,
-          createdBy: 'Admin User',
-          createdAt: '2024-01-15',
-          questionCount: 50,
-          passingScore: 70,
-          certificateTemplate: 'default'
-        };
-        setContest(mockContest);
+        // Get contest details
+        const contestRes = await fetch(`${BASE_URL}/contests/${id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const contestJson = await contestRes.json();
+        setContest(contestJson.data);
 
-        // TODO: Replace with actual API call
-        // const participantsResponse = await fetch(`/api/admin/contests/${id}/participants`);
-        // const participantsData = await participantsResponse.json();
-        // setParticipants(participantsData);
-
-        // Mock participants data
-        const mockParticipants = [
-          {
-            id: '1',
-            name: 'Sarah Chen',
-            email: 'sarah@example.com',
-            registrationDate: '2024-01-18',
-            paymentStatus: 'paid',
-            score: 94,
-            rank: 1,
-            timeTaken: 98,
-            certificateIssued: true,
-            submissionId: 'sub_001'
-          },
-          {
-            id: '2',
-            name: 'Alex Johnson',
-            email: 'alex@example.com',
-            registrationDate: '2024-01-19',
-            paymentStatus: 'paid',
-            score: 87,
-            rank: 2,
-            timeTaken: 105,
-            certificateIssued: true,
-            submissionId: 'sub_002'
-          },
-          {
-            id: '3',
-            name: 'Mike Rodriguez',
-            email: 'mike@example.com',
-            registrationDate: '2024-01-17',
-            paymentStatus: 'paid',
-            score: 82,
-            rank: 3,
-            timeTaken: 110,
-            certificateIssued: false,
-            submissionId: 'sub_003'
-          },
-          {
-            id: '4',
-            name: 'Emma Wilson',
-            email: 'emma@example.com',
-            registrationDate: '2024-01-19',
-            paymentStatus: 'unpaid',
-            submissionId: undefined
-          },
-          {
-            id: '5',
-            name: 'David Kim',
-            email: 'david@example.com',
-            registrationDate: '2024-01-16',
-            paymentStatus: 'paid',
-            score: 76,
-            rank: 4,
-            timeTaken: 115,
-            certificateIssued: false,
-            submissionId: 'sub_005'
-          }
-        ];
-        setParticipants(mockParticipants);
+        // Participants come inside contest JSON ("participants")
+        setParticipants(contestJson.data.participants || []);
+        console.table(participants)
 
       } catch (err) {
         setError(err.message);
@@ -136,27 +49,39 @@ const AdminContestDetail = () => {
     };
 
     fetchContestData();
-  }, [id]);
+  }, [id, token]);
 
   const handlePublishContest = async () => {
     try {
-      // TODO: Replace with actual API call
-      // await fetch(`/api/admin/contests/${id}/publish`, { method: 'POST' });
-      console.log('Publishing contest');
-      alert('Contest published successfully!');
+      await fetch(`${BASE_URL}/contests/${id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: "upcoming" })
+      });
+      alert("Contest published successfully!");
+      setContest({ ...contest, status: "upcoming" });
     } catch (err) {
-      console.error('Failed to publish contest:', err);
+      console.error(err);
     }
   };
 
   const handleStartContest = async () => {
     try {
-      // TODO: Replace with actual API call
-      // await fetch(`/api/admin/contests/${id}/start`, { method: 'POST' });
-      console.log('Starting contest manually');
-      alert('Contest started!');
+      await fetch(`${BASE_URL}/contests/${id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: "ongoing" })
+      });
+      alert("Contest started!");
+      setContest({ ...contest, status: "ongoing" });
     } catch (err) {
-      console.error('Failed to start contest:', err);
+      console.error(err);
     }
   };
 

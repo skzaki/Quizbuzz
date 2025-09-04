@@ -1,22 +1,3 @@
-const USER_AGENT = "Mozilla/5.0";
-const SHTECH_URL = "http://49.50.67.32/smsapi/httpapi.jsp?";
-
-// Username & password
-const USER_NAME = "ysmsoft";
-const PASSWORD = "ysmsoft123";
-
-// PE ID
-const PE_ID = "1701170599662369758";
-
-// Sender ID
-const SENDER_ID = "YSMINF";
-
-// TEMPLATE ID
-const SEND_OTP_QUIZBUZZ_TEMPLATE_ID = "1707172951100016546";
-
-// TEMPLATE MESSAGES
-
-
 async function sendOtpSms(mobile, otp) {
     try {
         const SEND_OTP_QUIZBUZZ_TEMPLATE_MESSAGE = " is your verification OTP for Quizbuzz registration. Please do not share with anyone. - YSM Info Solution";
@@ -32,7 +13,6 @@ async function sendOtpSms(mobile, otp) {
         const data = username + password + senderid + numbers + message + peid + templateid;
         
         const requestUrl = process.env.SMS_OTP_SHTECH_URL + data;
-        // console.log("Request URL:", requestUrl);
 
         const response = await fetch(requestUrl, {
             method: 'GET',
@@ -42,11 +22,8 @@ async function sendOtpSms(mobile, otp) {
         });
 
         const responseCode = response.status;
-        // console.log("GET Response Code:", responseCode);
 
         if (responseCode === 200) { // success
-            // const responseText = await response.text();
-            // console.log("Response:", responseText);
             console.log(`send OTP via SMS`);
             return "success";
         } else {
@@ -59,19 +36,5 @@ async function sendOtpSms(mobile, otp) {
         return "error " + error.message;
     }
 }
-
-// Main execution (equivalent to main method)
-async function main() {
-    try {
-        const result = await sendOtpSms(
-            "+7755910420",
-            "4564",
-        );
-        console.log("SMS Send Result:", result);
-    } catch (error) {
-        console.error("Failed to send SMS:", error);
-    }
-}
-
 
 export default sendOtpSms;

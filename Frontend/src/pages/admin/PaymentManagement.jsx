@@ -9,6 +9,9 @@ const PaymentFilters = lazy(() => import('../../components/PaymentManagement/Pay
 const PaymentStats = lazy(() => import('../../components/PaymentManagement/PaymentStats'));
 const PaymentSummary = lazy(() => import('../../components/PaymentManagement/PaymentSummary'));
 
+const API_BASE = `${import.meta.env.VITE_URL}/api/payments`; // replace with env var if needed
+const TOKEN = localStorage.getItem("authToken"); // example: get token from localStorage
+
 const PaymentManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -19,162 +22,107 @@ const PaymentManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Mock data - Replace with actual API calls
-  const mockPayments = [
-    {
-      id: '1',
-      userId: '1',
-      userName: 'John Doe',
-      userEmail: 'john@example.com',
-      contestId: '1',
-      contestTitle: 'JavaScript Fundamentals',
-      amount: 25,
-      status: 'completed',
-      transactionId: 'txn_1234567890',
-      paymentMethod: 'Credit Card',
-      createdAt: '2024-01-20T10:30:00',
-      completedAt: '2024-01-20T10:31:00'
-    },
-    {
-      id: '2',
-      userId: '2',
-      userName: 'Jane Smith',
-      userEmail: 'jane@example.com',
-      contestId: '2',
-      contestTitle: 'React Developer Challenge',
-      amount: 50,
-      status: 'completed',
-      transactionId: 'txn_1234567891',
-      paymentMethod: 'PayPal',
-      createdAt: '2024-01-21T14:15:00',
-      completedAt: '2024-01-21T14:16:00'
-    },
-    {
-      id: '3',
-      userId: '3',
-      userName: 'Mike Johnson',
-      userEmail: 'mike@example.com',
-      contestId: '1',
-      contestTitle: 'JavaScript Fundamentals',
-      amount: 25,
-      status: 'failed',
-      transactionId: 'txn_1234567892',
-      paymentMethod: 'Credit Card',
-      createdAt: '2024-01-22T09:45:00',
-      failureReason: 'Insufficient funds'
-    },
-    {
-      id: '4',
-      userId: '4',
-      userName: 'Sarah Wilson',
-      userEmail: 'sarah@example.com',
-      contestId: '2',
-      contestTitle: 'React Developer Challenge',
-      amount: 50,
-      status: 'pending',
-      transactionId: 'txn_1234567893',
-      paymentMethod: 'Bank Transfer',
-      createdAt: '2024-01-23T16:20:00'
-    },
-    {
-      id: '5',
-      userId: '5',
-      userName: 'David Brown',
-      userEmail: 'david@example.com',
-      contestId: '1',
-      contestTitle: 'JavaScript Fundamentals',
-      amount: 25,
-      status: 'refunded',
-      transactionId: 'txn_1234567894',
-      paymentMethod: 'Credit Card',
-      createdAt: '2024-01-19T11:00:00',
-      completedAt: '2024-01-19T11:01:00'
-    }
-  ];
-
-  const mockContests = [
-    { id: '1', title: 'JavaScript Fundamentals' },
-    { id: '2', title: 'React Developer Challenge' },
-    { id: '3', title: 'CSS Masters' }
-  ];
-
-  // Simulate API loading with useEffect
+  // Fetch payments + contests
   useEffect(() => {
     const fetchPaymentData = async () => {
       setLoading(true);
       setError(null);
-      
+
       try {
-        // TODO: Replace with actual API calls
-        // API Call 1: Fetch all payments
-        // const paymentsResponse = await fetch('/api/payments');
-        // const paymentsData = await paymentsResponse.json();
-        
-        // API Call 2: Fetch contests for filtering
-        // const contestsResponse = await fetch('/api/contests');
-        // const contestsData = await contestsResponse.json();
-        
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        setPayments(mockPayments);
-        setContests(mockContests);
+        // 1. Fetch payments
+        const paymentsResponse = await fetch(`${API_BASE}/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${TOKEN}`
+          },
+          body: JSON.stringify({
+            filters: {
+              status: statusFilter,
+              contestId: contestFilter,
+              searchTerm: searchTerm || undefined,
+              dateRange: dateFilter !== "all" ? {
+                startDate: dateFilter + "-01",
+                endDate: dateFilter + "-31"
+              } : undefined
+            },
+            pagination: { page: 1, limit: 100 },
+            sorting: { field: "createdAt", order: "desc" }
+          })
+        });
+
+        if (!paymentsResponse.ok) {
+          throw new Error("Failed to fetch payments");
+        }
+        const paymentsData = await paymentsResponse.json();
+        setPayments(paymentsData.data?.payments || []);
+
+        // 2. Fetch contests
+        const contestsResponse = await fetch(`${API_BASE}/contests`, {
+          method: "GET",
+          headers: { "Authorization": `Bearer ${TOKEN}` }
+        });
+
+        if (!contestsResponse.ok) {
+          throw new Error("Failed to fetch contests");
+        }
+        const contestsData = await contestsResponse.json();
+        setContests(contestsData.data?.contests || []);
+
       } catch (err) {
-        setError('Failed to fetch payment data');
-        console.error('Error fetching payment data:', err);
+        console.error("Error fetching payment data:", err);
+        setError(err.message || "Failed to fetch payment data");
       } finally {
         setLoading(false);
       }
     };
 
     fetchPaymentData();
-  }, []);
-
-  // Filter payments based on search and filter criteria
-  const filteredPayments = payments.filter(payment => {
-    const matchesSearch = payment.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         payment.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         payment.transactionId.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || payment.status === statusFilter;
-    const matchesContest = contestFilter === 'all' || payment.contestId === contestFilter;
-    const matchesDate = dateFilter === 'all' || payment.createdAt.startsWith(dateFilter);
-    return matchesSearch && matchesStatus && matchesContest && matchesDate;
-  });
+  }, [searchTerm, statusFilter, contestFilter, dateFilter]);
 
   // Export functionality
   const exportPayments = async () => {
     try {
-      // TODO: Replace with actual API call for export
-      // const response = await fetch('/api/payments/export', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ filters: { searchTerm, statusFilter, contestFilter, dateFilter } })
-      // });
-      // const blob = await response.blob();
-      
-      // Mock export functionality
-      const csvContent = [
-        ['Transaction ID', 'User', 'Contest', 'Amount', 'Status', 'Date'].join(','),
-        ...filteredPayments.map(payment => [
-          payment.transactionId,
-          payment.userName,
-          payment.contestTitle,
-          payment.amount,
-          payment.status,
-          new Date(payment.createdAt).toLocaleDateString()
-        ].join(','))
-      ].join('\n');
+      const response = await fetch(`${API_BASE}/payments/export`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${TOKEN}`
+        },
+        body: JSON.stringify({
+          filters: {
+            status: statusFilter,
+            contestId: contestFilter,
+            dateRange: dateFilter !== "all" ? {
+              startDate: dateFilter + "-01",
+              endDate: dateFilter + "-31"
+            } : undefined,
+            searchTerm: searchTerm || undefined
+          },
+          format: "csv",
+          columns: [
+            "transactionId",
+            "userName",
+            "userEmail",
+            "contestTitle",
+            "amount",
+            "status",
+            "createdAt"
+          ]
+        })
+      });
 
-      const blob = new Blob([csvContent], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'payments.csv';
-      a.click();
-      window.URL.revokeObjectURL(url);
+      if (!response.ok) throw new Error("Failed to export payments");
+
+      const exportData = await response.json();
+      const link = document.createElement("a");
+      link.href = exportData.data.exportUrl;
+      link.download = exportData.data.filename;
+      link.click();
+
     } catch (err) {
-      console.error('Error exporting payments:', err);
-      setError('Failed to export payments');
+      console.error("Error exporting payments:", err);
+      setError("Failed to export payments");
     }
   };
 
@@ -228,12 +176,12 @@ const PaymentManagement = () => {
           </div>
         </div>
 
-        {/* Stats - Lazy loaded */}
+        {/* Stats */}
         <Suspense fallback={<LoadingSpinner />}>
           <PaymentStats payments={payments} />
         </Suspense>
 
-        {/* Filters - Lazy loaded */}
+        {/* Filters */}
         <Suspense fallback={<LoadingSpinner />}>
           <PaymentFilters
             searchTerm={searchTerm}
@@ -248,19 +196,18 @@ const PaymentManagement = () => {
           />
         </Suspense>
 
-        {/* Payments Table - Lazy loaded */}
+        {/* Payments Table */}
         <Suspense fallback={<LoadingSpinner />}>
-          <PaymentTable payments={filteredPayments} />
+          <PaymentTable payments={payments} />
         </Suspense>
-
-        {/* Summary Card - Lazy loaded */}
+{/* 
+        Summary
         <Suspense fallback={<LoadingSpinner />}>
           <PaymentSummary payments={payments} />
-        </Suspense>
+        </Suspense> */}
       </div>
     </ErrorBoundary>
   );
 };
-
 
 export default PaymentManagement;

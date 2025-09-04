@@ -1,18 +1,14 @@
 // ContestManagement.jsx
-import {
-    Calendar,
-    Plus
-} from 'lucide-react';
+import { Calendar, Plus } from 'lucide-react';
 import { Suspense, lazy, useEffect, useState } from 'react';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 
-// Lazy load components
 const ContestTable = lazy(() => import('../../components/ContestManagement/ContestTable'));
 const CreateContestModal = lazy(() => import('../../components/ContestManagement/CreateContestModal'));
 const ContestFilters = lazy(() => import('../../components/ContestManagement/ContestFilters'));
 
-
+const BASE_URL = `${import.meta.env.VITE_URL}/api/admin`;
 
 const ContestManagement = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -22,56 +18,13 @@ const ContestManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalContests, setTotalContests] = useState(0);
   const [itemsPerPage] = useState(10);
 
-  // Mock data - Replace with actual API call
-  const mockContests = [
-    {
-      id: '1',
-      title: 'JavaScript Fundamentals',
-      description: 'Test your JavaScript knowledge with this comprehensive quiz',
-      date: '2024-01-25',
-      time: '14:00',
-      duration: 120,
-      registrationCount: 45,
-      registrationFee: 25,
-      prizePool: 500,
-      status: 'upcoming',
-      topics: ['JavaScript', 'ES6', 'Async/Await']
-    },
-    {
-      id: '2',
-      title: 'React Developer Challenge',
-      description: 'Advanced React concepts and best practices',
-      date: '2024-01-28',
-      time: '16:00',
-      duration: 180,
-      registrationCount: 32,
-      registrationFee: 50,
-      prizePool: 1000,
-      status: 'draft',
-      topics: ['React', 'Hooks', 'Context API']
-    },
-    {
-      id: '3',
-      title: 'CSS Masters',
-      description: 'Master modern CSS techniques and layouts',
-      date: '2024-01-20',
-      time: '10:00',
-      duration: 90,
-      registrationCount: 78,
-      registrationFee: 0,
-      prizePool: 300,
-      status: 'completed',
-      topics: ['CSS', 'Flexbox', 'Grid']
-    }
-  ];
+  const token = localStorage.getItem("authToken");
 
-  // Fetch contests with pagination and filters
   useEffect(() => {
     fetchContests();
   }, [currentPage, searchTerm, statusFilter]);
@@ -79,27 +32,17 @@ const ContestManagement = () => {
   const fetchContests = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch(`/api/contests?page=${currentPage}&limit=${itemsPerPage}&search=${searchTerm}&status=${statusFilter}`);
-      // const data = await response.json();
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Mock filtered data
-      const filtered = mockContests.filter(contest => {
-        const matchesSearch = contest.title.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = statusFilter === 'all' || contest.status === statusFilter;
-        return matchesSearch && matchesStatus;
-      });
-      
-      setContests(filtered);
-      setTotalContests(filtered.length);
-      setTotalPages(Math.ceil(filtered.length / itemsPerPage));
+      const res = await fetch(
+        `${BASE_URL}/contests?page=${currentPage}&limit=${itemsPerPage}&search=${searchTerm}&status=${statusFilter}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const json = await res.json();
+      setContests(json.data.contests);
+      setTotalContests(json.data.pagination.totalItems);
+      setTotalPages(json.data.pagination.totalPages);
       setError(null);
     } catch (err) {
       setError('Failed to fetch contests');
-      console.error('Error fetching contests:', err);
     } finally {
       setLoading(false);
     }
@@ -107,68 +50,57 @@ const ContestManagement = () => {
 
   const handleCreateContest = async (contestData) => {
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/contests', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(contestData)
-      // });
-      // const newContest = await response.json();
-      
-      console.log('Creating contest:', contestData);
+      await fetch(`${BASE_URL}/contests`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(contestData)
+      });
       setShowCreateForm(false);
-      fetchContests(); // Refresh the list
+      fetchContests();
     } catch (err) {
-      console.error('Error creating contest:', err);
+      console.error(err);
     }
   };
 
   const handleEditContest = async (contestId, updates) => {
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch(`/api/contests/${contestId}`, {
-      //   method: 'PUT',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(updates)
-      // });
-      // const updatedContest = await response.json();
-      
-      console.log('Updating contest:', contestId, updates);
-      fetchContests(); // Refresh the list
+      await fetch(`${BASE_URL}/contests/${contestId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(updates)
+      });
+      fetchContests();
     } catch (err) {
-      console.error('Error updating contest:', err);
+      console.error(err);
     }
   };
 
   const handleDeleteContest = async (contestId) => {
-    if (!window.confirm('Are you sure you want to delete this contest?')) return;
-    
+    if (!window.confirm("Delete this contest?")) return;
     try {
-      // TODO: Replace with actual API call
-      // await fetch(`/api/contests/${contestId}`, { method: 'DELETE' });
-      
-      console.log('Deleting contest:', contestId);
-      fetchContests(); // Refresh the list
+      await fetch(`${BASE_URL}/contests/${contestId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchContests();
     } catch (err) {
-      console.error('Error deleting contest:', err);
+      console.error(err);
     }
   };
 
   const handleStatusChange = async (contestId, newStatus) => {
     try {
-      // TODO: Replace with actual API call
-      // await fetch(`/api/contests/${contestId}/status`, {
-      //   method: 'PATCH',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ status: newStatus })
-      // });
-      
-      console.log('Changing status:', contestId, newStatus);
-      fetchContests(); // Refresh the list
+      await fetch(`${BASE_URL}/contests/${contestId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: newStatus })
+      });
+      fetchContests();
     } catch (err) {
-      console.error('Error changing status:', err);
+      console.error(err);
     }
   };
+
 
   return (
     <ErrorBoundary>

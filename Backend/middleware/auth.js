@@ -5,16 +5,29 @@ import { getSession, saveSession } from "../store/sessionService.js";
 
 export const authMiddleware = async (req, res, next) => {
     try {
-        // Fix: Properly extract token from Authorization header
-        const authHeader = req.header("Authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return res.status(401).json({ message: "Access denied" });
-        }
         
-        const token = authHeader.slice(7); // Remove "Bearer " (7 characters)
+        const authHeader = req.header("Authorization");
+        
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({
+                success: false,
+                error: {
+                    code: "UNAUTHORIZED",
+                    message: "Access denied. No token provided or invalid format."
+                }
+            });
+        }
+
+        const token = authHeader.substring(7);
         
         if (!token) {
-            return res.status(401).json({ message: "Access denied" });
+            return res.status(401).json({
+                success: false,
+                error: {
+                    code: "UNAUTHORIZED",
+                    message: "Access denied. Token is missing."
+                }
+            });
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -35,12 +48,40 @@ export const authMiddleware = async (req, res, next) => {
 
         req.user = decoded;
         req.sessionId = decoded.sessionId;
+        req.token = token;
+
+        console.table(req.user);
+        
         next();
     } catch (error) {
-        console.error("Auth middleware error:", error.message); // Add logging for debugging
-        if (error.name === "TokenExpiredError") {
-            return res.status(401).json({ message: "Token expired" });
+        console.error("Auth middleware error:", error.message); 
+        
+        if (error.name === 'JsonWebTokenError') {
+            return res.status(401).json({
+                success: false,
+                error: {
+                    code: "UNAUTHORIZED",
+                    message: "Invalid token."
+                }
+            });
         }
-        res.status(401).json({ message: "Invalid token" });
+        
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({
+                success: false,
+                error: {
+                    code: "UNAUTHORIZED",
+                    message: "Token has expired."
+                }
+            });
+        }
+
+        return res.status(500).json({
+            success: false,
+            error: {
+                code: "INTERNAL_SERVER_ERROR",
+                message: "Authentication error."
+            }
+        });
     }
 };

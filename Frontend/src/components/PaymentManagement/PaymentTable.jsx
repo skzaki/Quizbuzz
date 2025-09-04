@@ -33,7 +33,7 @@ const PaymentTable = ({ payments }) => {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
     <ErrorBoundary>
-      <div className="overflow-x-auto">
+      <div className="max-h-svh overflow-x-auto">
         <table className="w-full">
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>

@@ -1,36 +1,44 @@
 // routes/admin/contestRoutes.js
-import { Router } from "express";
+import express from 'express';
 import {
     addQuestionsToContest,
-    allContests,
+    bulkDeleteContests,
+    bulkUpdateStatus,
     createContest,
-    deleteContestDetails,
-    getContestDetails,
-    updateContestDetails
-} from "../../controller/admin/contestController.js";
+    deleteContest,
+    getAllContests,
+    getContestById,
+    getContestStatistics,
+    updateContest,
+    updateContestStatus
+} from '../../controller/admin/contestController.js';
+import { adminMiddleware } from '../../middleware/admin.js';
+import { authMiddleware } from '../../middleware/auth.js';
+import { rateLimitMiddleware } from '../../middleware/rateLimit.js';
 
+const router = express.Router();
 
-const router = Router();
+// Apply authentication middleware to all routes
+router.use(authMiddleware);
+router.use(adminMiddleware);
 
-// All admin routes require both authentication & admin privileges
-// router.use(authMiddleware, adminMiddleware);
+// Rate limiting for different endpoint types
+const standardRateLimit = rateLimitMiddleware({ windowMs: 60 * 1000, max: 100 }); // 100 req/min
+const bulkOperationsLimit = rateLimitMiddleware({ windowMs: 60 * 1000, max: 10 }); // 10 req/min
 
-// Create new contest
-router.post("/", createContest);
-
-// Get all contests (optionally include deleted)
-router.get("/", allContests);
-
-// Get single contest details
-router.get("/:contestId", getContestDetails);
-
-// Add questions
-router.post("/:contestId/questions", addQuestionsToContest);
-
-// Update contest details
-router.patch("/:contestId", updateContestDetails);
-
-// Delete (soft delete) contest
-router.delete("/:contestId", deleteContestDetails);
+router.get('/', standardRateLimit, getAllContests);
+router.post('/', standardRateLimit, createContest);
+router.get('/:id', standardRateLimit, getContestById);
+router.put('/:id', standardRateLimit, updateContest);
+router.delete('/:id', standardRateLimit, deleteContest);
+router.patch('/:id/status', standardRateLimit, updateContestStatus);
+router.get('/:id/statistics', standardRateLimit, getContestStatistics);
+router.post('/:id/questions', standardRateLimit, (req, res) => {
+    // Extract contestId from params and add to body for the existing function
+    req.body.contestId = req.params.id;
+    return addQuestionsToContest(req, res);
+});
+router.patch('/bulk-status', bulkOperationsLimit, bulkUpdateStatus);
+router.delete('/bulk-delete', bulkOperationsLimit, bulkDeleteContests);
 
 export default router;

@@ -46,11 +46,11 @@ const Sidebar = ({ isOpen, onClose }) => {
 
         <div className="p-4 space-y-2">
           {/* Role Switch Section */}
-          <ErrorBoundary>
+          {/* <ErrorBoundary>
             <Suspense fallback={<LoadingSpinner />}>
               <SidebarRoleSwitch />
             </Suspense>
-          </ErrorBoundary>
+          </ErrorBoundary> */}
 
           {/* Menu Items */}
           <ErrorBoundary>

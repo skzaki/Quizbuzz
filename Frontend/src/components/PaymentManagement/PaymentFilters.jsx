@@ -26,7 +26,7 @@ const PaymentFilters = ({
           className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
         >
           <option value="all">All Status</option>
-          <option value="completed">Completed</option>
+          <option value="paid">Paid</option>
           <option value="pending">Pending</option>
           <option value="failed">Failed</option>
           <option value="refunded">Refunded</option>

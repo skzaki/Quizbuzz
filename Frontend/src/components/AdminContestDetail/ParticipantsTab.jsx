@@ -17,17 +17,25 @@ const ParticipantsTab = ({ contest, participants, setParticipants }) => {
 
   // Memoized filtered participants for performance with large datasets
   const filteredParticipants = useMemo(() => {
-    return participants.filter(participant => {
-      const matchesSearch = participant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           participant.email.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesFilter = participantFilter === 'all' ||
-                           (participantFilter === 'paid' && participant.paymentStatus === 'paid') ||
-                           (participantFilter === 'unpaid' && participant.paymentStatus === 'unpaid') ||
-                           (participantFilter === 'completed' && participant.score !== undefined) ||
-                           (participantFilter === 'certified' && participant.certificateIssued);
-      return matchesSearch && matchesFilter;
-    });
-  }, [participants, searchTerm, participantFilter]);
+  return participants.filter(participant => {
+    const name = participant.username?.toLowerCase() || "";   // <-- use username
+    const email = participant.email?.toLowerCase() || "";     // keep email in case you add later
+    const search = searchTerm.toLowerCase();
+
+    const matchesSearch =
+      name.includes(search) || email.includes(search);
+
+    const matchesFilter =
+      participantFilter === "all" ||
+      (participantFilter === "paid" && participant.paymentStatus === "paid") ||
+      (participantFilter === "unpaid" && participant.paymentStatus === "unpaid") ||
+      (participantFilter === "completed" && participant.score !== undefined) ||
+      (participantFilter === "certified" && participant.certificateIssued);
+
+    return matchesSearch && matchesFilter;
+  });
+}, [participants, searchTerm, participantFilter]);
+
 
   const getPaymentStatusColor = (status) => {
     switch (status) {
@@ -125,7 +133,7 @@ const ParticipantsTab = ({ contest, participants, setParticipants }) => {
                   <td className="px-6 py-4">
                     <div>
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {participant.name}
+                        {participant.username}
                       </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400">
                         {participant.email}
@@ -139,7 +147,7 @@ const ParticipantsTab = ({ contest, participants, setParticipants }) => {
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900 dark:text-white">
-                      {new Date(participant.registrationDate).toLocaleDateString()}
+                      {new Date(participant.registeredAt).toLocaleDateString()}
                     </div>
                   </td>
                   {contest.status === 'completed' && (
