@@ -3,8 +3,7 @@ import {
     Calendar,
     CheckCircle,
     Clock,
-    Trophy,
-    Users
+    Trophy
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -366,16 +365,6 @@ const WaitingRoom = () => {
                   <span>Duration</span>
                 </span>
                 <span className="font-medium text-gray-900 dark:text-white">{contestInfo.duration} minutes</span>
-              </div>
-              
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400 flex items-center space-x-2">
-                  <Users className="h-4 w-4" />
-                  <span>Participants</span>
-                </span>
-                <span className="font-medium text-purple-600 dark:text-purple-400">
-                  {participants} joined
-                </span>
               </div>
               
               <div className="flex justify-between items-center">

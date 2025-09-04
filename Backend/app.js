@@ -81,7 +81,7 @@ app.get('/health', async (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/admin/contests", adminContestRoutes);
 app.use("/api/contests", contestRoutes);
-app.use("/api/payments", paymentRoutes)
+app.use("/api/payments", paymentRoutes);
 
 
 
