@@ -13,7 +13,7 @@ const ContestResult = () => {
   const fetchSubmissionResults = async () => {
     try {
       const authToken = localStorage.getItem('authToken');
-      const response = await fetch(`${import.meta.env.VITE_URL}/api/contests/${submissionId}/results`, {
+      const response = await fetch(`${import.meta.env.VITE_URL}/contests/${submissionId}/results`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -103,7 +103,7 @@ const ContestResult = () => {
   const handleDownloadCertificate = async () => {
     try {
       const authToken = localStorage.getItem('authauthToken');
-      const response = await fetch(`${import.meta.env.VITE_URL}/api/contests/${submissionId}/certificate`, {
+      const response = await fetch(`${import.meta.env.VITE_URL}/contests/${submissionId}/certificate`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${authToken}`,

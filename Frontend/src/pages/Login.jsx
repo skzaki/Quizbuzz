@@ -29,7 +29,7 @@ const Login = () => {
 
     try {
       // Step 1: Login API
-      const loginRes = await fetch(`${import.meta.env.VITE_URL}/api/auth/login`, {
+      const loginRes = await fetch(`${import.meta.env.VITE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, phone }),
@@ -46,7 +46,7 @@ const Login = () => {
       }
 
       // Step 2: Send OTP
-      const otpRes = await fetch(`${import.meta.env.VITE_URL}/api/auth/send-otp`, {
+      const otpRes = await fetch(`${import.meta.env.VITE_URL}/auth/send-otp`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -85,7 +85,7 @@ const Login = () => {
 
   const handleResendOtp = async () => {
     try {
-      await fetch(`${import.meta.env.VITE_URL}/api/auth/sendOtp`, {
+      await fetch(`${import.meta.env.VITE_URL}/auth/sendOtp`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import jwt from "jsonwebtoken";
 import mongoose from 'mongoose';
 import PDFDocument from "pdfkit";
@@ -8,7 +9,6 @@ import redisClient from "../redis.js";
 import { getUserState } from "../store/contestStateService.js";
 import { saveSession } from "../store/sessionService.js";
 import { extractDeviceInfo } from '../utils/sessionHelper.js';
-
 
 
 
@@ -92,6 +92,7 @@ export const validateCredentials = async (req, res) => {
         participants: 123,
       },
     });
+    console.table(res.json);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error", error: error.message });

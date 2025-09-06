@@ -45,7 +45,7 @@ const OTPModal = ({ isOpen, onClose, phone, onVerifySuccess, onResendOTP }) => {
     setVerificationError('');
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_URL}/api/auth/verify-otp`, {
+      const response = await fetch(`${import.meta.env.VITE_URL}/auth/verify-otp`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -65,14 +65,20 @@ const OTPModal = ({ isOpen, onClose, phone, onVerifySuccess, onResendOTP }) => {
       }
 
       const data = await response.json();
+      console.table(data);
       
       // If the API returns updated token or additional data, handle it here
       if (data.token) {
         localStorage.setItem('authToken', data.token);
       }
 
-      setIsVerifying(false);
-      onVerifySuccess();
+      if(data.submissionId) {
+        setIsVerifying(false);
+        onVerifySuccess(data.submissionId);  
+      } else {
+        setIsVerifying(false);
+        onVerifySuccess();
+      }
       
     } catch (error) {
       console.error('OTP verification error:', error);

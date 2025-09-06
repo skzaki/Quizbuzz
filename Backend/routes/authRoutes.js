@@ -8,5 +8,5 @@ const router = Router();
 router.post("/login", login);
 router.post("/send-otp", authMiddleware, sendOtp);
 router.post("/resend-otp", resendOtp);
-router.post("/verify-otp", verifyOtp);
+router.post("/verify-otp", authMiddleware, verifyOtp);
 export default router;

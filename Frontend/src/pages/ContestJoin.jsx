@@ -38,7 +38,7 @@ const ContestJoin = () => {
 
     try {
       // Actual API call for credential validation
-      const response = await fetch(`${import.meta.env.VITE_URL}/api/contests/validate-credentials`, {
+      const response = await fetch(`${import.meta.env.VITE_URL}/contests/validate-credentials`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -61,6 +61,7 @@ const ContestJoin = () => {
         
         const data = await response.json();
         setContestInfo(data);
+        console.table(data);
         
         localStorage.setItem("authToken", data.token);
         
@@ -76,7 +77,7 @@ const ContestJoin = () => {
 
   const sendOTP = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_URL}/api/auth/send-otp`, {
+      const response = await fetch(`${import.meta.env.VITE_URL}/auth/send-otp`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -105,7 +106,8 @@ const ContestJoin = () => {
     }
   };
 
-  const handleOTPVerified = () => {
+  const handleOTPVerified = (submissionId = null ) => {
+    
     setShowOTPModal(false);
     setOtpVerified(true);
     
@@ -114,8 +116,12 @@ const ContestJoin = () => {
       localStorage.setItem("contestInfo", JSON.stringify(contestInfo.contestInfo));
       localStorage.setItem("userInfo", JSON.stringify(contestInfo.userInfo));
     }
+    if(submissionId) {
+        navigate(`/contest/result/${submissionId}`);
+    } else {
+        setShowTerms(true);
+    }
     
-    setShowTerms(true);
   };
 
   const handleTermsAccepted = () => {
@@ -162,7 +168,7 @@ const ContestJoin = () => {
 
   const handleResendOTP = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_URL}/api/auth/send-otp`, {
+      const response = await fetch(`${import.meta.env.VITE_URL}/auth/send-otp`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

@@ -25,28 +25,28 @@ const downloadCertificate = (studentName, format = 'png') => {
 
   // Load background
   const background = new Image();
-  background.src = "/src/assets/certificate.png";
+  background.src = "/certificate.png";
 
   background.onload = () => {
     drawImageProportional(ctx, background, 0, 0, canvas.width, canvas.height);
 
     // Load YSM logo
     const ysmLogo = new Image();
-    ysmLogo.src = "/src/assets/ysm1.png";
+    ysmLogo.src = "/ysm1.png";
 
     ysmLogo.onload = () => {
       drawImageProportional(ctx, ysmLogo, canvas.width / 2 - 100, 80, 200, 95);
 
       // Certificate Title
       const certTitle = new Image();
-      certTitle.src = "/src/assets/appre1.png";
+      certTitle.src = "/appre1.png";
 
       certTitle.onload = () => {
         drawImageProportional(ctx, certTitle, canvas.width / 2 - 80, 280, 150, 70);
 
         // Certification text
         const certText = new Image();
-        certText.src = "/src/assets/cert.png";
+        certText.src = "/cert.png";
 
         certText.onload = () => {
           drawImageProportional(ctx, certText, canvas.width / 2 - 100, 200, 200, 50);
@@ -66,14 +66,14 @@ const downloadCertificate = (studentName, format = 'png') => {
 
           // Signature + Stamp
           const signature = new Image();
-          signature.src = "/src/assets/sign-with-stamp1.png";
+          signature.src = "/sign-with-stamp1.png";
 
           signature.onload = () => {
             drawImageProportional(ctx, signature, 100, canvas.height - 290, 400, 120);
 
             // Footer
             const footer = new Image();
-            footer.src = "/src/assets/footer11.png";
+            footer.src = "/footer11.png";
 
             footer.onload = () => {
               drawImageProportional(ctx, footer, 80, canvas.height - 140, 435, 65);
@@ -85,7 +85,7 @@ const downloadCertificate = (studentName, format = 'png') => {
 
           signature.onerror = () => {
             const footer = new Image();
-            footer.src = "/src/assets/footer11.png";
+            footer.src = "/footer11.png";
             footer.onload = () => {
               drawImageProportional(ctx, footer, 0, canvas.height - 60, canvas.width, 60);
               triggerDownload(canvas, studentName, format);

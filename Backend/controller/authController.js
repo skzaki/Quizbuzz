@@ -1,6 +1,7 @@
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
-import { Session, User } from '../Models/DB.js';
+import { Session, Submission, User } from '../Models/DB.js';
 import sendOtpSms from '../service/optSms.js';
 import sendOtpWhatsApp from '../service/otpWhatsapp.js';
 import { saveOtp, verifyAndDeleteOtp } from '../store/otpStore.js';
@@ -137,30 +138,47 @@ export const resendOtp = async (req, res) => {
   return res.json({ message: "OTP resent successfully" });
 };
 
+
 export const verifyOtp = async (req, res) => {
   const { phone, otp } = req.body;
-  // TODO: Check OTP validity
+
   try {
-    // 1. validate
+    // validate phone
     const phoneNumber = parsePhoneNumberFromString(phone, "IN");
-    if (!phoneNumber.isValid()) {
-        return res.status(401).json({ message: "Enter a vaild Phone no (without '+91')"});
+    if (!phoneNumber || !phoneNumber.isValid()) {
+      return res.status(401).json({ message: "Enter a valid Phone no (without '+91')" });
     }
+
+    // validate OTP
     if (otp.length !== 4 || !/^\d{4}$/.test(otp)) {
-        return res.status(401).json( { message: "Invaild OTP Fromat" });
+      return res.status(401).json({ message: "Invalid OTP Format" });
     }
 
+    // verify OTP
     const isVerifred = await verifyAndDeleteOtp(phoneNumber.number, otp);
+    if (!isVerifred.success) {
+      return res.status(401).json({ message: "OTP verification failed" });
+    }
 
-    if(!isVerifred.success) return res.status(401).json({ message: "OTP  verified Failed"});
+    // check for submission
+    try {
+      const userId = req.user.userId;
+      const ifSubmission = await Submission.findOne({ userId });
 
-    return res.json({ message: isVerifred.message});
+      if (ifSubmission) {
+        return res.json({
+          submissionId: ifSubmission._id,
+          message: isVerifred.message,
+        });
+      }
+    } catch (error) {
+      console.log(`ERROR: ${error.message}`);
+    }
 
-
+    // return success if no submission found
+    return res.json({ message: isVerifred.message });
   } catch (error) {
     console.error(`ERROR: ${error.message}`);
-    return res.status(500).json( {
-        message: "INTERAL SERVER ERROR"
-    });
+    return res.status(500).json({ message: "INTERNAL SERVER ERROR" });
   }
 };

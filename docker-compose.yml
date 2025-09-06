@@ -4,25 +4,44 @@ services:
     image: mongo
     container_name: mongo
     ports:
-      - "27017:27017"
+      - "27018:27017"
     volumes:
       - mongo-data:/data/db
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - 6379:6379
 
   backend:
     build: ./Backend
     container_name: backend
     ports:
       - "5000:5000"
-    environment:
-      - MONGO_URI=mongodb://mongo:27017/quizzbuzz
+    env_file:
+      - ./Backend/.env      
     depends_on:
       - mongo
+      - redis
+
+  worker:
+    build: ./Backend
+    container_name: worker
+    command: ["node", "worker/evaluationWorker.js"]
+    env_file:
+      - ./Backend/.env
+    depends_on:
+      - mongo
+      - redis
+
 
   frontend:
     build: ./Frontend
     container_name: frontend
     ports:
       - "3000:80"
+    env_file:
+      - ./Frontend/.env
     depends_on:
       - backend
 

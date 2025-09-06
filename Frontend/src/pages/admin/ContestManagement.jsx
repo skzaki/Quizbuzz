@@ -8,7 +8,7 @@ const ContestTable = lazy(() => import('../../components/ContestManagement/Conte
 const CreateContestModal = lazy(() => import('../../components/ContestManagement/CreateContestModal'));
 const ContestFilters = lazy(() => import('../../components/ContestManagement/ContestFilters'));
 
-const BASE_URL = `${import.meta.env.VITE_URL}/api/admin`;
+const BASE_URL = `${import.meta.env.VITE_URL}/admin`;
 
 const ContestManagement = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);

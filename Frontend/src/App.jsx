@@ -11,6 +11,7 @@ import PaymentManagement from './pages/admin/PaymentManagement';
 import QuestionBank from './pages/admin/QuestionBank';
 import ContestJoin from './pages/ContestJoin';
 import ContestResult from './pages/ContestResult';
+import Landing from './pages/Landing';
 import LiveContest from './pages/LiveContest';
 import Login from './pages/Login';
 import WaitingRoom from './pages/WaitingRoom';
@@ -23,6 +24,7 @@ function App() {
                 <BrowserRouter >
                 {/* User Routes */}
                     <Routes>
+                        <Route path='/' element={<Landing/>} />
                         <Route path="/login" element={<Login />} />
                         
                         <Route path="/" element={<Layout/>} > 
@@ -43,6 +45,8 @@ function App() {
                             <Route path="/contest/waiting-room" element={<WaitingRoom />} />
                             <Route path="/contest/live/:contestId" element={<LiveContest />} />
                             <Route path="/contest/result/:submissionId" element={<ContestResult/>} />
+                            {/* <Route path="/exam-protection-test" element={<ExamProtectionTest />} /> */}
+
                 </Routes>
                 </BrowserRouter >
             </AuthProvider>

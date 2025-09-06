@@ -1,6 +1,6 @@
 // controllers/paymentController.js
 import mongoose from 'mongoose';
-import { Contest, Payment } from '../../models/DB.js';
+import { Contest, Payment } from '../../Models/DB.js';
 import { paymentStore } from '../../store/paymentStore.js';
 import {
     exportPaymentsSchema,

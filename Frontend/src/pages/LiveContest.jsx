@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import ThankYouScreen from "../components/ThankYouScreen.jsx";
+import { useExamProtection } from "../hooks/useExamProtection.js";
 import { startFaceMonitor, stopFaceMonitor } from '../services/faceMonitor.js';
 
 const LiveContest = () => {
@@ -60,7 +61,7 @@ const getQuestions = async () => {
 
     // 2: Fetch from API (only if not in localStorage)
     const response = await fetch(
-      `${import.meta.env.VITE_URL}/api/contests/${contestInfo.current.slug}/questions`,
+      `${import.meta.env.VITE_URL}/contests/${contestInfo.current.slug}/questions`,
       {
         method: "GET",
         headers: {
@@ -109,6 +110,9 @@ const getQuestions = async () => {
   }
 };
 
+  useExamProtection((msg) => {
+    alert(msg);
+  });
 
   
  // WebSocket
@@ -118,7 +122,8 @@ const getQuestions = async () => {
     contestInfo.current = JSON.parse(localStorage.getItem('contestInfo'));
     getQuestions(); // get the questions
 
-    socketRef.current = io(import.meta.env.VITE_WEBSOCKET_URL || "http://localhost:8080", {
+    socketRef.current = io(import.meta.env.VITE_WEBSOCKET_URL , {
+        path: "/ws/",
         transports: ["websocket"],
         auth: { token: localStorage.getItem("authToken") }
     });
@@ -526,7 +531,7 @@ const getQuestions = async () => {
         setShowSubmitConfirm(false);
 
         try {
-            const response = await fetch(`${import.meta.env.VITE_URL}/api/contests/${contestInfo.current.slug}/submit`, {
+            const response = await fetch(`${import.meta.env.VITE_URL}/contests/${contestInfo.current.slug}/submit`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

@@ -8,6 +8,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
+import { useExamProtection } from '../hooks/useExamProtection';
 
 // Waiting Room Component
 const WaitingRoom = () => {
@@ -23,6 +24,11 @@ const WaitingRoom = () => {
   const [participants, setParticipants] = useState(0);
   const [cameraPermission, setCameraPermission] = useState('prompt'); // 'granted', 'denied', 'prompt', 'requesting'
   const [cameraError, setCameraError] = useState('');
+
+
+  useExamProtection((msg) => {
+    alert(msg);
+  });
 
   // Enhanced camera permission check for mobile compatibility
   const checkCameraPermission = useCallback(async () => {
@@ -82,7 +88,8 @@ const WaitingRoom = () => {
   useEffect(() => {
     if (!isInitialized || !contestInfo || !userInfo.current) return;
 
-    const socket = io(import.meta.env.VITE_WEBSOCKET_URL || "http://localhost:8080", {
+    const socket = io(import.meta.env.VITE_WEBSOCKET_URL , {
+      path: "/ws/",
       transports: ["websocket"],
       auth: { token: localStorage.getItem("authToken") }
     });
@@ -185,48 +192,50 @@ const WaitingRoom = () => {
   }, [navigate]);
 
   const requestCameraPermission = async () => {
-    try {
-      setCameraError('');
-      setCameraPermission('requesting');
-      
-      // More specific constraints for mobile compatibility
-      const constraints = {
-        video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: 'user' // Front camera preferred
-        }
-      };
+  try {
+    setCameraError('');
+    setCameraPermission('requesting');
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      
-      // Success - permission granted
-      setCameraPermission('granted');
-      
-      // Stop the stream immediately as we just needed permission
-      stream.getTracks().forEach(track => {
-        track.stop();
-      });
-      
-    } catch (error) {
-      console.error('Camera permission error:', error);
-      
-      // Handle different types of errors with user-friendly messages
-      setCameraPermission('denied');
-      
-      if (error.name === 'NotAllowedError') {
-        setCameraError('Camera access was denied. Please allow camera access when prompted, or check your browser settings.');
-      } else if (error.name === 'NotFoundError') {
-        setCameraError('No camera found on this device.');
-      } else if (error.name === 'NotSupportedError') {
-        setCameraError('Camera is not supported on this browser.');
-      } else if (error.name === 'NotReadableError') {
-        setCameraError('Camera is already in use by another application.');
-      } else {
-        setCameraError('Unable to access camera. Please check your browser settings and ensure you\'re using HTTPS.');
+    const constraints = {
+      video: {
+        width: { ideal: 640 },
+        height: { ideal: 480 },
+        facingMode: 'user'
       }
+    };
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+    // Success - permission granted
+    setCameraPermission('granted');
+
+    // Stop the stream immediately (we only needed to unlock permission)
+    stream.getTracks().forEach(track => track.stop());
+
+    // 👉 Force fullscreen here
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+      console.log("✅ Fullscreen enabled after camera permission");
     }
-  };
+
+  } catch (error) {
+    console.error('Camera permission error:', error);
+    setCameraPermission('denied');
+
+    if (error.name === 'NotAllowedError') {
+      setCameraError('Camera access was denied. Please allow camera access when prompted, or check your browser settings.');
+    } else if (error.name === 'NotFoundError') {
+      setCameraError('No camera found on this device.');
+    } else if (error.name === 'NotSupportedError') {
+      setCameraError('Camera is not supported on this browser.');
+    } else if (error.name === 'NotReadableError') {
+      setCameraError('Camera is already in use by another application.');
+    } else {
+      setCameraError('Unable to access camera. Please check your browser settings and ensure you\'re using HTTPS.');
+    }
+  }
+};
+
 
   const formatTimeUnit = (value) => {
     return value.toString().padStart(2, '0');

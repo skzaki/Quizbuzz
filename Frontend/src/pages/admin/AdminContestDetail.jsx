@@ -11,7 +11,7 @@ const AnalyticsTab = lazy(() => import('../../components/AdminContestDetail/Anal
 const CertificateModal = lazy(() => import('../../components/CertificateModal'));
 const EditModal = lazy(() => import('../../components/EditModal'));
 
-const BASE_URL = `${import.meta.env.VITE_URL}/api/admin`;
+const BASE_URL = `${import.meta.env.VITE_URL}/admin`;
 
 const AdminContestDetail = () => {
   const { id } = useParams();

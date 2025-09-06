@@ -9,7 +9,7 @@ const PaymentFilters = lazy(() => import('../../components/PaymentManagement/Pay
 const PaymentStats = lazy(() => import('../../components/PaymentManagement/PaymentStats'));
 const PaymentSummary = lazy(() => import('../../components/PaymentManagement/PaymentSummary'));
 
-const API_BASE = `${import.meta.env.VITE_URL}/api/payments`; // replace with env var if needed
+const API_BASE = `${import.meta.env.VITE_URL}/payments`; // replace with env var if needed
 const TOKEN = localStorage.getItem("authToken"); // example: get token from localStorage
 
 const PaymentManagement = () => {

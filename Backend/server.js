@@ -12,8 +12,9 @@ const server = http.createServer(app);
 
 // Attach WebSocket server
 const io = new Server(server, {
+  path: "/ws/",
   cors: {
-    origin: ["http://localhost:5178/"], 
+    origin: "*", 
     methods: ["GET", "POST"]
   }
 });
