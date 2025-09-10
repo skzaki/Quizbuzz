@@ -1,7 +1,10 @@
 import { Clock, Star, Trophy } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 
 const ThankYouScreen = () => {
+  const navigate = useNavigate();
+  const { submissionId } = useParams(); // Get submissionId from URL params
   const [progress, setProgress] = useState(0);
   const [showThankYou, setShowThankYou] = useState(true);
 
@@ -15,17 +18,18 @@ const ThankYouScreen = () => {
         setProgress(progressStages[currentStage]);
       } else {
         clearInterval(interval);
+        // After progress reaches 100%, wait a bit then navigate to results
+        setTimeout(() => {
+          navigate(`/contest/result/${submissionId}`);
+        }, 2000); // Wait 2 seconds after completion
       }
     }, 1500);
 
     return () => clearInterval(interval);
-  }, []);
-
-  const navigate = (path) => {
-    console.log('Navigating to:', path);
-  };
+  }, [navigate, submissionId]);
 
   if (showThankYou) {
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 flex items-center justify-center p-4">
         <div className="w-full max-w-2xl mx-auto">
@@ -55,6 +59,11 @@ const ThankYouScreen = () => {
                 <p className="text-base md:text-lg text-gray-700 dark:text-gray-300">
                   Your answers have been recorded and your submission is complete.
                 </p>
+                {submissionId && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Submission ID: <span className="font-mono text-purple-600 dark:text-purple-400">{submissionId}</span>
+                  </p>
+                )}
               </div>
             </div>
 
@@ -117,13 +126,18 @@ const ThankYouScreen = () => {
 
             {/* Auto Redirect Notice */}
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-4 md:mt-6 text-center">
-              You'll be automatically redirected to the dashboard in a few seconds...
+              {progress < 100 
+                ? "Processing your submission..."
+                : "Redirecting to your results..."
+              }
             </p>
           </div>
         </div>
       </div>
     );
   }
+
+  return null;
 };
 
 export default ThankYouScreen;

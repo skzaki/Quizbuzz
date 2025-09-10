@@ -289,7 +289,7 @@ const ContestJoin = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      <div className={`w-full max-w-md transition-all duration-300 ${showOTPModal ? 'blur-sm' : ''} `}>
         {/* Header */}
         <div className="text-center mb-8 mt-3">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Join Contest</h1>

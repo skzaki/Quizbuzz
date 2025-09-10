@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import PDFDocument from "pdfkit";
 import { Contest, Session, Submission, User } from '../Models/DB.js';
 import { validateCredentialsSchema } from '../Models/zodSchmea.js';
-import { evaluationQueue } from '../queue/submissionQueues.js';
+import { areAllJobsCompleted, evaluationQueue } from '../queue/submissionQueues.js';
 import redisClient from "../redis.js";
 import { getUserState } from "../store/contestStateService.js";
 import { saveSession } from "../store/sessionService.js";
@@ -92,7 +92,7 @@ export const validateCredentials = async (req, res) => {
         participants: 123,
       },
     });
-    console.table(res.json);
+    
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error", error: error.message });
@@ -324,7 +324,7 @@ export const getSubmissionResult = async (req, res) => {
     // Fetch submission with user, contest, and populate question details for answers
     const submission = await Submission.findById(submissionId)
       .populate('userId', 'firstName lastName email')
-      .populate('contestId', 'title')
+      .populate('contestId', '_id title')
       .populate('answers.questionId') // Populate question details
       .lean();
 
@@ -362,6 +362,7 @@ export const getSubmissionResult = async (req, res) => {
       const question = answer.questionId;
       
       return {
+        
         questionNo: index + 1,
         questionId: question?._id,
         questionText: question?.questionText || `Question ${index + 1}`,
@@ -417,6 +418,7 @@ export const getSubmissionResult = async (req, res) => {
 
     const response = {
       submissionId,
+      contestId: submission.contestId._id,
       status: submission.status,
       userName: `${submission.userId.firstName} ${submission.userId.lastName}`,
       userEmail: submission.userId.email,
@@ -489,6 +491,42 @@ export const getSubmissionResult = async (req, res) => {
     });
   }
 };
+
+export const getContestLeaderboard = async (req, res) => {
+
+    try {
+        const contestId = new mongoose.Types.ObjectId(req.params.contestId);
+        console.log(`BE: ${contestId}`);
+        const allDone = areAllJobsCompleted();
+
+        if(!allDone) return res.josn({ message: "the Quiz or Evaluattion is still under processing "}); 
+
+        
+        if(!contestId) return res.status(400).json({ success: false, message: "contest Id needed"});
+
+        const submissions = await Submission.find({ contestId })
+            .select(' _id userId score totalQuestions createdAt updatedAt')
+            .populate('userId', 'registrationId firstName lastName ');
+
+        if(!submissions) {
+            console.log(`Failed to fetch submissions/leaderBoard for ${contestId} from Database`);
+            return res.json({ message: "error fetching Leaderboard" });
+        }
+
+
+
+        return res.json({
+            success: true,
+            submissions
+        })
+    } catch(err) {
+        console.log(`ERROR: ${err.message}`);
+        return res.json({
+            success: false,
+            message: "Error fetching the LeaderBoard for "
+        })
+    }
+} 
 
 // Helper function to determine grade
 const getGrade = (percentage) => {

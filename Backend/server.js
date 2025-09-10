@@ -14,7 +14,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
   path: "/ws/",
   cors: {
-    origin: "https://quiz.ysminfosolution.com/",
+    origin: ["https://quiz.ysminfosolution.com/", "http://localhost:3000"],
     methods: ["GET", "POST"]
   }
 });

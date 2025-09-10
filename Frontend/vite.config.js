@@ -8,6 +8,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
 ],
+optimizeDeps: {
+    include: ['@mediapipe/face_mesh'],
+  },
 server: {
     host: true,
     port: 5178,

@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import AdminRoute from "./components/AdminRoute";
 import Layout from './components/Layout/Layout';
+import ThankYouScreen from './components/LiveContest/ThankYouScreen';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import AdminContestDetail from './pages/admin/AdminContestDetail';
@@ -45,6 +46,7 @@ function App() {
                             <Route path="/contest/waiting-room" element={<WaitingRoom />} />
                             <Route path="/contest/live/:contestId" element={<LiveContest />} />
                             <Route path="/contest/result/:submissionId" element={<ContestResult/>} />
+                            <Route path="/contest/result/evaluate/:submissionId" element={<ThankYouScreen/>} />
                             {/* <Route path="/exam-protection-test" element={<ExamProtectionTest />} /> */}
 
                 </Routes>

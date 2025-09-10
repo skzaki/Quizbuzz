@@ -6,105 +6,17 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Sample leaderboard data - replace with actual API call
-  const sampleLeaderboardData = [
-    {
-      _id: "1",
-      userId: {
-        _id: "user1",
-        firstName: "Alice",
-        lastName: "Johnson",
-        email: "alice@example.com"
-      },
-      score: 95,
-      totalQuestions: 100,
-      percentage: 95,
-      createdAt: "2024-01-15T10:30:00Z",
-      updatedAt: "2024-01-15T10:45:00Z"
-    },
-    {
-      _id: "2",
-      userId: {
-        _id: "user2",
-        firstName: "Bob",
-        lastName: "Smith",
-        email: "bob@example.com"
-      },
-      score: 92,
-      totalQuestions: 100,
-      percentage: 92,
-      createdAt: "2024-01-15T10:25:00Z",
-      updatedAt: "2024-01-15T10:40:00Z"
-    },
-    {
-      _id: "3",
-      userId: {
-        _id: "user3",
-        firstName: "Charlie",
-        lastName: "Brown",
-        email: "charlie@example.com"
-      },
-      score: 88,
-      totalQuestions: 100,
-      percentage: 88,
-      createdAt: "2024-01-15T10:35:00Z",
-      updatedAt: "2024-01-15T10:50:00Z"
-    },
-    {
-      _id: "4",
-      userId: {
-        _id: "user4",
-        firstName: "Diana",
-        lastName: "Prince",
-        email: "diana@example.com"
-      },
-      score: 88,
-      totalQuestions: 100,
-      percentage: 88,
-      createdAt: "2024-01-15T10:32:00Z", // Same score as Charlie but submitted earlier
-      updatedAt: "2024-01-15T10:47:00Z"
-    },
-    {
-      _id: "5",
-      userId: {
-        _id: "user5",
-        firstName: "Edward",
-        lastName: "Wilson",
-        email: "edward@example.com"
-      },
-      score: 85,
-      totalQuestions: 100,
-      percentage: 85,
-      createdAt: "2024-01-15T10:40:00Z",
-      updatedAt: "2024-01-15T10:55:00Z"
-    },
-    {
-      _id: "6",
-      userId: {
-        _id: "user6",
-        firstName: "Frank",
-        lastName: "Miller",
-        email: "frank@example.com"
-      },
-      score: 82,
-      totalQuestions: 100,
-      percentage: 82,
-      createdAt: "2024-01-15T10:45:00Z",
-      updatedAt: "2024-01-15T11:00:00Z"
-    }
-  ];
-
+  console.log(`Leader: ${contestId}`);
   const fetchLeaderboard = async () => {
-    // if (!contestId) return;
+    if (!contestId) return;
 
-    /* 
-    // Actual API call - uncomment and modify as needed
+
     try {
       setLoading(true);
       setError(null);
       
       const authToken = localStorage.getItem('authToken');
-      const response = await fetch(`${import.meta.env.VITE_URL}/contests/${contestId}/leaderboard`, {
+      const response = await fetch(`http://localhost:5000/api/contests/${contestId}/leaderboard`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -113,11 +25,15 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch leaderboard');
+        throw new Error(`Failed to fetch leaderboard: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
       
+      if (!data.success) {
+        throw new Error('API request was not successful');
+      }
+
       // Sort by score (desc), then by createdAt (asc) for same scores
       const sortedData = data.submissions?.sort((a, b) => {
         if (b.score !== a.score) {
@@ -133,28 +49,6 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
     } finally {
       setLoading(false);
     }
-    */
-
-    // Using sample data for now
-    setLoading(true);
-    setError(null);
-    
-    setTimeout(() => {
-      try {
-        // Sort by score (desc), then by createdAt (asc) for same scores
-        const sortedData = [...sampleLeaderboardData].sort((a, b) => {
-          if (b.score !== a.score) {
-            return b.score - a.score;
-          }
-          return new Date(a.createdAt) - new Date(b.createdAt);
-        });
-        setLeaderboardData(sortedData);
-      } catch (err) {
-        setError('Failed to load leaderboard');
-      } finally {
-        setLoading(false);
-      }
-    }, 1000);
   };
 
   useEffect(() => {
@@ -206,6 +100,10 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
     
     // Different score, different rank
     return currentIndex + 1;
+  };
+
+  const calculatePercentage = (score, totalQuestions) => {
+    return totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
   };
 
   if (loading) {
@@ -282,7 +180,7 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
               <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Rank</th>
               <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Participant</th>
               <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Score</th>
-              <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Percentage</th>
+              {/* <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Percentage</th> */}
               <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Submitted At</th>
             </tr>
           </thead>
@@ -290,6 +188,7 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
             {leaderboardData.map((submission, idx) => {
               const rank = calculateRank(leaderboardData, idx);
               const isCurrentUser = submission.userId._id === currentUserId;
+              const percentage = calculatePercentage(submission.score, submission.totalQuestions);
               
               return (
                 <tr
@@ -324,7 +223,7 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
                         )}
                       </span>
                       <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {submission.userId.email}
+                        {submission.userId.registrationId || 'N/A'}
                       </span>
                     </div>
                   </td>
@@ -335,35 +234,37 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
                   </td>
                   
                   {/* Percentage */}
-                  <td className="p-3">
+                  {/* <td className="p-3">
                     <div className="flex items-center gap-2">
                       <span className={`font-semibold ${
-                        submission.percentage >= 80 
+                        percentage >= 80 
                           ? 'text-green-600 dark:text-green-400'
-                          : submission.percentage >= 60 
+                          : percentage >= 60 
                             ? 'text-yellow-600 dark:text-yellow-400'
                             : 'text-red-600 dark:text-red-400'
                       }`}>
-                        {submission.percentage}%
+                        {percentage}%
                       </span>
                       <div className="w-16 h-2 bg-gray-200 dark:bg-gray-600 rounded-full">
                         <div 
                           className={`h-2 rounded-full transition-all duration-500 ${
-                            submission.percentage >= 80 ? 'bg-green-400' : 
-                            submission.percentage >= 60 ? 'bg-yellow-400' : 'bg-red-400'
+                            percentage >= 80 ? 'bg-green-400' : 
+                            percentage >= 60 ? 'bg-yellow-400' : 'bg-red-400'
                           }`}
-                          style={{ width: `${submission.percentage}%` }}
+                          style={{ width: `${percentage}%` }}
                         />
                       </div>
                     </div>
-                  </td>
+                  </td> */}
                   
                   {/* Submitted At */}
                   <td className="p-3 text-gray-600 dark:text-gray-400">
                     <div className="flex flex-col text-sm">
+                        
                       <span>{new Date(submission.createdAt).toLocaleDateString()}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-500">
-                        {new Date(submission.createdAt).toLocaleTimeString()}
+                      <span>
+                        { new Date(submission.createdAt).toLocaleTimeString('en-US', { hour12: true, second: '2-digit', minute: '2-digit', hour: '2-digit' }) } 
+                        .{new Date(submission.createdAt).getMilliseconds().toString().padStart(3, '0')} 
                       </span>
                     </div>
                   </td>

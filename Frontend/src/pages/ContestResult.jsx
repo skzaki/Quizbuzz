@@ -1,6 +1,6 @@
 import { Award, Clock, Loader2, TrendingUp, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import LeaderBoard from "../components/Result/LeaderBoard";
 import ResultTable from "../components/Result/ResultTable";
 import downloadCertificate from "../utils/downloadCertificate";
@@ -12,6 +12,8 @@ const ContestResult = () => {
   const [error, setError] = useState(null);
   const [pollCount, setPollCount] = useState(0);
   const [activeTab, setActiveTab] = useState("your-result");
+
+  const navigate = useNavigate();
 
   const fetchSubmissionResults = async () => {
     try {
@@ -37,7 +39,7 @@ const ContestResult = () => {
       }
 
       const data = await response.json();
-      console.log(`message: ${data.message}: submissionId: ${data.submissionId}`);
+      console.log(`message: ${data.message}: submissionId: ${data.submissionId}: contestID: ${data.contestId}`);
       return data;
     } catch (err) {
       console.error('API Error:', err);
@@ -59,6 +61,9 @@ const ContestResult = () => {
             correctAnswers: data.correctAnswers || data.score,
             answers: data.questions || [] // Map questions array to answers for backward compatibility
           });
+          
+          
+
           setLoading(false);
           
           if (pollInterval) {
@@ -81,6 +86,7 @@ const ContestResult = () => {
             clearInterval(pollInterval);
           }
         }
+        
       } catch (err) {
         setError(err.message);
         setLoading(false);
@@ -100,6 +106,7 @@ const ContestResult = () => {
     return () => {
       if (pollInterval) {
         clearInterval(pollInterval);
+        
       }
     };
   }, [submissionId, pollCount]);
@@ -136,7 +143,7 @@ const ContestResult = () => {
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => navigate('/contest/join')}
             className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
           >
             Try Again
@@ -162,50 +169,52 @@ const ContestResult = () => {
       <div className="max-w-5xl mx-auto">
         
         {/* Score Card */}
-        <div className="bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl p-6 md:p-10 text-white shadow-lg mb-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold">{resultData.userName || 'Your Result'}</h1>
-              <div className="mt-2 space-y-1">
-                <p className="text-lg">
-                  Score:{" "}
-                  <span className="font-bold">{resultData.correctAnswers}</span> /{" "}
-                  {resultData.totalQuestions} Correct
-                </p>
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  <span className="text-xl font-bold">{percentage}%</span>
-                </div>
-              </div>
+        {/* Score Card */}
+<div className="bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl p-6 md:p-10 text-white shadow-lg mb-6">
+    <div className="flex flex-col gap-4">
+        {/* Header */}
+        <h1 className="text-xl md:text-3xl font-bold">{resultData.userName || 'Your Result'}</h1>
+        
+        {/* Score and Submitted Row */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <p className="text-md">
+                 <span className="font-bold"> Score: {resultData.correctAnswers}</span> / {resultData.totalQuestions} Correct
+            </p>
+            <p className="text-sm opacity-90">
+                Submitted: {
+                    new Date(resultData.createdAt).toLocaleTimeString('en-US', { hour12: true, second: '2-digit', minute: '2-digit', hour: '2-digit' })
+                }
+                .{new Date(resultData.createdAt).getMilliseconds().toString().padStart(3, '0')}
+            </p>
+        </div>
+        
+        {/* Percentage and Evaluated Row */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                <span className="text-md font-bold">{percentage}%</span>
             </div>
-            <div className="flex flex-col gap-2">
-              <button
+            <p className="text-sm opacity-90">
+                Evaluated: {
+                    new Date(resultData.updatedAt).toLocaleTimeString('en-US', { hour12: true, second: '2-digit', minute: '2-digit', hour: '2-digit' })
+                } 
+                .{new Date(resultData.updatedAt).getMilliseconds().toString().padStart(3, '0')}
+                
+            </p>
+        </div>
+        
+        {/* Download Certificate Button */}
+        <div className="mt-2">
+            <button
                 onClick={() => downloadCertificate(resultData.userName, 'pdf')}
-                className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-black px-5 py-3 rounded-lg font-semibold shadow-md transition-colors"
-              >
+                className="flex items-center justify-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-black px-5 py-3 rounded-lg font-semibold shadow-md transition-colors"
+            >
                 <Award className="h-5 w-5" />
                 Download Certificate
-              </button>
-              <div className="text-right text-sm opacity-90">
-                <p>Submitted: {new Date(resultData.createdAt).toLocaleDateString()}</p>
-                <p>Evaluated: {new Date(resultData.updatedAt).toLocaleDateString()}</p>
-              </div>
-            </div>
-          </div>
-          
-          {/* Score Bar */}
-          <div className="mt-6">
-            <div className="bg-white/20 rounded-full h-3">
-              <div 
-                className={`h-3 rounded-full transition-all duration-1000 ${
-                  percentage >= 80 ? 'bg-green-400' : 
-                  percentage >= 60 ? 'bg-yellow-400' : 'bg-red-400'
-                }`}
-                style={{ width: `${percentage}%` }}
-              />
-            </div>
-          </div>
+            </button>
         </div>
+    </div>
+</div>
 
         {/* Tabs Navigation */}
         <div className="mb-6">
@@ -241,6 +250,7 @@ const ContestResult = () => {
         )}
 
         {activeTab === "leaderboard" && (
+            
           <LeaderBoard 
             contestId={resultData.contestId} 
             currentUserId={resultData.userId} 

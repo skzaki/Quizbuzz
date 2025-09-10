@@ -21,7 +21,7 @@ app.set('trust proxy', 1);
 app.use(helmet());
 // CORS configuration
 const coresOptions = {
-    origin: "https://quiz.ysminfosolution.com"
+    origin: ["https://quiz.ysminfosolution.com", "http://localhost:3000"]
 }
 app.use(cors(coresOptions));
 

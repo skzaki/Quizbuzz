@@ -3,8 +3,7 @@ import { ArrowRight, CameraOff, Clock } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
-import ThankYouScreen from "../components/ThankYouScreen.jsx";
-import { useExamProtection } from "../hooks/useExamProtection.js";
+import ThankYouScreen from "../components/LiveContest/ThankYouScreen.jsx";
 import { startFaceMonitor, stopFaceMonitor } from '../services/faceMonitor.js';
 
 const LiveContest = () => {
@@ -21,7 +20,7 @@ const LiveContest = () => {
   const [warningCount, setWarningCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState();
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
-  
+  const [submissionAttempt, setSubmissionAttempt] = useState(1);
   const [submissionId, setSubmissionId] = useState();
   const [jobId, setJobId] = useState();
   
@@ -110,15 +109,15 @@ const getQuestions = async () => {
   }
 };
 
-  useExamProtection(
-       (msg) => {
-          alert(msg); 
-       },
-       () => {
-          alert("🚨 Too many violations! Submitting quiz...");
-          handleSubmitContest(); 
-       }
-   );
+//   useExamProtection(
+//        (msg) => {
+//           alert(msg); 
+//        },
+//        () => {
+//           alert("🚨 Too many violations! Submitting quiz...");
+//           handleSubmitContest(); 
+//        }
+//    );
 
   
  // WebSocket
@@ -250,7 +249,7 @@ const getQuestions = async () => {
 
             console.log("📦 Full snapshot auto-saved with answered questions only");
             }
-        }, 60000); // every 60s
+        }, 5*60000); // every 5 min
 
         return () => clearInterval(autoSave);
     }, [answers, questions, currentQuestion]);
@@ -269,7 +268,7 @@ const getQuestions = async () => {
         if (faceMonitorStatus === 'warning' && !proctoringWarning.includes('Multiple faces')) {
           setFaceMonitorStatus('active');
         }
-      }, 4000);
+      }, 2000);
       
       return () => clearTimeout(timer);
     }
@@ -284,7 +283,11 @@ const getQuestions = async () => {
       setFaceMonitorStatus('loading');
       
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 320, height: 240 },
+        video: { 
+            width: { ideal: 320 },
+            height: { ideal: 260},
+            facingMode: { ideal: "user"}
+        },
         audio: true
       });
 
@@ -333,25 +336,25 @@ const getQuestions = async () => {
           await initializeFaceMonitor();
           
             await startFaceMonitor({
-            videoEl: videoRef.current,
-            onWarning: (msg) => {
-                setProctoringWarning(msg);
-                setFaceMonitorStatus('warning');
+                videoEl: videoRef.current,
+                onWarning: (msg) => {
+                    setProctoringWarning(msg);
+                    setFaceMonitorStatus('warning');
 
-                setWarningCount(prev => {
-                const newCount = prev + 1;
-                if (newCount >= 7) {
-                    handleSubmitContest();
-                } else if ([3, 2, 1].includes(7 - newCount)) {
-                    alert(`You have last ${7 - newCount} warning(s) left & after that quiz will be auto submit`);
+                    setWarningCount(prev => {
+                    const newCount = prev + 1;
+                    if (newCount >= 25) {
+                        handleSubmitContest();
+                    } else if ([5, 4, 3, 2, 1].includes(25 - newCount)) {
+                        alert(`You have last ${25 - newCount} warning(s) left & after that quiz will be auto submit`);
+                    }
+                    return newCount;
+                    });
+                },
+                onClear: () => {
+                    setProctoringWarning('');
+                    setFaceMonitorStatus('active');
                 }
-                return newCount;
-                });
-            },
-            onClear: () => {
-                setProctoringWarning('');
-                setFaceMonitorStatus('active');
-            }
             });
           
           setFaceMonitorStatus('active');
@@ -405,7 +408,7 @@ const getQuestions = async () => {
       return (
         <div className="bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-600 rounded-lg p-3">
           <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+            <div className="w-2 h-2 bg-red-500/20 rounded-full"></div>
             <span className="text-xs md:text-sm font-medium">
               Monitoring Error
             </span>
@@ -421,7 +424,7 @@ const getQuestions = async () => {
       return (
         <div className="bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-600 rounded-lg p-3">
           <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+            <div className="w-2 h-2 bg-red-500/20 rounded-full animate-pulse"></div>
             <span className="text-xs md:text-sm font-medium">
               Proctoring Alert
             </span>
@@ -437,14 +440,12 @@ const getQuestions = async () => {
       return (
         <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
           <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <div className="w-2 h-2 bg-green-500/10 rounded-full animate-pulse"></div>
             <span className="text-xs md:text-sm text-green-700 dark:text-green-400 font-medium">
               Monitoring Active
             </span>
           </div>
-          <p className="text-xs text-green-600 dark:text-green-500 mt-1">
-            Your session is being monitored for security
-          </p>
+
         </div>
       );
     }
@@ -532,11 +533,23 @@ const getQuestions = async () => {
   };
 
 
-  const handleSubmitContest = async () => {
-        setIsSubmitting(true);
-        setShowSubmitConfirm(false);
+ const handleSubmitContest = async () => {
+    setIsSubmitting(true);
+    setShowSubmitConfirm(false);
 
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    let finalSubmissionId = null;
+
+    const maxAttempts = 5;
+    let attempt = 1;
+    let submissionSuccessful = false;
+
+    while (attempt <= maxAttempts && !submissionSuccessful) {
         try {
+            console.log(`Submission attempt ${attempt}/${maxAttempts}`);
+            setSubmissionAttempt(attempt); // Update state for UI
+            
             const response = await fetch(`${import.meta.env.VITE_URL}/contests/${contestInfo.current.slug}/submit`, {
                 method: "POST",
                 headers: {
@@ -550,47 +563,80 @@ const getQuestions = async () => {
             });
 
             if (!response.ok) {
-                throw new Error("Failed to submit contest");
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
             const result = await response.json();
-            console.log("Contest submitted successfully:", result);
-
-            setSubmissionId(result.submissionId); // keep in state
-            setJobId(result.jobId);
-
-            setTimeout( () => {
-                navigate(`/contest/result/${result.submissionId}`);
-            }, 10000);
+            
+            // Check if we received a valid submissionId
+            if (result.submissionId) {
+                console.log("Contest submitted successfully:", result);
+                finalSubmissionId = result.submissionId;
+                setSubmissionId(result.submissionId);
+                setJobId(result.jobId);
+                submissionSuccessful = true;
+            } else {
+                throw new Error("No submissionId received from server");
+            }
 
         } catch (error) {
-            console.error("Error submitting contest:", error);
-        } finally {
-            setIsSubmitting(false);
-            setShowThankYou(true);
-
-            try {
-                stopFaceMonitor();
-            } catch (error) {
-            console.warn("Error stopping face monitor:", error);
-            }
-
-            if (mediaStream) {
-                mediaStream.getTracks().forEach(track => track.stop());
-            }
-
+            console.error(`Submission attempt ${attempt} failed:`, error);
             
+            if (attempt < maxAttempts) {
+                // Wait before retrying (exponential backoff)
+                const delay = 1500;
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+            
+            attempt++;
         }
-    };
+    }
 
+    setIsSubmitting(false);
 
+    if (submissionSuccessful) {
+        // Clean up monitoring resources
+        try {
+            stopFaceMonitor();
+        } catch (error) {
+            console.warn("Error stopping face monitor:", error);
+        }
+
+        if (mediaStream) {
+            mediaStream.getTracks().forEach(track => track.stop());
+        }
+
+         navigate(`/contest/result/evaluate/${finalSubmissionId}`);
+    } else {
+        // All attempts failed
+        alert("Failed to submit contest after multiple attempts. Please contact support.");
+        console.error("Contest submission failed after all attempts");
+    }
+};
+
+  // Submission Loading Screen
+  if (isSubmitting) {
+    return (
+        <div className="min-h-screen flex items-center justify-center p-4">
+            <div className="text-center w-full max-w-md">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+                    Attempting to Submit (Attempt {submissionAttempt}/5)
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                    Please wait while we process your contest submission...
+                </p>
+            </div>
+        </div>
+    );
+  }
 
   const currentQ = questions[currentQuestion];
   const answeredCount = answers.filter(a => a !== null).length;
   const progress = totalQuestions > 0 ? ((currentQuestion + 1) / totalQuestions) * 100 : 0;
   
   
-// Add this right before your question display JSX
+
 
   // Loading screen for questions
   if (isLoadingQuestions) {
@@ -668,26 +714,12 @@ if (showThankYou) {
 )
 }
 
-  // Submission Loading Screen
-  if (isSubmitting) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-        <div className="text-center w-full max-w-md">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-8 md:p-12 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="animate-spin rounded-full h-12 w-12 md:h-16 md:w-16 border-b-2 border-purple-600 mx-auto mb-4 md:mb-6"></div>
-            <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-3 md:mb-4">Submitting Your Contest</h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-2 text-sm md:text-base">Please wait while we process your answers...</p>
-            <p className="text-xs md:text-sm text-purple-600 dark:text-purple-400">This may take a few moments</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 md:px-6 md:py-4">
+      {/* Header - 10% on mobile, normal on desktop */}
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 md:px-6 md:py-4 h-[10vh] lg:h-auto flex flex-col justify-center">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3 md:space-x-6">
             <div className="flex items-center space-x-2">
@@ -702,7 +734,6 @@ if (showThankYou) {
           </div>
           
           <div className="flex items-center space-x-2 md:space-x-4">
-            
             <button
               onClick={() => setShowSubmitConfirm(true)}
               className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 md:px-4 md:py-2 rounded-lg transition-colors font-medium text-xs md:text-sm"
@@ -713,7 +744,7 @@ if (showThankYou) {
         </div>
         
         {/* Progress Bar */}
-        <div className="mt-3 md:mt-4">
+        <div className="mt-2 md:mt-4">
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 md:h-2">
             <div 
               className="bg-purple-600 h-1.5 md:h-2 rounded-full transition-all duration-300"
@@ -725,44 +756,47 @@ if (showThankYou) {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col lg:flex-row">
-        {/* Camera Feed Section */}
-        <div className="lg:w-80 bg-white dark:bg-gray-800 border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-700 p-4">
-          <div className="space-y-4">
+        {/* Camera Feed Section - 30% on mobile, normal width on desktop */}
+        <div className="h-[30vh] lg:h-auto lg:w-80 bg-white dark:bg-gray-800 border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-700 p-4 flex items-center justify-center">
+          <div className="w-full h-full lg:space-y-4">
             {/* Camera Feed */}
-            <div className="relative bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
-                <video ref={videoRef} autoPlay muted playsInline
-                    className="w-full h-32 md:h-48 object-cover"
-                    style={{ transform: 'scaleX(-1)' }} />
-                {!cameraEnabled && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">
-                    <CameraOff className="h-8 w-8 text-gray-400" />
-                    </div>
-                )}
-                {cameraEnabled && (
-                    <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">REC</div>
-                )}
-                {/* Overlay proctoring status */}
-                <div className="absolute bottom-0 left-0 right-0 p-2">
-                    {renderProctoringStatus()}
+            <div className="relative bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden h-full lg:h-48 max-w-xs mx-auto lg:max-w-none lg:mx-0">
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                muted 
+                playsInline
+                className="w-full h-full object-cover lg:object-cover"
+                style={{ transform: 'scaleX(-1)' }} 
+              />
+              {!cameraEnabled && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">
+                  <CameraOff className="h-8 w-8 text-gray-400" />
                 </div>
+              )}
+              {cameraEnabled && (
+                <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">REC</div>
+              )}
+              {/* Overlay proctoring status */}
+              <div className="absolute bottom-0 left-0 right-0 p-2">
+                {renderProctoringStatus()}
+              </div>
             </div>
-           
           </div>
         </div>
 
-        {/* Question Content */}
-        <div className="flex-1 p-4 md:p-8">
-          <div className="max-w-4xl mx-auto">
-                    
+        {/* Question Content - 50% on mobile, flex-1 on desktop */}
+        <div className="h-[50vh] lg:h-auto lg:flex-1 p-4 md:p-8 overflow-y-auto">
+          <div className="max-w-4xl mx-auto h-full flex flex-col">
             {/* Question Text */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-8 shadow-sm border mb-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-8 shadow-sm border mb-4 md:mb-6 flex-shrink-0">
               <p className="text-base md:text-lg text-gray-900 dark:text-white leading-relaxed">
                 {currentQ ? `${currentQuestion + 1}. ${currentQ.questionText || currentQ.question || 'Question text not available'}` : 'Loading question...'}
               </p>
             </div>
 
             {/* Answer Options */}
-            <div className="space-y-3 md:space-y-4 mb-6 md:mb-8">
+            <div className="space-y-3 md:space-y-4 flex-1 overflow-y-auto">
               {currentQ?.options?.map((option, index) => (
                 <button
                   key={index}
@@ -774,7 +808,7 @@ if (showThankYou) {
                   }`}
                 >
                   <div className="flex items-center space-x-3 md:space-x-4">
-                    <div className={`w-6 h-6 md:w-8 md:h-8 rounded-full border-2 flex items-center justify-center font-bold text-sm md:text-base ${
+                    <div className={`w-6 h-6 md:w-8 md:h-8 rounded-full border-2 flex items-center justify-center font-bold text-sm md:text-base flex-shrink-0 ${
                       selectedAnswer === index
                         ? 'border-purple-500 bg-purple-500 text-white'
                         : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400'
@@ -790,26 +824,26 @@ if (showThankYou) {
                 </div>
               )}
             </div>
-
-            {/* Navigation Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-end gap-4">
-              <div className="flex w-full sm:w-auto space-x-3">
-                <button
-                  onClick={handleSkip}
-                  className="flex-1 sm:flex-none px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors font-medium text-sm md:text-base"
-                >
-                  Skip
-                </button>
-                <button
-                  onClick={handleSubmitAnswer}
-                  className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium text-sm md:text-base"
-                >
-                  <span>{currentQuestion === totalQuestions - 1 ? 'Submit' : 'Next'}</span>
-                  {currentQuestion < totalQuestions - 1 && <ArrowRight className="h-5 w-5" />}
-                </button>
-              </div>
-            </div>
           </div>
+        </div>
+      </div>
+
+      {/* Navigation Buttons - 10% on mobile, normal on desktop */}
+      <div className="h-[10vh] lg:h-auto bg-white dark:bg-gray-800 border-t lg:border-t-0 border-gray-200 dark:border-gray-700 px-4 py-3 md:px-8 md:py-4 flex items-center justify-center lg:justify-end">
+        <div className="flex w-full lg:w-auto space-x-3 max-w-md lg:max-w-none">
+          <button
+            onClick={handleSkip}
+            className="flex-1 lg:flex-none px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors font-medium text-sm md:text-base"
+          >
+            Skip
+          </button>
+          <button
+            onClick={handleSubmitAnswer}
+            className="flex-1 lg:flex-none flex items-center justify-center space-x-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium text-sm md:text-base"
+          >
+            <span>{currentQuestion === totalQuestions - 1 ? 'Submit' : 'Next'}</span>
+            {currentQuestion < totalQuestions - 1 && <ArrowRight className="h-5 w-5" />}
+          </button>
         </div>
       </div>
 
@@ -824,11 +858,11 @@ if (showThankYou) {
               </p>
               <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                 <div className="text-sm space-y-1">
-                  <div className="flex justify-between text-white">
+                  <div className="flex justify-between text-gray-800 dark:text-white">
                     <span>Answered:</span>
                     <span className="font-medium">{answeredCount}/{totalQuestions}</span>
                   </div>
-                  <div className="flex justify-between text-white">
+                  <div className="flex justify-between text-gray-800 dark:text-white">
                     <span>Time Remaining:</span>
                     <span className="font-medium">{formatTime(timeLeft)}</span>
                   </div>
@@ -854,6 +888,7 @@ if (showThankYou) {
       )}
     </div>
   );
+
 };
 
 export default LiveContest;
