@@ -115,22 +115,6 @@ const ThankYouScreen = () => {
               </p>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex flex-col gap-3 md:gap-4">
-              <button
-                onClick={() => navigate('/contest/result')}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors font-medium text-sm md:text-base"
-              >
-                Go to Dashboard
-              </button>
-              <button
-                onClick={() => navigate('/contest/result')}
-                className="w-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 px-6 py-3 rounded-lg transition-colors font-medium text-sm md:text-base"
-              >
-                View Other Contests
-              </button>
-            </div>
-
             {/* Auto Redirect Notice */}
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-4 md:mt-6 text-center">
               You'll be automatically redirected to the dashboard in a few seconds...

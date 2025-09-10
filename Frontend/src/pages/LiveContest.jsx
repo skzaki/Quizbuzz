@@ -13,7 +13,7 @@ const LiveContest = () => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [answers, setAnswers] = useState([]);
-  const [timeLeft, setTimeLeft] = useState(3600); // 1 hours in seconds
+  const [timeLeft, setTimeLeft] = useState(2400); // 40 mins in seconds
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -110,9 +110,15 @@ const getQuestions = async () => {
   }
 };
 
-  useExamProtection((msg) => {
-    alert(msg);
-  });
+  useExamProtection(
+       (msg) => {
+          alert(msg); 
+       },
+       () => {
+          alert("🚨 Too many violations! Submitting quiz...");
+          handleSubmitContest(); 
+       }
+   );
 
   
  // WebSocket

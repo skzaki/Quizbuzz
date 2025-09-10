@@ -26,9 +26,9 @@ const WaitingRoom = () => {
   const [cameraError, setCameraError] = useState('');
 
 
-  useExamProtection((msg) => {
-    alert(msg);
-  });
+//  useExamProtection((msg) => {
+//  alert(msg);
+//  });
 
   // Enhanced camera permission check for mobile compatibility
   const checkCameraPermission = useCallback(async () => {

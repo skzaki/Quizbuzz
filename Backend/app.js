@@ -20,7 +20,11 @@ app.set('trust proxy', 1);
 // Security middleware
 app.use(helmet());
 // CORS configuration
-app.use(cors());
+const coresOptions = {
+    origin: "https://quiz.ysminfosolution.com"
+}
+app.use(cors(coresOptions));
+
 
 // Request parsing middleware
 app.use(express.json({ 

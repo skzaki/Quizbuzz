@@ -1,19 +1,55 @@
 import { useEffect, useRef } from "react";
 
-export const useExamProtection = (onViolation) => {
+export const useExamProtection = (onViolation, onMaxViolations) => {
   const lastViolationRef = useRef(0);
+  const violationCountRef = useRef(0);
 
   const triggerViolation = (msg) => {
     const now = Date.now();
     if (now - lastViolationRef.current < 2000) return; // cooldown 2s
     lastViolationRef.current = now;
 
-    if (typeof onViolation === "function") onViolation(msg);
-    console.warn(msg);
+    violationCountRef.current += 1;
+    const remaining = 6 - violationCountRef.current;
+
+    if (typeof onViolation === "function") {
+      if (remaining > 0 && remaining <= 3) {
+        onViolation(`${msg}\n⚠️ Only ${remaining} warnings left!`);
+      } else {
+        onViolation(msg);
+      }
+    }
+
+    if (violationCountRef.current >= 6) {
+      if (typeof onMaxViolations === "function") {
+        onMaxViolations();
+      } else {
+        console.error("🚨 Max violations reached! Quiz will be submitted.");
+      }
+    }
+
+    console.warn(`[Violation #${violationCountRef.current}] ${msg}`);
   };
 
   useEffect(() => {
     console.log("🔒 Exam protection hook mounted");
+
+    // ✅ Camera + Microphone permission check
+    const checkMediaPermissions = async () => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        triggerViolation("❌ Camera/Microphone not supported in this browser.");
+        return;
+      }
+
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        console.log("✅ Camera & Microphone access granted");
+      } catch (err) {
+        triggerViolation(`❌ Camera/Microphone access denied: ${err.message}`);
+      }
+    };
+
+    checkMediaPermissions();
 
     // Force fullscreen immediately
     const forceFullscreen = () => {
@@ -23,8 +59,6 @@ export const useExamProtection = (onViolation) => {
           .catch((err) => console.warn("⚠️ Fullscreen failed:", err.message));
       }
     };
-
-    // Try on load
     forceFullscreen();
 
     // If user exits fullscreen → force again
@@ -93,5 +127,6 @@ export const useExamProtection = (onViolation) => {
       window.removeEventListener("blur", handleBlur);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onViolation]);
+  }, [onViolation, onMaxViolations]);
 };
+

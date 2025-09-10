@@ -88,7 +88,7 @@ export const validateCredentials = async (req, res) => {
         slug: "quizbuzz-3",
         title: "QuizBuzz Demo",
         startTime: new Date(Date.now() + 2 * 60000),
-        duration: 50,
+        duration: 40,
         participants: 123,
       },
     });
@@ -140,9 +140,18 @@ export const getContestQuestions = async (req, res) => {
 };
 
 export const submitContest = async (req, res) => {
+     
+    console.log('=== SUBMIT CONTEST DEBUG ===');
+    console.log('req.body:', req.body);
+    console.log('req.params:', req.params);
+    console.log('Content-Type:', req.headers['content-type']);
+    console.log('===============================');
+    
     const { contestSlug, userRegistrationId } = req.body;
-
+    console.log(`contestSlug: "${contestSlug}"`);
+    console.log(`userRegistrationId: "${userRegistrationId}"`);
     console.log(`IN submitContest: ${contestSlug} | ${userRegistrationId}`);
+
     if(!contestSlug || !userRegistrationId) {
         return res.status(400).json( { message: "ContestSlug and userRegistrationId are required "});
     }

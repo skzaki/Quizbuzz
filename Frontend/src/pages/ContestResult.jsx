@@ -1,6 +1,8 @@
-import { Award, CheckCircle, Clock, Loader2, TrendingUp, XCircle } from "lucide-react";
+import { Award, Clock, Loader2, TrendingUp, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import LeaderBoard from "../components/Result/LeaderBoard";
+import ResultTable from "../components/Result/ResultTable";
 import downloadCertificate from "../utils/downloadCertificate";
 
 const ContestResult = () => {
@@ -9,6 +11,7 @@ const ContestResult = () => {
   const [resultData, setResultData] = useState(null);
   const [error, setError] = useState(null);
   const [pollCount, setPollCount] = useState(0);
+  const [activeTab, setActiveTab] = useState("your-result");
 
   const fetchSubmissionResults = async () => {
     try {
@@ -57,6 +60,7 @@ const ContestResult = () => {
             answers: data.questions || [] // Map questions array to answers for backward compatibility
           });
           setLoading(false);
+          
           if (pollInterval) {
             clearInterval(pollInterval);
           }
@@ -99,36 +103,9 @@ const ContestResult = () => {
       }
     };
   }, [submissionId, pollCount]);
+ 
 
-  const handleDownloadCertificate = async () => {
-    try {
-      const authToken = localStorage.getItem('authauthToken');
-      const response = await fetch(`${import.meta.env.VITE_URL}/contests/${submissionId}/certificate`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to download certificate');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `certificate-${submissionId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Certificate download error:', err);
-      alert('Failed to download certificate. Please try again.');
-    }
-  };
-
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -148,6 +125,7 @@ const ContestResult = () => {
     );
   }
 
+  // Error state
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -168,6 +146,7 @@ const ContestResult = () => {
     );
   }
 
+  // No data state
   if (!resultData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -177,11 +156,6 @@ const ContestResult = () => {
   }
 
   const percentage = resultData.percentage || Math.round((resultData.correctAnswers / resultData.totalQuestions) * 100);
-  const getScoreColor = () => {
-    if (percentage >= 80) return 'text-green-500';
-    if (percentage >= 60) return 'text-yellow-500';
-    return 'text-red-500';
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
@@ -191,7 +165,7 @@ const ContestResult = () => {
         <div className="bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl p-6 md:p-10 text-white shadow-lg mb-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold">{resultData.userName}</h1>
+              <h1 className="text-2xl md:text-3xl font-bold">{resultData.userName || 'Your Result'}</h1>
               <div className="mt-2 space-y-1">
                 <p className="text-lg">
                   Score:{" "}
@@ -205,15 +179,13 @@ const ContestResult = () => {
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              {/* {percentage >= 70 && ( */}
-                <button
-                  onClick={() => downloadCertificate(resultData.userName, 'pdf')}
-                  className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-black px-5 py-3 rounded-lg font-semibold shadow-md transition-colors"
-                >
-                  <Award className="h-5 w-5" />
-                  Download Certificate
-                </button>
-              {/* )} */}
+              <button
+                onClick={() => downloadCertificate(resultData.userName, 'pdf')}
+                className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-black px-5 py-3 rounded-lg font-semibold shadow-md transition-colors"
+              >
+                <Award className="h-5 w-5" />
+                Download Certificate
+              </button>
               <div className="text-right text-sm opacity-90">
                 <p>Submitted: {new Date(resultData.createdAt).toLocaleDateString()}</p>
                 <p>Evaluated: {new Date(resultData.updatedAt).toLocaleDateString()}</p>
@@ -235,145 +207,44 @@ const ContestResult = () => {
           </div>
         </div>
 
-        {/* Results Table */}
-        {resultData.questions && resultData.questions.length > 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Question-wise Results
-              </h2>
-            </div>
-            <div className="overflow-y-auto h-[65vh]">
-              <table className="w-full text-sm md:text-base border-collapse">
-                <thead className="sticky top-0 bg-gray-100 dark:bg-gray-700 z-10">
-                  <tr>
-                    <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Q#</th>
-                    <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Question</th>
-                    <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Your Answer</th>
-                    <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Correct Answer</th>
-                    <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Result</th>
-                    <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Points</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {resultData.questions.map((question, idx) => (
-                    <tr
-                      key={idx}
-                      className={`border-b border-gray-200 dark:border-gray-700 ${
-                        idx % 2 === 0 ? "bg-gray-50 dark:bg-gray-900/20" : ""
-                      }`}
-                    >
-                        {/* Q no */}
-                      <td className="p-3 text-gray-800 dark:text-gray-200 font-medium">
-                        {question.questionNo}
-                      </td>
-                      {/* Question Text */}
-                      <td className="p-3 text-gray-800 dark:text-gray-200 max-w-xs">
-                        <div className="truncate" title={question.questionText}>
-                          {question.questionText}
-                        </div>
-                        {question.difficulty && (
-                          <span className={`inline-block px-2 py-1 text-xs rounded-full mt-1 ${
-                            question.difficulty === 'easy' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                            question.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                            'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                          }`}>
-                            {question.difficulty}
-                          </span>
-                        )}
-                      </td>
-                      {/* Your Answer */}
-                      <td className="p-3 text-gray-800 dark:text-gray-200">
-                        <span className={`${question.isCorrect ? 'text-gray-800 dark:text-gray-200' : 'text-red-600 dark:text-red-400'}`}>
-                          {question.userAnswer || 'No answer'}
-                        </span>
-                      </td>
-                      {/* Correct Answer */}
-                      <td className="p-3 text-green-600 dark:text-green-400 font-medium">
-                        {question.correctAnswer}
-                      </td>
-                      <td className="p-3">
-                        {question.isCorrect ? (
-                          <div className="flex items-center text-green-600 dark:text-green-400">
-                            <CheckCircle className="h-5 w-5 mr-2" />
-                            Correct
-                          </div>
-                        ) : (
-                          <div className="flex items-center text-red-600 dark:text-red-400">
-                            <XCircle className="h-5 w-5 mr-2" />
-                            Incorrect
-                          </div>
-                        )}
-                      </td>
-                      <td className="p-3 text-gray-800 dark:text-gray-200">
-                        <span className="font-medium">
-                          {question.points}/{question.maxPoints}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        {/* Tabs Navigation */}
+        <div className="mb-6">
+          <div className="border-b border-gray-200 dark:border-gray-700">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab("your-result")}
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === "your-result"
+                    ? "border-purple-500 text-purple-600 dark:text-purple-400"
+                    : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                }`}
+              >
+                Your Result
+              </button>
+              <button
+                onClick={() => setActiveTab("leaderboard")}
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === "leaderboard"
+                    ? "border-purple-500 text-purple-600 dark:text-purple-400"
+                    : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                }`}
+              >
+                Leader Board
+              </button>
+            </nav>
           </div>
-        ) : resultData.answers && resultData.answers.length > 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Question-wise Results (Basic)
-              </h2>
-            </div>
-            <div className="overflow-y-auto h-[65vh]">
-              <table className="w-full text-sm md:text-base border-collapse">
-                <thead className="sticky top-0 bg-gray-100 dark:bg-gray-700 z-10">
-                  <tr>
-                    <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Question No</th>
-                    <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Result</th>
-                    <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Points</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {resultData.answers.map((ans, idx) => (
-                    <tr
-                      key={idx}
-                      className={`border-b border-gray-200 dark:border-gray-700 ${
-                        idx % 2 === 0 ? "bg-gray-50 dark:bg-gray-900/20" : ""
-                      }`}
-                    >
-                      <td className="p-3 text-gray-800 dark:text-gray-200">
-                        {ans.questionNo || idx + 1}
-                      </td>
-                      <td className="p-3">
-                        {ans.correct || ans.isCorrect ? (
-                          <div className="flex items-center text-green-600 dark:text-green-400">
-                            <CheckCircle className="h-5 w-5 mr-2" />
-                            Correct
-                          </div>
-                        ) : (
-                          <div className="flex items-center text-red-600 dark:text-red-400">
-                            <XCircle className="h-5 w-5 mr-2" />
-                            Incorrect
-                          </div>
-                        )}
-                      </td>
-                      <td className="p-3 text-gray-800 dark:text-gray-200">
-                        {ans.points || (ans.correct || ans.isCorrect ? 1 : 0)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              Results Summary
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400">
-              Your submission has been evaluated successfully. Detailed question-wise results are not available.
-            </p>
-          </div>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === "your-result" && (
+          <ResultTable resultData={resultData} />
+        )}
+
+        {activeTab === "leaderboard" && (
+          <LeaderBoard 
+            contestId={resultData.contestId} 
+            currentUserId={resultData.userId} 
+          />
         )}
 
       </div>
@@ -382,3 +253,4 @@ const ContestResult = () => {
 };
 
 export default ContestResult;
+
