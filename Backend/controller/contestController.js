@@ -14,7 +14,7 @@ import { extractDeviceInfo } from '../utils/sessionHelper.js';
 
 export const validateCredentials = async (req, res) => {
   try {
-    // 1 Validate input
+    // Validate input
     const parsed = validateCredentialsSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ 
@@ -27,7 +27,7 @@ export const validateCredentials = async (req, res) => {
     const ipAddress = req.ip;
 
     console.log(`slug:${slug}`);
-    // 2 Check if contest exists
+    // Check if contest exists
     const contest = await Contest.findOne({ slug, isDeleted: false });
     if (!contest) {
       return res.status(404).json({ 
@@ -35,7 +35,7 @@ export const validateCredentials = async (req, res) => {
       });
     }
 
-    // 3 Check if user exists
+    // Check if user exists
     const user = await User.findOne({ registrationId });
     if (!user) {
       return res.status(401).json({ 
@@ -43,62 +43,14 @@ export const validateCredentials = async (req, res) => {
       });
     }
 
-    // 4 Verify phone number matches
+    // Verify phone number matches
     if (parseInt(phone) !== user.phone) {
       return res.status(400).json({
         message: "Registration ID does not match the phone number. Please enter the same phone number used during registration."
       });
     }
 
-    // 5 Check if user is registered for this contest
-    // const isRegistered = contest.participants.includes(user._id);
-    // if (!isRegistered) {
-    //   return res.status(403).json({
-    //     message: "You are not registered for this contest. Please register first to participate."
-    //   });
-    // }
-
-    // 6 Check if contest is still valid (not over)
-    const now = new Date();
-    const contestEndTime = new Date(contest.startTime.getTime() + (parseInt(contest.duration) * 60 * 1000));
-    
-    if (now > contestEndTime) {
-      return res.status(400).json({
-        message: "Contest is over. You can no longer join this contest."
-      });
-    }
-
-    // 7 Invalidate existing active session in DB
-    await Session.updateMany(
-      { userId: user._id, isActive: true },
-      { $set: { isActive: false, endedAt: new Date() } }
-    );
-
-    // 8 Create new session ID
-    const sessionId = crypto.randomUUID();
-
-    // 9 Save to MongoDB
-    const newSession = new Session({
-      userId: user._id,
-      sessionId,
-      device,
-      ipAddress,
-      userAgent,
-      isActive: true,
-      lastActivity: new Date(),
-    });
-    await newSession.save();
-
-    // 10 Save to Redis (24 hours TTL)
-    await saveSession(sessionId, {
-      userId: user._id.toString(),
-      ipAddress,
-      userAgent,
-      isActive: true,
-      lastActivity: new Date().toISOString(),
-    }, 60 * 60 * 24);
-
-    // 11 Generate JWT
+    // Generate JWT
     const token = jwt.sign(
       { 
         userId: user._id, 
@@ -111,7 +63,67 @@ export const validateCredentials = async (req, res) => {
       { expiresIn: "24h" }
     );
 
-    // 12 Prepare contest response data
+    // Check is Submission Exist
+    const submission = await Submission.findOne({ userId: user._id });
+    if(submission) {
+        return res.json({
+            message: "Already Submitied",
+            submissionId: submission._id,
+            token
+        });
+    }
+
+    // 5 Check if user is registered for this contest
+    // const isRegistered = contest.participants.includes(user._id);
+    // if (!isRegistered) {
+    //   return res.status(403).json({
+    //     message: "You are not registered for this contest. Please register first to participate."
+    //   });
+    // }
+
+    // Check if contest is still valid (not over)
+    const now = new Date();
+    const contestEndTime = new Date(contest.startTime.getTime() + (parseInt(contest.duration) * 60 * 1000));
+    
+    if (now > contestEndTime) {
+      return res.status(400).json({
+        message: "Contest is over. You can no longer join this contest."
+      });
+    }
+
+    // Invalidate existing active session in DB
+    await Session.updateMany(
+      { userId: user._id, isActive: true },
+      { $set: { isActive: false, endedAt: new Date() } }
+    );
+
+    // Create new session ID
+    const sessionId = crypto.randomUUID();
+
+    // Save to MongoDB
+    const newSession = new Session({
+      userId: user._id,
+      sessionId,
+      device,
+      ipAddress,
+      userAgent,
+      isActive: true,
+      lastActivity: new Date(),
+    });
+    await newSession.save();
+
+    // Save to Redis (24 hours TTL)
+    await saveSession(sessionId, {
+      userId: user._id.toString(),
+      ipAddress,
+      userAgent,
+      isActive: true,
+      lastActivity: new Date().toISOString(),
+    }, 60 * 60 * 24);
+
+    
+
+    // contest response data
     const contestInfo = {
       id: contest._id,
       slug: contest.slug,
@@ -130,7 +142,7 @@ export const validateCredentials = async (req, res) => {
       totalQuestions: contest.QuestionBank.length
     };
 
-    // 13 Success response
+    // response
     res.json({
       message: "Login successful. Welcome to the contest!",
       token,

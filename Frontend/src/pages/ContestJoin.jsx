@@ -62,8 +62,14 @@ const ContestJoin = () => {
         
         const data = await response.json();
         setContestInfo(data);
-        
+
+        if(data.submissionId) {
+            navigate(`/contest/result/${data.submissionId}`);
+        }
+
         localStorage.setItem("authToken", data.token);
+
+
         
         // Send OTP after successful validation
         await sendOTP();
@@ -218,74 +224,92 @@ const ContestJoin = () => {
     
     // Default: Show the join form
     return (
-      <div className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Registration ID
-          </label>
-          <div className="relative">
-            <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              value={registrationId}
-              onChange={(e) => setRegistrationId(e.target.value.toUpperCase())}
-              placeholder="Enter Registration ID"
-              className="w-full pl-10 text-sm pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 font-mono"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Registered Phone Number
-          </label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="Enter your registered phone number"
-              className="w-full pl-10 text-sm pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-        </div>
-
-        {validationError && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-            <div className="flex items-center space-x-2">
-              <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
-              <span className="text-sm text-red-800 dark:text-red-300">{validationError}</span>
-            </div>
-          </div>
-        )}
-
-        <button
-          onClick={validateCredentials}
-          disabled={isValidating}
-          className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-4 py-3 rounded-lg transition-colors font-medium flex items-center justify-center space-x-2"
-        >
-          {isValidating ? (
-            <>
-              <Loader className="h-5 w-5 animate-spin" />
-              <span>Validating...</span>
-            </>
-          ) : (
-            <>
-              <span>Validate & Send OTP</span>
-              <ArrowRight className="h-5 w-5" />
-            </>
-          )}
-        </button>
-
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <div className="text-sm text-blue-800 dark:text-blue-300">
-            <strong>Need help?</strong> Your Registration ID was sent to you after registration. 
-            Check your Email for the contest invitation.
-          </div>
+  <div className="space-y-6">
+    <div>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        Registration ID
+      </label>
+      <div className="relative">
+        <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+        <div className="relative">
+          <span className="absolute left-10 top-1/2 transform -translate-y-1/2 text-sm text-white dark:text-gray-400 font-mono">
+            QUIZ-
+          </span>
+          <input
+            type="text"
+            value={registrationId}
+            onChange={(e) => {
+              const value = e.target.value.toUpperCase();
+              // Only allow alphanumeric characters and limit to 6 characters
+              const cleanValue = value.replace(/[^A-Z0-9]/g, '').slice(0, 6);
+              setRegistrationId(cleanValue);
+            }}
+            placeholder="123456"
+            className="w-full pl-20 text-sm pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 font-mono"
+            maxLength={6}
+          />
         </div>
       </div>
-    );
+      <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        Enter 6 characters (letters and numbers only). Full ID will be: QUIZ-{registrationId || 'XXXXXX'}
+      </div>
+    </div>
+
+    <div>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        Registered Phone Number
+      </label>
+      <div className="relative">
+        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+        <input
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="Enter your registered phone number"
+          className="w-full pl-10 text-sm pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+        />
+      </div>
+    </div>
+
+    {validationError && (
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <div className="flex items-center space-x-2">
+          <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+          <span className="text-sm text-red-800 dark:text-red-300">{validationError}</span>
+        </div>
+      </div>
+    )}
+
+    <button
+      onClick={() => {
+        // When validating, use the full registration ID with prefix
+        const fullRegistrationId = `QUIZ-${registrationId}`;
+        validateCredentials(fullRegistrationId, phone);
+      }}
+      disabled={isValidating || registrationId.length !== 6}
+      className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-4 py-3 rounded-lg transition-colors font-medium flex items-center justify-center space-x-2"
+    >
+      {isValidating ? (
+        <>
+          <Loader className="h-5 w-5 animate-spin" />
+          <span>Validating...</span>
+        </>
+      ) : (
+        <>
+          <span>Validate & Send OTP</span>
+          <ArrowRight className="h-5 w-5" />
+        </>
+      )}
+    </button>
+
+    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+      <div className="text-sm text-blue-800 dark:text-blue-300">
+        <strong>Need help?</strong> Your Registration ID was sent to you after registration. 
+        Enter only the 6 characters after "QUIZ-" (e.g., if your full ID is QUIZ-ABC123, enter ABC123).
+      </div>
+    </div>
+  </div>
+);
   };
 
   return (

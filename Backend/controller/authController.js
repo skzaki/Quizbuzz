@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
-import { Session, Submission, User } from '../Models/DB.js';
+import { Contest, Session, Submission, User } from '../Models/DB.js';
 import sendOtpSms from '../service/optSms.js';
 import sendOtpWhatsApp from '../service/otpWhatsapp.js';
 import { saveOtp, verifyAndDeleteOtp } from '../store/otpStore.js';
@@ -142,6 +142,7 @@ export const resendOtp = async (req, res) => {
 export const verifyOtp = async (req, res) => {
   const { phone, otp } = req.body;
 
+  const slug = 'quizbuzz-3';
   try {
     // validate phone
     const phoneNumber = parsePhoneNumberFromString(phone, "IN");
@@ -162,6 +163,16 @@ export const verifyOtp = async (req, res) => {
 
     // check for submission
     try {
+
+        console.log(`slug:${slug}`);
+        // Check if contest exists
+        const contest = await Contest.findOne({ slug, isDeleted: false });
+        if (!contest) {
+            return res.status(404).json({ 
+            message: "Contest not found. Please check the contest link or contact support." 
+            });
+        } 
+
       const userId = req.user.userId;
       const ifSubmission = await Submission.findOne({ userId });
 
@@ -171,9 +182,21 @@ export const verifyOtp = async (req, res) => {
           message: isVerifred.message,
         });
       }
+
+      const now = new Date();
+      const contestEndTime = new Date(contest.startTime.getTime() + (parseInt(contest.duration) * 60 * 1000));
+    
+       if (now > contestEndTime) {
+          return res.status(400).json({
+          message: "Contest is over. You can no longer join this contest."
+       });
+    }
+
     } catch (error) {
       console.log(`ERROR: ${error.message}`);
     }
+
+    
 
     // return success if no submission found
     return res.json({ message: isVerifred.message });
