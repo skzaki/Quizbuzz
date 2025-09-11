@@ -16,7 +16,7 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
       setError(null);
       
       const authToken = localStorage.getItem('authToken');
-      const response = await fetch(`http://localhost:5000/api/contests/${contestId}/leaderboard`, {
+      const response = await fetch(`${import.meta.env.VITE_URL}/contests/${contestId}/leaderboard`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${authToken}`,

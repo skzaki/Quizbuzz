@@ -49,8 +49,6 @@ export const authMiddleware = async (req, res, next) => {
         req.user = decoded;
         req.sessionId = decoded.sessionId;
         req.token = token;
-
-        console.table(req.user);
         
         next();
     } catch (error) {

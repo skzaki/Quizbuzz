@@ -302,10 +302,9 @@ export const getSubmissionStatus = async (req, res) => {
 
 export const getSubmissionResult = async (req, res) => {
   try {
-        console.log(`In getSubmissionResult:`);  
-    console.table(req.user);
+    console.log(`In getSubmissionResult:`);  
     const { submissionId } = req.params;
-    const userId = req.user.userId; // Assuming user ID comes from auth middleware
+    const userId = req.user.userId; 
     
     console.log("In getSubmissionResult:")
     console.log(`submissionId: ${submissionId}`);
@@ -325,7 +324,7 @@ export const getSubmissionResult = async (req, res) => {
     const submission = await Submission.findById(submissionId)
       .populate('userId', 'firstName lastName email')
       .populate('contestId', '_id title')
-      .populate('answers.questionId') // Populate question details
+      .populate('answers.questionId')
       .lean();
 
     if (!submission) {
@@ -496,6 +495,7 @@ export const getContestLeaderboard = async (req, res) => {
 
     try {
         const contestId = new mongoose.Types.ObjectId(req.params.contestId);
+        console.log('In getContestLeaderboard')
         console.log(`BE: ${contestId}`);
         const allDone = areAllJobsCompleted();
 

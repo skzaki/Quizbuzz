@@ -93,28 +93,28 @@ export const login = async (req, res) => {
 
 export const sendOtp = async (req, res) => {
   const { phone } = req.body;
-  console.table(req.user);
+
   const userName = req.user.userName;
   try {
-    // 1. validate
+    // validate
     const phoneNumber = parsePhoneNumberFromString(phone, "IN");
     if (!phoneNumber.isValid()) {
         return res.status(401).json({ message: "Enter a vaild Phone no (without '+91')"});
     }
-    // 2. Generate
+    // Generate
     const OTP = generateOtp();
 
-    // 3. Save in Redis
+    // Save in Redis
     const saved = await saveOtp(phoneNumber.number, OTP);
 
     if(!saved) return res.status(401).json({ message: `Some error occur try again` });
-    // 4. Send to user
-        // 4.1 Via WhatsApp
+    // Send to user
+        // Via WhatsApp
         const sendWhatapp = await sendOtpWhatsApp(phoneNumber.number, userName, OTP);
 
         if(!sendWhatapp) return res.status.json({ message: `error send OTP on WhatsApp`});
 
-        // 4.2 Via SMS
+        // Via SMS
         const sendSms = await sendOtpSms(phoneNumber.number, OTP);
 
         if(!sendSms) return res.status.json({ message: `error send OTP on WhatsApp`});
