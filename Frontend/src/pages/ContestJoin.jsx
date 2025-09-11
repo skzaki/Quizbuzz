@@ -28,10 +28,13 @@ const ContestJoin = () => {
   const [showTerms, setShowTerms] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
-  const validateCredentials = async () => {
-    if (!registrationId.trim() || !phone.trim()) {
-      setValidationError('Please enter both Registration ID and phone number');
-      return;
+  const validateCredentials = async (fullRegId = null) => {
+    
+    const regId = fullRegId || `QUIZ-${registrationId}`;
+  
+    if (!regId.trim() || !phone.trim()) {
+        setValidationError('Please enter both Registration ID and phone number');
+        return;
     }
 
     setIsValidating(true);
@@ -45,7 +48,7 @@ const ContestJoin = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          registrationId: registrationId.trim(),
+          registrationId: regId.trim(),
           phone: phone.trim(),
           slug: 'quizbuzz-3'
         })
@@ -284,7 +287,7 @@ const ContestJoin = () => {
       onClick={() => {
         // When validating, use the full registration ID with prefix
         const fullRegistrationId = `QUIZ-${registrationId}`;
-        validateCredentials(fullRegistrationId, phone);
+        validateCredentials(fullRegistrationId);
       }}
       disabled={isValidating || registrationId.length !== 6}
       className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-4 py-3 rounded-lg transition-colors font-medium flex items-center justify-center space-x-2"
