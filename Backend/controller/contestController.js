@@ -27,6 +27,7 @@ export const validateCredentials = async (req, res) => {
     const ipAddress = req.ip;
 
     console.log(`slug:${slug}`);
+    console.log(`registrationId: ${registrationId} | phone: ${phone}`);
     // Check if contest exists
     const contest = await Contest.findOne({ slug, isDeleted: false });
     if (!contest) {
@@ -50,29 +51,6 @@ export const validateCredentials = async (req, res) => {
       });
     }
 
-    // Generate JWT
-    const token = jwt.sign(
-      { 
-        userId: user._id, 
-        sessionId, 
-        email: user.email, 
-        userName: `${user.firstName} ${user.lastName}`,
-        contestId: contest._id 
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "24h" }
-    );
-
-    // Check is Submission Exist
-    const submission = await Submission.findOne({ userId: user._id });
-    if(submission) {
-        return res.json({
-            message: "Already Submitied",
-            submissionId: submission._id,
-            token
-        });
-    }
-
     // 5 Check if user is registered for this contest
     // const isRegistered = contest.participants.includes(user._id);
     // if (!isRegistered) {
@@ -81,15 +59,6 @@ export const validateCredentials = async (req, res) => {
     //   });
     // }
 
-    // Check if contest is still valid (not over)
-    const now = new Date();
-    const contestEndTime = new Date(contest.startTime.getTime() + (parseInt(contest.duration) * 60 * 1000));
-    
-    if (now > contestEndTime) {
-      return res.status(400).json({
-        message: "Contest is over. You can no longer join this contest."
-      });
-    }
 
     // Invalidate existing active session in DB
     await Session.updateMany(
@@ -121,7 +90,18 @@ export const validateCredentials = async (req, res) => {
       lastActivity: new Date().toISOString(),
     }, 60 * 60 * 24);
 
-    
+    // Generate JWT
+    const token = jwt.sign(
+      { 
+        userId: user._id, 
+        sessionId, 
+        email: user.email, 
+        userName: `${user.firstName} ${user.lastName}`,
+        contestId: contest._id 
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" }
+    );
 
     // contest response data
     const contestInfo = {
