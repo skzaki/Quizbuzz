@@ -5,6 +5,36 @@ import { useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import ThankYouScreen from "../components/LiveContest/ThankYouScreen.jsx";
 import { startFaceMonitor, stopFaceMonitor } from '../services/faceMonitor.js';
+import { useExamProtection } from './../hooks/useExamProtection';
+
+  const calculateTimeLeft = (contestInfo) => {
+  const now = new Date();
+  const contestStartTime = new Date(contestInfo.startTime);
+  const durationInMinutes = parseInt(contestInfo.duration);
+  const contestEndTime = new Date(contestStartTime.getTime() + (durationInMinutes * 60 * 1000));
+  
+  // Case 1: Contest hasn't started yet
+  if (now < contestStartTime) {
+    console.log("Contest hasn't started yet. Time until start:", Math.floor((contestStartTime - now) / 1000), "seconds");
+    return durationInMinutes * 60; // Full duration in seconds
+  }
+  
+  // Case 2: Contest has ended
+  if (now >= contestEndTime) {
+    console.log("Contest has ended");
+    return 0; // Contest over
+  }
+  
+  // Case 3: Contest is ongoing (user joining late or mid-contest)
+  const timeElapsed = now - contestStartTime; // milliseconds
+  const timeElapsedSeconds = Math.floor(timeElapsed / 1000);
+  const totalDurationSeconds = durationInMinutes * 60;
+  const remainingSeconds = totalDurationSeconds - timeElapsedSeconds;
+  
+  console.log(`Contest is ongoing. Elapsed: ${timeElapsedSeconds}s, Remaining: ${remainingSeconds}s`);
+  
+  return Math.max(0, remainingSeconds); // Ensure non-negative
+};
 
 const LiveContest = () => {
   const navigate = useNavigate();
@@ -12,7 +42,7 @@ const LiveContest = () => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [answers, setAnswers] = useState([]);
-  const [timeLeft, setTimeLeft] = useState(2400); // 40 mins in seconds
+  const [timeLeft, setTimeLeft] = useState(0); // 40 mins in seconds
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,6 +64,8 @@ const LiveContest = () => {
   // Get contest info from navigation state
   const userInfo = useRef({});
   const contestInfo = useRef({});
+
+
 
 const getQuestions = async () => {
   try {
@@ -109,15 +141,15 @@ const getQuestions = async () => {
   }
 };
 
-//   useExamProtection(
-//        (msg) => {
-//           alert(msg); 
-//        },
-//        () => {
-//           alert("🚨 Too many violations! Submitting quiz...");
-//           handleSubmitContest(); 
-//        }
-//    );
+  useExamProtection(
+       (msg) => {
+          alert(msg); 
+       },
+       () => {
+          alert("🚨 Too many violations! Submitting quiz...");
+          // handleSubmitContest(); 
+       }
+   );
 
   
  // WebSocket
@@ -125,6 +157,21 @@ const getQuestions = async () => {
 
     userInfo.current = JSON.parse(localStorage.getItem('userInfo'));
     contestInfo.current = JSON.parse(localStorage.getItem('contestInfo'));
+
+
+    // Calculate and set the correct timeLeft after contestInfo is loaded
+    if (contestInfo.current && contestInfo.current.startTime && contestInfo.current.duration) {
+      const calculatedTimeLeft = calculateTimeLeft(contestInfo.current);
+      setTimeLeft(calculatedTimeLeft);
+      
+      // If contest has ended, redirect or show message
+      if (calculatedTimeLeft === 0) {
+        alert("Contest has ended. You cannot participate anymore.");
+        navigate('/contest/join');
+        return;
+      }
+    }
+
     getQuestions(); // get the questions
 
     socketRef.current = io(import.meta.env.VITE_WEBSOCKET_URL , {
@@ -138,7 +185,7 @@ const getQuestions = async () => {
         socketRef.current.emit("join-waiting-room", {
             contestId: contestInfo.current.slug,
             userId: userInfo.current.registrationId,
-            startTime: Date.now()
+            startTime: contestInfo.current.startTime // Date.now() // Change
         });
     });
 
@@ -221,6 +268,24 @@ const getQuestions = async () => {
 
     return () => clearInterval(timer);
   }, []);
+
+useEffect(() => {
+    if (!contestInfo.current || !contestInfo.current.startTime) return;
+    
+    const syncInterval = setInterval(() => {
+      const newTimeLeft = calculateTimeLeft(contestInfo.current);
+      
+      // Only update if there's a significant difference (more than 2 seconds)
+      // This prevents unnecessary re-renders while allowing for corrections
+      if (Math.abs(newTimeLeft - timeLeft) > 2) {
+        console.log("Syncing time. Old:", timeLeft, "New:", newTimeLeft);
+        setTimeLeft(newTimeLeft);
+      }
+    }, 30000); // Check every 30 seconds
+    
+    return () => clearInterval(syncInterval);
+  }, [timeLeft]);
+  
 
   // Auto-save and proctoring monitoring
     useEffect(() => {
@@ -552,6 +617,7 @@ const getQuestions = async () => {
             
             const response = await fetch(`${import.meta.env.VITE_URL}/contests/${contestInfo.current.slug}/submit`, {
                 method: "POST",
+
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${localStorage.getItem("authToken")}`

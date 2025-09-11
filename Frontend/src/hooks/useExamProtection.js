@@ -6,11 +6,11 @@ export const useExamProtection = (onViolation, onMaxViolations) => {
 
   const triggerViolation = (msg) => {
     const now = Date.now();
-    if (now - lastViolationRef.current < 2000) return; // cooldown 2s
+    if (now - lastViolationRef.current < 10000) return; // cooldown 10s
     lastViolationRef.current = now;
 
     violationCountRef.current += 1;
-    const remaining = 6 - violationCountRef.current;
+    const remaining = 15 - violationCountRef.current;
 
     if (typeof onViolation === "function") {
       if (remaining > 0 && remaining <= 3) {
@@ -20,7 +20,7 @@ export const useExamProtection = (onViolation, onMaxViolations) => {
       }
     }
 
-    if (violationCountRef.current >= 6) {
+    if (violationCountRef.current >= 8) {
       if (typeof onMaxViolations === "function") {
         onMaxViolations();
       } else {

@@ -22,10 +22,11 @@ export const validateCredentials = async (req, res) => {
         errors: parsed.error.format() 
       });
     }
-    const { registrationId, phone, slug } = parsed.data;
+    const { registrationId, phone, slug = 'quizbuzz-3' } = parsed.data;
     const { device, userAgent } = extractDeviceInfo(req);
     const ipAddress = req.ip;
 
+    console.log(`slug:${slug}`);
     // 2 Check if contest exists
     const contest = await Contest.findOne({ slug, isDeleted: false });
     if (!contest) {
@@ -50,12 +51,12 @@ export const validateCredentials = async (req, res) => {
     }
 
     // 5 Check if user is registered for this contest
-    const isRegistered = contest.participants.includes(user._id);
-    if (!isRegistered) {
-      return res.status(403).json({
-        message: "You are not registered for this contest. Please register first to participate."
-      });
-    }
+    // const isRegistered = contest.participants.includes(user._id);
+    // if (!isRegistered) {
+    //   return res.status(403).json({
+    //     message: "You are not registered for this contest. Please register first to participate."
+    //   });
+    // }
 
     // 6 Check if contest is still valid (not over)
     const now = new Date();
