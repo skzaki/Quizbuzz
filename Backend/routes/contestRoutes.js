@@ -20,9 +20,8 @@ const router = Router();
 
 // Public Routes
 router.post("/validate-credentials", validateCredentials);
-router.get("/:submissionId/results", getSubmissionResult);
-router.get('/:contestId/leaderboard', getContestLeaderboard);
 
+router.get('/:contestId/leaderboard', getContestLeaderboard);
 // Authenticated Participant Routes
 router.use(authMiddleware);
 
@@ -30,7 +29,7 @@ router.get("/:contestSlug/questions", getContestQuestions);
 router.post("/:contestSlug/submit", submitContest);
 
 router.get("/:submissionId/status", getSubmissionStatus);
-
+router.get("/:submissionId/results", getSubmissionResult);
 router.get("/:contestSlug/certificate", getContestCertificate);
 router.get("/:contestSlug", getContestBySlug);
 
