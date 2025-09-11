@@ -1,6 +1,7 @@
 import CryptoJS from "crypto-js";
 import { ArrowRight, CameraOff, Clock } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import toast from "react-hot-toast";
 import { useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import ThankYouScreen from "../components/LiveContest/ThankYouScreen.jsx";
@@ -15,7 +16,7 @@ import { useExamProtection } from './../hooks/useExamProtection';
   
   // Case 1: Contest hasn't started yet
   if (now < contestStartTime) {
-    console.log("Contest hasn't started yet. Time until start:", Math.floor((contestStartTime - now) / 1000), "seconds");
+    
     return durationInMinutes * 60; // Full duration in seconds
   }
   
@@ -143,11 +144,11 @@ const getQuestions = async () => {
 
   useExamProtection(
        (msg) => {
-          alert(msg); 
+          toast.error(msg); 
        },
        () => {
-          alert("🚨 Too many violations! Submitting quiz...");
-          // handleSubmitContest(); 
+          toast.error("Too many violations! Submitting quiz...")
+          handleSubmitContest(); 
        }
    );
 
@@ -166,7 +167,7 @@ const getQuestions = async () => {
       
       // If contest has ended, redirect or show message
       if (calculatedTimeLeft === 0) {
-        alert("Contest has ended. You cannot participate anymore.");
+        toast.error("Contest has ended. You cannot participate anymore")
         navigate('/contest/join');
         return;
       }
@@ -392,7 +393,7 @@ useEffect(() => {
                 video.removeEventListener('loadeddata', onLoadedData);
                 video.removeEventListener('error', onError);
                 reject(new Error('Video loading timeout'));
-              }, 10000);
+              }, 8000);
             }
           });
         };
@@ -408,10 +409,10 @@ useEffect(() => {
 
                     setWarningCount(prev => {
                     const newCount = prev + 1;
-                    if (newCount >= 25) {
+                    if (newCount >= 20) {
                         handleSubmitContest();
-                    } else if ([5, 4, 3, 2, 1].includes(25 - newCount)) {
-                        alert(`You have last ${25 - newCount} warning(s) left & after that quiz will be auto submit`);
+                    } else if ([5, 4, 3, 2, 1].includes(20 - newCount)) {
+                        toast.error(`You have last ${20 - newCount} warning(s) left & after that quiz will be auto submit`);
                     }
                     return newCount;
                     });
@@ -606,7 +607,7 @@ useEffect(() => {
 
     let finalSubmissionId = null;
 
-    const maxAttempts = 5;
+    const maxAttempts = 6;
     let attempt = 1;
     let submissionSuccessful = false;
 
@@ -675,7 +676,7 @@ useEffect(() => {
          navigate(`/contest/result/evaluate/${finalSubmissionId}`);
     } else {
         // All attempts failed
-        alert("Failed to submit contest after multiple attempts. Please contact support.");
+        toast.error("Failed to submit contest after multiple attempts. Please contact support.");
         console.error("Contest submission failed after all attempts");
     }
 };
@@ -687,7 +688,7 @@ useEffect(() => {
             <div className="text-center w-full max-w-md">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
-                    Attempting to Submit (Attempt {submissionAttempt}/5)
+                    Attempting to Submit Attempt {submissionAttempt}/6
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400 text-sm">
                     Please wait while we process your contest submission...

@@ -5,6 +5,7 @@ import {
     Shield
 } from 'lucide-react';
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 
 
 // OTP Modal Component
@@ -60,17 +61,18 @@ const OTPModal = ({ isOpen, onClose, phone, onVerifySuccess, onResendOTP }) => {
       if (!response.ok) {
         const error = await response.json();
         setVerificationError(error.message || 'Invalid OTP. Please try again.');
+        toast.error("Invalid OTP. Please try again");
         setIsVerifying(false);
         return;
       }
 
       const data = await response.json();
-      console.table(data);
       
       // If the API returns updated token or additional data, handle it here
       if (data.token) {
         localStorage.setItem('authToken', data.token);
       }
+      toast.success("OTP verify successfully");
 
       if(data.submissionId) {
         setIsVerifying(false);

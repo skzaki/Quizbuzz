@@ -167,7 +167,7 @@ export const getContestBySlug = async (req, res) => {
 };
 
 export const getContestQuestions = async (req, res) => {
-    console.table(req.user);
+    
     const { contestSlug } = req.params;
     
     if(!contestSlug) return res.status(400).json({ message: "provide the contest slug"});
@@ -195,15 +195,7 @@ export const getContestQuestions = async (req, res) => {
 
 export const submitContest = async (req, res) => {
      
-    console.log('=== SUBMIT CONTEST DEBUG ===');
-    console.log('req.body:', req.body);
-    console.log('req.params:', req.params);
-    console.log('Content-Type:', req.headers['content-type']);
-    console.log('===============================');
-    
     const { contestSlug, userRegistrationId } = req.body;
-    console.log(`contestSlug: "${contestSlug}"`);
-    console.log(`userRegistrationId: "${userRegistrationId}"`);
     console.log(`IN submitContest: ${contestSlug} | ${userRegistrationId}`);
 
     if(!contestSlug || !userRegistrationId) {

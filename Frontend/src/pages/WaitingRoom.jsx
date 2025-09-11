@@ -6,9 +6,164 @@ import {
     Trophy
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import toast from 'react-hot-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import { useExamProtection } from '../hooks/useExamProtection';
+
+// Custom Toast Component for Camera Permission
+const showCameraPermissionToast = (requestCameraPermission, cameraPermission) => {
+  toast.custom((t) => (
+    <div className={`
+      bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700
+      transition-all duration-300 transform
+      ${t.visible ? 'animate-enter' : 'animate-leave'}
+    `} style={{ maxWidth: '90vw' }}>
+      <div className="flex items-start space-x-3">
+        <div className="flex-shrink-0">
+          <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+            <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </div>
+        </div>
+        
+        <div className="flex-1">
+          <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+            Camera Permission Required
+          </h4>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Enable camera access to participate in the contest. This is required for exam monitoring.
+          </p>
+          
+          <div className="mt-3 flex items-center space-x-2">
+            <button
+              onClick={() => {
+                requestCameraPermission();
+                toast.dismiss(t.id);
+              }}
+              disabled={cameraPermission === 'requesting'}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium rounded-md transition-colors"
+            >
+              {cameraPermission === 'requesting' ? 'Requesting...' : 'Enable Camera'}
+            </button>
+            
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-md transition-colors"
+            >
+              Later
+            </button>
+          </div>
+        </div>
+        
+        <button
+          onClick={() => toast.dismiss(t.id)}
+          className="flex-shrink-0 ml-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  ), {
+    duration: Infinity, // Keep it open until user takes action
+    position: 'top-center',
+  });
+};
+
+// System Check Toast Component
+const showSystemCheckToast = (cameraPermission, requestCameraPermission) => {
+  toast.custom((t) => (
+    <div className={`
+      bg-white dark:bg-gray-800 p-4 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700
+      transition-all duration-300 transform max-w-sm
+      ${t.visible ? 'animate-enter' : 'animate-leave'}
+    `}>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-semibold text-gray-900 dark:text-white">System Status</h4>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        
+        {/* Connection Status */}
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-600 dark:text-gray-400">Connection</span>
+          <div className="flex items-center space-x-1">
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <span className="text-xs text-green-600 dark:text-green-400">Connected</span>
+          </div>
+        </div>
+        
+        {/* Camera Status */}
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-600 dark:text-gray-400">Camera</span>
+          <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1">
+              <div className={`w-2 h-2 rounded-full ${
+                cameraPermission === 'granted' ? 'bg-green-500' : 
+                cameraPermission === 'denied' ? 'bg-red-500' : 
+                cameraPermission === 'requesting' ? 'bg-blue-500 animate-pulse' :
+                'bg-yellow-500'
+              }`}></div>
+              <span className={`text-xs ${
+                cameraPermission === 'granted' ? 'text-green-600 dark:text-green-400' : 
+                cameraPermission === 'denied' ? 'text-red-600 dark:text-red-400' : 
+                'text-yellow-600 dark:text-yellow-400'
+              }`}>
+                {cameraPermission === 'granted' ? 'Ready' : 
+                 cameraPermission === 'denied' ? 'Blocked' : 
+                 cameraPermission === 'requesting' ? 'Requesting...' : 'Required'}
+              </span>
+            </div>
+            
+            {(cameraPermission === 'prompt' || cameraPermission === 'denied') && (
+              <button
+                onClick={() => {
+                  requestCameraPermission();
+                }}
+                disabled={cameraPermission === 'requesting'}
+                className="px-2 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-xs rounded transition-colors"
+              >
+                {cameraPermission === 'requesting' ? 'Wait...' : 'Fix'}
+              </button>
+            )}
+          </div>
+        </div>
+        
+        {/* Status Message */}
+        <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
+          {cameraPermission === 'granted' ? (
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-green-600 dark:text-green-400">✓ Ready for contest</span>
+              <button
+                onClick={() => toast.dismiss(t.id)}
+                className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded transition-colors"
+              >
+                Continue
+              </button>
+            </div>
+          ) : (
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              Camera access required for contest participation
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  ), {
+    duration: cameraPermission === 'granted' ? 4000 : Infinity,
+    position: 'top-center',
+  });
+};
 
 // Waiting Room Component
 const WaitingRoom = () => {
@@ -26,9 +181,9 @@ const WaitingRoom = () => {
   const [cameraError, setCameraError] = useState('');
 
 
-//  useExamProtection((msg) => {
-//  alert(msg);
-//  });
+ useExamProtection((msg) => {
+     toast.error(msg);
+ });
 
   // Enhanced camera permission check for mobile compatibility
   const checkCameraPermission = useCallback(async () => {
@@ -386,7 +541,7 @@ const WaitingRoom = () => {
             </div>
           </div>
 
-          {/* Technical Check */}
+           {/* Technical Check */}
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">System Check</h4>
             <div className="text-sm space-y-3">
@@ -425,7 +580,7 @@ const WaitingRoom = () => {
                   </span>
                   {(cameraPermission === 'prompt' || cameraPermission === 'denied') && (
                     <button
-                      onClick={requestCameraPermission}
+                      onClick={() => showCameraPermissionToast(requestCameraPermission, cameraPermission)}
                       disabled={cameraPermission === 'requesting'}
                       className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-xs rounded transition-colors min-w-[60px]"
                     >

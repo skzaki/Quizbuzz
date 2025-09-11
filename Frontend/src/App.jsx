@@ -1,3 +1,4 @@
+import { Toaster } from 'react-hot-toast';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import AdminRoute from "./components/AdminRoute";
 import Layout from './components/Layout/Layout';
@@ -50,6 +51,68 @@ function App() {
                             {/* <Route path="/exam-protection-test" element={<ExamProtectionTest />} /> */}
 
                 </Routes>
+                 <Toaster
+                    position="top-center"
+                    reverseOrder={false}
+                    gutter={8}
+                    containerClassName=""
+                    containerStyle={{
+                        top: 20,
+                        left: 20,
+                        right: 20,
+                        bottom: 20,
+                    }}
+                    toastOptions={{
+                        // Default options for all toasts
+                        duration: 5000,
+                        style: {
+                            background: '#fff',
+                            color: '#363636',
+                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(0, 0, 0, 0.1)',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            padding: '12px 16px',
+                            maxWidth: '90vw',
+                            wordBreak: 'break-word',
+                        },
+                        // Success toast styling
+                        success: {
+                            duration: 3000,
+                            style: {
+                                background: '#10b981',
+                                color: '#fff',
+                                border: '1px solid #059669',
+                            },
+                            iconTheme: {
+                                primary: '#fff',
+                                secondary: '#10b981',
+                            },
+                        },
+                        // Error toast styling
+                        error: {
+                            duration: 4500,
+                            style: {
+                                background: '#ef4444',
+                                color: '#fff',
+                                border: '1px solid #dc2626',
+                            },
+                            iconTheme: {
+                                primary: '#fff',
+                                secondary: '#ef4444',
+                            },
+                        },
+                        // Loading toast styling
+                        loading: {
+                            style: {
+                                background: '#3b82f6',
+                                color: '#fff',
+                                border: '1px solid #2563eb',
+                            },
+                        },
+                    }}
+                />
                 </BrowserRouter >
             </AuthProvider>
         </ThemeProvider>

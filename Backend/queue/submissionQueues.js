@@ -32,7 +32,7 @@ export const areAllJobsCompleted = async () => {
         "Completed": completed
     };
 
-    console.table(jobStats);
+    console.log(JSON.stringify(jobStats));
 
     return waiting === 0 && active === 0 && delayed === 0;
 }

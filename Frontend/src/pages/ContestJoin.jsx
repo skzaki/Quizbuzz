@@ -8,6 +8,7 @@ import {
     Mail
 } from 'lucide-react';
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import { useNavigate, useSearchParams } from 'react-router-dom'; // Add this import for navigation
 import OTPModal from '../components/OTPModal';
 import TermsAndConditions from '../components/TermsAndConditions';
@@ -61,7 +62,6 @@ const ContestJoin = () => {
         
         const data = await response.json();
         setContestInfo(data);
-        console.table(data);
         
         localStorage.setItem("authToken", data.token);
         
@@ -98,6 +98,7 @@ const ContestJoin = () => {
       // Show OTP modal after successful OTP send
       setIsValidating(false);
       setShowOTPModal(true);
+      toast.success("OTP send successfully");
       
     } catch (error) {
       console.error('Error sending OTP:', error);

@@ -90,11 +90,11 @@ export const useExamProtection = (onViolation, onMaxViolations) => {
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     // Window blur
-    const handleBlur = () => {
-      triggerViolation("🚨 Window focus lost!");
-      forceFullscreen();
-    };
-    window.addEventListener("blur", handleBlur);
+    // const handleBlur = () => {
+    //   triggerViolation("🚨 Window focus lost!");
+    //   forceFullscreen();
+    // };
+    // window.addEventListener("blur", handleBlur);
 
     // Detect forbidden keys
     const handleKeyDown = (e) => {
@@ -124,7 +124,7 @@ export const useExamProtection = (onViolation, onMaxViolations) => {
         document.removeEventListener(evt, disableCopy)
       );
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("blur", handleBlur);
+      // window.removeEventListener("blur", handleBlur);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [onViolation, onMaxViolations]);
