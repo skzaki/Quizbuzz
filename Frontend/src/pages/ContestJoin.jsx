@@ -46,7 +46,7 @@ const ContestJoin = () => {
         body: JSON.stringify({ 
           registrationId: registrationId.trim(),
           phone: phone.trim(),
-          slug: 'quizbuzz-3'
+          slug: 'demo-3'
         })
       });
 

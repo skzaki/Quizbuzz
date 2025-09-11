@@ -45,7 +45,7 @@ const contestSchema = new mongoose.Schema({
     topics: [ { type: String } ],
     rules: [ { type: String } ],
     registerFee: { type: Number, required: true },
-    duration: { type: String },
+    duration: { type: Number },
     cutOff: { type: Number },
     startTime: { type: Date, required: true },
     deadline: { type: Date, required: true },

@@ -17,38 +17,66 @@ export const validateCredentials = async (req, res) => {
     // 1 Validate input
     const parsed = validateCredentialsSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ errors: parsed.error.format() });
+      return res.status(400).json({ 
+        message: "Invalid input data",
+        errors: parsed.error.format() 
+      });
     }
     const { registrationId, phone, slug } = parsed.data;
-
     const { device, userAgent } = extractDeviceInfo(req);
     const ipAddress = req.ip;
 
-    // 2 Check if user exists
-    const user = await User.findOne({ registrationId });
-    if (!user) {
-      return res
-        .status(401)
-        .json({ message: "No User Found, Check your email for the correct credentials" });
-    }
-
-    if (parseInt(phone) !== user.phone) {
-      return res.json({
-        message:
-          "The Register-ID does not match the Phone no, Please enter the same phone no used during the registration",
+    // 2 Check if contest exists
+    const contest = await Contest.findOne({ slug, isDeleted: false });
+    if (!contest) {
+      return res.status(404).json({ 
+        message: "Contest not found. Please check the contest link or contact support." 
       });
     }
 
-    // 3 Invalidate existing active session in DB
+    // 3 Check if user exists
+    const user = await User.findOne({ registrationId });
+    if (!user) {
+      return res.status(401).json({ 
+        message: "No user found. Please check your email for the correct credentials." 
+      });
+    }
+
+    // 4 Verify phone number matches
+    if (parseInt(phone) !== user.phone) {
+      return res.status(400).json({
+        message: "Registration ID does not match the phone number. Please enter the same phone number used during registration."
+      });
+    }
+
+    // 5 Check if user is registered for this contest
+    const isRegistered = contest.participants.includes(user._id);
+    if (!isRegistered) {
+      return res.status(403).json({
+        message: "You are not registered for this contest. Please register first to participate."
+      });
+    }
+
+    // 6 Check if contest is still valid (not over)
+    const now = new Date();
+    const contestEndTime = new Date(contest.startTime.getTime() + (parseInt(contest.duration) * 60 * 1000));
+    
+    if (now > contestEndTime) {
+      return res.status(400).json({
+        message: "Contest is over. You can no longer join this contest."
+      });
+    }
+
+    // 7 Invalidate existing active session in DB
     await Session.updateMany(
       { userId: user._id, isActive: true },
       { $set: { isActive: false, endedAt: new Date() } }
     );
 
-    // 4 Create new session ID
+    // 8 Create new session ID
     const sessionId = crypto.randomUUID();
 
-    // 5 Save to MongoDB
+    // 9 Save to MongoDB
     const newSession = new Session({
       userId: user._id,
       sessionId,
@@ -60,7 +88,7 @@ export const validateCredentials = async (req, res) => {
     });
     await newSession.save();
 
-    // 6 Save to Redis (24 hours TTL)
+    // 10 Save to Redis (24 hours TTL)
     await saveSession(sessionId, {
       userId: user._id.toString(),
       ipAddress,
@@ -69,33 +97,58 @@ export const validateCredentials = async (req, res) => {
       lastActivity: new Date().toISOString(),
     }, 60 * 60 * 24);
 
-    // 7 Generate JWT
+    // 11 Generate JWT
     const token = jwt.sign(
-      { userId: user._id, sessionId, email: user.email, userName: `${user.firstName} ${user.lastName}` },
+      { 
+        userId: user._id, 
+        sessionId, 
+        email: user.email, 
+        userName: `${user.firstName} ${user.lastName}`,
+        contestId: contest._id 
+      },
       process.env.JWT_SECRET,
       { expiresIn: "24h" }
     );
 
+    // 12 Prepare contest response data
+    const contestInfo = {
+      id: contest._id,
+      slug: contest.slug,
+      title: contest.title,
+      description: contest.description,
+      details: contest.details,
+      topics: contest.topics,
+      rules: contest.rules,
+      registerFee: contest.registerFee,
+      duration: contest.duration,
+      cutOff: contest.cutOff,
+      startTime: contest.startTime,
+      deadline: contest.deadline,
+      participants: contest.participants.length,
+      prizes: contest.prizes,
+      totalQuestions: contest.QuestionBank.length
+    };
+
+    // 13 Success response
     res.json({
-      message: "Login successful",
+      message: "Login successful. Welcome to the contest!",
       token,
       userInfo: {
         registrationId: user.registrationId,
-        _id: user._id
-    },
-      contestInfo: {
-        id: "1",
-        slug: "quizbuzz-3",
-        title: "QuizBuzz Demo",
-        startTime: new Date(Date.now() + 2 * 60000),
-        duration: 40,
-        participants: 123,
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email
       },
+      contestInfo
     });
     
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error('validateCredentials error:', error);
+    res.status(500).json({ 
+      message: "Internal server error. Please try again later.", 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
