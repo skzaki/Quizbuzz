@@ -49,7 +49,7 @@ export const authMiddleware = async (req, res, next) => {
         req.user = decoded;
         req.sessionId = decoded.sessionId;
         req.token = token;
-        
+        console.log(`userId:${req.user.userId}`);
         next();
     } catch (error) {
         console.error("Auth middleware error:", error.message); 
