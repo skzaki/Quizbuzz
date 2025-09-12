@@ -26,24 +26,26 @@ const WaitingRoom = () => {
 
   useExamProtection((msg) => toast.error(msg));
 
-  // Simple camera request
+  // Request camera permission (no preview, just check access)
   const requestCameraPermission = async () => {
     try {
       setCameraError("");
       setCameraPermission("requesting");
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
+      const constraints = {
         audio: false,
-      });
+        video: { facingMode: "user" },
+      };
 
-      // If we got here, camera works
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      // Ensure a video track exists
       const tracks = stream.getVideoTracks();
       if (!tracks || tracks.length === 0) {
         throw new Error("No camera found on this device");
       }
 
-      // Stop stream immediately (just unlocking permission)
+      // Stop stream immediately – only needed to trigger permission
       stream.getTracks().forEach((track) => track.stop());
 
       setCameraPermission("granted");
@@ -96,11 +98,11 @@ const WaitingRoom = () => {
       });
     });
 
-    socket.on("participant-joined", ({ userId }) => {
+    socket.on("participant-joined", () => {
       setParticipants((prev) => prev + 1);
     });
 
-    socket.on("participant-left", ({ userId }) => {
+    socket.on("participant-left", () => {
       setParticipants((prev) => Math.max(prev - 1, 0));
     });
 
