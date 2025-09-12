@@ -695,13 +695,6 @@ const renderVideoElement = () => (
     <video 
       ref={videoRef}
       // iOS CRITICAL attributes
-      autoPlay
-      muted
-      playsInline
-      webkit-playsinline="true"
-      controls={false}
-      preload="metadata"
-      defaultMuted
       // Styling
       className="w-full h-full object-cover"
     />
