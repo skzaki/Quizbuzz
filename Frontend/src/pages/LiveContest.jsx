@@ -177,12 +177,14 @@ const getQuestions = async () => {
           video.src = window.URL.createObjectURL(localMediaStream);
         }
         video.play();
-        setCameraEnabled(true);
+        
       })
       .catch((err) => {
         console.error("❌ Camera error:", err);
         toast.error("Unable to access camera. Please allow camera permission.");
       });
+
+      setCameraEnabled(true);
 
     const paintToCanvas = () => {
       const width = video.videoWidth;
@@ -704,7 +706,7 @@ const renderVideoElement = () => (
     )}
 
     {/* Recording Indicator */}
-    {cameraEnabled && !playFallback && (
+    {cameraEnabled && (
       <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-medium animate-pulse">
         REC
       </div>

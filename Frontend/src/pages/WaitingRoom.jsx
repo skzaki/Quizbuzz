@@ -1,9 +1,8 @@
 import {
-    ArrowLeft,
     Calendar,
     CheckCircle,
     Clock,
-    Trophy,
+    Trophy
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
@@ -183,10 +182,6 @@ const WaitingRoom = () => {
     });
   }, [contestInfo, navigate]);
 
-  const handleBackToJoin = useCallback(() => {
-    navigate("/contest/join");
-  }, [navigate]);
-
   const formatTimeUnit = (value) => value.toString().padStart(2, "0");
 
   if (!isInitialized || !contestInfo) {
@@ -205,13 +200,6 @@ const WaitingRoom = () => {
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <button
-            onClick={handleBackToJoin}
-            className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-            <span className="text-sm">Back to Join</span>
-          </button>
 
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">
             Waiting Room
