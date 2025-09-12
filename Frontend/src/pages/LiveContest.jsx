@@ -325,6 +325,43 @@ useEffect(() => {
     }
   }, [proctoringWarning, faceMonitorStatus]);
 
+useEffect(() => {
+  console.log("📸 Mounting camera effect…");
+  const startCamera = async () => {
+    if (!videoRef.current) return;
+
+    try {
+      console.log("🎥 Requesting user media...");
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user" },
+        audio: false, // ✅ disable if you don’t need audio
+      });
+
+      const video = videoRef.current;
+      video.setAttribute("playsinline", "true");
+      video.muted = true;
+      video.srcObject = stream;
+
+      video.onloadeddata = () => {
+        console.log("🎥 Video loaded, trying play()");
+      };
+
+      try {
+        await video.play();
+        console.log("✅ Video playing");
+      } catch (err) {
+        console.warn("⚠️ Autoplay blocked:", err);
+        setPlayFallback(true); // show "Tap to start" overlay
+      }
+    } catch (err) {
+      console.error("❌ getUserMedia failed:", err);
+    }
+  };
+
+  startCamera();
+}, []);
+
+
 // FIXED LiveContest.jsx - initializeProctoring function
 const initializeProctoring = async () => {
   try {

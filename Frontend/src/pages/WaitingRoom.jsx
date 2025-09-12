@@ -187,6 +187,9 @@ const WaitingRoom = () => {
      toast.error(msg);
  });
 
+
+ 
+
   // Enhanced camera permission check for mobile compatibility
   const checkCameraPermission = useCallback(async () => {
     try {
