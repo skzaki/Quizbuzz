@@ -1,14 +1,14 @@
 import CryptoJS from "crypto-js";
-import { ArrowRight, Clock } from 'lucide-react';
+import { ArrowRight, CameraOff, Clock } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import toast from "react-hot-toast";
 import { useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import ThankYouScreen from "../components/LiveContest/ThankYouScreen.jsx";
-import { stopFaceMonitor } from '../services/faceMonitor.js';
+import { startFaceMonitor, stopFaceMonitor } from '../services/faceMonitor.js';
+import { useExamProtection } from './../hooks/useExamProtection';
 
-
-const calculateTimeLeft = (contestInfo) => {
+  const calculateTimeLeft = (contestInfo) => {
   const now = new Date();
   const contestStartTime = new Date(contestInfo.startTime);
   const durationInMinutes = parseInt(contestInfo.duration);
@@ -54,7 +54,6 @@ const LiveContest = () => {
   const [submissionAttempt, setSubmissionAttempt] = useState(1);
   const [submissionId, setSubmissionId] = useState();
   const [jobId, setJobId] = useState();
-  const [playFallback, setPlayFallback] = useState(false);
   
   // Camera and proctoring states
   const [cameraEnabled, setCameraEnabled] = useState(false);
@@ -66,7 +65,7 @@ const LiveContest = () => {
   // Get contest info from navigation state
   const userInfo = useRef({});
   const contestInfo = useRef({});
-  const canvasRef = useRef(null);
+
 
 
 const getQuestions = async () => {
@@ -143,66 +142,16 @@ const getQuestions = async () => {
   }
 };
 
-//   useExamProtection(
-//        (msg) => {
-//           toast.error(msg); 
-//        },
-//        () => {
-//           toast.error("Too many violations! Submitting quiz...")
-//           handleSubmitContest(); 
-//        }
-//    );
+  useExamProtection(
+       (msg) => {
+          toast.error(msg); 
+       },
+       () => {
+          toast.error("Too many violations! Submitting quiz...")
+          handleSubmitContest(); 
+       }
+   );
 
-    // === CAMERA + PREVIEW ===
-  useEffect(() => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
-
-    const ctx = canvas.getContext("2d");
-
-    // iOS Safari fix
-    video.setAttribute("autoplay", "");
-    video.setAttribute("muted", "");
-    video.setAttribute("playsinline", "");
-
-    const constraints = { audio: false, video: { facingMode: "user" } };
-
-    navigator.mediaDevices
-      .getUserMedia(constraints)
-      .then((localMediaStream) => {
-        if ("srcObject" in video) {
-          video.srcObject = localMediaStream;
-        } else {
-          video.src = window.URL.createObjectURL(localMediaStream);
-        }
-        video.play();
-        
-      })
-      .catch((err) => {
-        console.error("❌ Camera error:", err);
-        toast.error("Unable to access camera. Please allow camera permission.");
-      });
-
-      setCameraEnabled(true);
-
-    const paintToCanvas = () => {
-      const width = video.videoWidth;
-      const height = video.videoHeight;
-      canvas.width = width;
-      canvas.height = height;
-
-      return setInterval(() => {
-        ctx.drawImage(video, 0, 0, width, height);
-      }, 16);
-    };
-
-    video.addEventListener("canplay", paintToCanvas);
-
-    return () => {
-      video.removeEventListener("canplay", paintToCanvas);
-    };
-  }, []);
   
  // WebSocket
   useEffect(() => {
@@ -279,7 +228,32 @@ const getQuestions = async () => {
 
   const totalQuestions = questions.length;
 
-
+  // Initialize camera and WebSocket connection
+  useEffect(() => {
+    initializeProctoring();
+    
+    return () => {
+      console.log('Cleaning up proctoring resources...');
+      
+      // Stop face monitoring first
+      try {
+        stopFaceMonitor();
+      } catch (error) {
+        console.warn('Error stopping face monitor:', error);
+      }
+      
+      // Stop media tracks
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => {
+          try {
+            track.stop();
+          } catch (error) {
+            console.warn('Error stopping media track:', error);
+          }
+        });
+      }
+    };
+  }, []);
 
   // Timer effect
   useEffect(() => {
@@ -346,6 +320,9 @@ useEffect(() => {
         return () => clearInterval(autoSave);
     }, [answers, questions, currentQuestion]);
 
+
+
+
   // Auto-clear certain warnings
   useEffect(() => {
     if (proctoringWarning && 
@@ -364,6 +341,116 @@ useEffect(() => {
   }, [proctoringWarning, faceMonitorStatus]);
 
 
+
+
+  // Enhanced camera initialization for proctoring
+  const initializeProctoring = async () => {
+    try {
+      setFaceMonitorStatus('loading');
+      
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+            width: { ideal: 320 },
+            height: { ideal: 260},
+            facingMode: { ideal: "user"}
+        },
+        audio: true
+      });
+
+      setMediaStream(stream);
+      setCameraEnabled(true);
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+
+        // Wait for video to be fully ready
+        const initializeFaceMonitor = () => {
+          return new Promise((resolve, reject) => {
+            const video = videoRef.current;
+            
+            if (video.readyState >= 2) {
+              // Video is already ready
+              resolve();
+            } else {
+              // Wait for video to load
+              const onLoadedData = () => {
+                video.removeEventListener('loadeddata', onLoadedData);
+                video.removeEventListener('error', onError);
+                resolve();
+              };
+              
+              const onError = () => {
+                video.removeEventListener('loadeddata', onLoadedData);
+                video.removeEventListener('error', onError);
+                reject(new Error('Video failed to load'));
+              };
+              
+              video.addEventListener('loadeddata', onLoadedData);
+              video.addEventListener('error', onError);
+              
+              // Timeout after 10 seconds
+              setTimeout(() => {
+                video.removeEventListener('loadeddata', onLoadedData);
+                video.removeEventListener('error', onError);
+                reject(new Error('Video loading timeout'));
+              }, 8000);
+            }
+          });
+        };
+
+        try {
+          await initializeFaceMonitor();
+          
+            await startFaceMonitor({
+                videoEl: videoRef.current,
+                onWarning: (msg) => {
+                    setProctoringWarning(msg);
+                    setFaceMonitorStatus('warning');
+
+                    setWarningCount(prev => {
+                    const newCount = prev + 1;
+                    if (newCount >= 20) {
+                        handleSubmitContest();
+                    } else if ([5, 4, 3, 2, 1].includes(20 - newCount)) {
+                        toast.error(`You have last ${20 - newCount} warning(s) left & after that quiz will be auto submit`);
+                    }
+                    return newCount;
+                    });
+                },
+                onClear: () => {
+                    setProctoringWarning('');
+                    setFaceMonitorStatus('active');
+                }
+            });
+          
+          setFaceMonitorStatus('active');
+          console.log('Face monitoring started successfully');
+          
+        } catch (faceMonitorError) {
+          console.error('Face monitoring failed:', faceMonitorError);
+          setFaceMonitorStatus('error');
+          setProctoringWarning('⚠️ Face monitoring unavailable - please refresh the page');
+        }
+      }
+
+    
+      
+    } catch (error) {
+      console.error('Error accessing camera/microphone:', error);
+      setFaceMonitorStatus('error');
+      
+      // More specific error messages
+      if (error.name === 'NotAllowedError') {
+        setProctoringWarning('⛔ Camera access denied. Please allow camera permissions and refresh.');
+      } else if (error.name === 'NotFoundError') {
+        setProctoringWarning('⛔ No camera found. Please connect a camera and refresh.');
+      } else if (error.name === 'NotReadableError') {
+        setProctoringWarning('⛔ Camera is being used by another application. Please close other apps and refresh.');
+      } else {
+        setProctoringWarning('⛔ Failed to access camera. Please check your device and refresh.');
+      }
+    }
+  };
 
   // Enhanced proctoring status renderer
   const renderProctoringStatus = () => {
@@ -614,6 +701,8 @@ useEffect(() => {
   const currentQ = questions[currentQuestion];
   const answeredCount = answers.filter(a => a !== null).length;
   const progress = totalQuestions > 0 ? ((currentQuestion + 1) / totalQuestions) * 100 : 0;
+  
+  
 
 
   // Loading screen for questions
@@ -691,33 +780,6 @@ if (showThankYou) {
     <ThankYouScreen/>
 )
 }
-// FIXED LiveContest.jsx - Video Element JSX with enhanced iOS support
-const renderVideoElement = () => (
-  <div className="relative bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden h-full lg:h-48 max-w-xs mx-auto lg:max-w-none lg:mx-0">
-    <video  ref={videoRef}   />
-
-    
-
-    {/* Camera Off State */}
-    {/* {!cameraEnabled && (
-      <div className="absolute inset-0 flex items-center justify-center bg-gray-900/75">
-        <CameraOff className="h-8 w-8 text-gray-400" />
-      </div>
-    )} */}
-
-    {/* Recording Indicator */}
-    {cameraEnabled && (
-      <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-medium animate-pulse">
-        REC
-      </div>
-    )}
-
-    {/* Proctoring status overlay */}
-    {/* <div className="absolute bottom-0 left-0 right-0 p-2">
-      {renderProctoringStatus()}
-    </div> */}
-  </div>
-);
 
 
 
@@ -766,10 +828,26 @@ const renderVideoElement = () => (
           <div className="w-full h-full lg:space-y-4">
             {/* Camera Feed */}
             <div className="relative bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden h-full lg:h-48 max-w-xs mx-auto lg:max-w-none lg:mx-0">
-              <div className="w-full h-full lg:space-y-4">
-                
-                    {renderVideoElement()}
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                muted 
+                playsInline
+                className="w-full h-full object-cover lg:object-cover"
+                style={{ transform: 'scaleX(-1)' }} 
+              />
+              {!cameraEnabled && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">
+                  <CameraOff className="h-8 w-8 text-gray-400" />
                 </div>
+              )}
+              {cameraEnabled && (
+                <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">REC</div>
+              )}
+              {/* Overlay proctoring status */}
+              <div className="absolute bottom-0 left-0 right-0 p-2">
+                {renderProctoringStatus()}
+              </div>
             </div>
           </div>
         </div>
@@ -875,8 +953,6 @@ const renderVideoElement = () => (
           </div>
         </div>
       )}
-
-
     </div>
   );
 
