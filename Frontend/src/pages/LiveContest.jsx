@@ -177,6 +177,7 @@ const getQuestions = async () => {
           video.src = window.URL.createObjectURL(localMediaStream);
         }
         video.play();
+        setCameraEnabled(true);
       })
       .catch((err) => {
         console.error("❌ Camera error:", err);
@@ -691,32 +692,9 @@ if (showThankYou) {
 // FIXED LiveContest.jsx - Video Element JSX with enhanced iOS support
 const renderVideoElement = () => (
   <div className="relative bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden h-full lg:h-48 max-w-xs mx-auto lg:max-w-none lg:mx-0">
-    <video 
-      ref={videoRef}
-      // iOS CRITICAL attributes
-      // Styling
-      className="w-full h-full object-cover"
-    />
+    <video  ref={videoRef}  className="w-full h-full object-cover" />
 
-    {/* iOS Fallback */}
-    {playFallback && (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white">
-        <div className="text-center p-4">
-          <div className="mb-4">
-            <svg className="w-12 h-12 mx-auto text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <p className="text-sm mb-4">Tap to start camera</p>
-          <button
-            onClick={handleVideoPlayFallback}
-            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-md font-medium transition-colors"
-          >
-            🎥 Start Camera
-          </button>
-        </div>
-      </div>
-    )}
+    
 
     {/* Camera Off State */}
     {!cameraEnabled && (
@@ -733,9 +711,9 @@ const renderVideoElement = () => (
     )}
 
     {/* Proctoring status overlay */}
-    <div className="absolute bottom-0 left-0 right-0 p-2">
+    {/* <div className="absolute bottom-0 left-0 right-0 p-2">
       {renderProctoringStatus()}
-    </div>
+    </div> */}
   </div>
 );
 
