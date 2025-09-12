@@ -694,7 +694,7 @@ if (showThankYou) {
 // FIXED LiveContest.jsx - Video Element JSX with enhanced iOS support
 const renderVideoElement = () => (
   <div className="relative bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden h-full lg:h-48 max-w-xs mx-auto lg:max-w-none lg:mx-0">
-    <video  ref={videoRef}  className="w-full h-full object-cover" />
+    <video  ref={videoRef}   />
 
     
 
