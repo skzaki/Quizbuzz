@@ -69,18 +69,16 @@ const LiveContest = () => {
   const contestInfo = useRef({});
 
 const ensureVideoPlaying = async () => {
-  if (!videoRef.current) return;
+    if (!videoRef.current) return;
 
-  try {
-    // Try autoplay
-    await videoRef.current.play();
-    setPlayFallback(false); // success, no button needed
-  } catch (err) {
-    console.warn("Video autoplay blocked on iOS, requiring user gesture:", err);
-    toast.error("Please Allow/Enable Camera Permission");
-    setPlayFallback(true); // show button to user
-  }
-};
+    try {
+      await videoRef.current.play();
+      setPlayFallback(false);
+    } catch (err) {
+      console.warn("Autoplay blocked on iOS, requiring user gesture:", err);
+      setPlayFallback(true); // show button overlay
+    }
+  };
 
 const getQuestions = async () => {
   try {
@@ -243,35 +241,18 @@ const getQuestions = async () => {
   const totalQuestions = questions.length;
 
   // Initialize camera and WebSocket connection
-  useEffect(() => {
-    // initializeProctoring();
-
-    if (navigator.mediaDevices && mediaStream === null) {
-        initializeProctoring();
+   useEffect(() => {
+    if (!mediaStream) {
+      initializeProctoring();
     }
-    
     return () => {
-      console.log('Cleaning up proctoring resources...');
-      
-      // Stop face monitoring first
-      try {
-        stopFaceMonitor();
-      } catch (error) {
-        console.warn('Error stopping face monitor:', error);
-      }
-      
-      // Stop media tracks
       if (mediaStream) {
-        mediaStream.getTracks().forEach(track => {
-          try {
-            track.stop();
-          } catch (error) {
-            console.warn('Error stopping media track:', error);
-          }
-        });
+        mediaStream.getTracks().forEach((track) => track.stop());
       }
+      stopFaceMonitor();
     };
-  }, []);
+  }, [mediaStream]);
+
 
   // Timer effect
   useEffect(() => {
@@ -361,36 +342,39 @@ useEffect(() => {
 
 
 
-  const initializeProctoring = async () => {
-  try {
-    setFaceMonitorStatus('loading');
+const initializeProctoring = async () => {
+    try {
+      setFaceMonitorStatus("loading");
 
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { 
-        width: { ideal: 320 },
-        height: { ideal: 260 },
-        facingMode: "user"
+      // ✅ Only request video, no audio (fix for iOS Safari blank screen)
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user" },
+      });
+
+      setMediaStream(stream);
+      setCameraEnabled(true);
+
+      if (videoRef.current) {
+        const video = videoRef.current;
+        video.srcObject = stream;
+
+        // iOS-specific requirements
+        video.setAttribute("playsinline", true);
+        video.muted = true;
+        video.autoplay = true;
+
+        await ensureVideoPlaying(); // 👈 Try autoplay, or show fallback
       }
 
-    });
-
-    setMediaStream(stream);
-    setCameraEnabled(true);
-
-    if (videoRef.current) {
-      const video = videoRef.current;
-      video.srcObject = stream;
-      video.setAttribute("playsinline", true); // iOS specific
-      await ensureVideoPlaying(); 
-
+      // Start face monitor
       try {
         await startFaceMonitor({
           videoEl: videoRef.current,
           onWarning: (msg) => {
             setProctoringWarning(msg);
-            setFaceMonitorStatus('warning');
+            setFaceMonitorStatus("warning");
 
-            setWarningCount(prev => {
+            setWarningCount((prev) => {
               const newCount = prev + 1;
               if (newCount >= 20) {
                 handleSubmitContest();
@@ -403,34 +387,43 @@ useEffect(() => {
             });
           },
           onClear: () => {
-            setProctoringWarning('');
-            setFaceMonitorStatus('active');
-          }
+            setProctoringWarning("");
+            setFaceMonitorStatus("active");
+          },
         });
 
-        setFaceMonitorStatus('active');
-        console.log('Face monitoring started successfully');
+        setFaceMonitorStatus("active");
+        console.log("✅ Face monitoring started");
       } catch (faceMonitorError) {
-        console.error('Face monitoring failed:', faceMonitorError);
-        setFaceMonitorStatus('error');
-        setProctoringWarning('⚠️ Face monitoring unavailable - please refresh the page');
+        console.error("Face monitoring failed:", faceMonitorError);
+        setFaceMonitorStatus("error");
+        setProctoringWarning(
+          "⚠️ Face monitoring unavailable - please refresh the page"
+        );
+      }
+    } catch (error) {
+      console.error("Error accessing camera:", error);
+      setFaceMonitorStatus("error");
+
+      if (error.name === "NotAllowedError") {
+        setProctoringWarning(
+          "⛔ Camera access denied. Please allow camera permissions and refresh."
+        );
+      } else if (error.name === "NotFoundError") {
+        setProctoringWarning(
+          "⛔ No camera found. Please connect a camera and refresh."
+        );
+      } else if (error.name === "NotReadableError") {
+        setProctoringWarning(
+          "⛔ Camera is being used by another app. Please close other apps and refresh."
+        );
+      } else {
+        setProctoringWarning(
+          "⛔ Failed to access camera. Please check your device and refresh."
+        );
       }
     }
-  } catch (error) {
-    console.error('Error accessing camera:', error);
-    setFaceMonitorStatus('error');
-
-    if (error.name === 'NotAllowedError') {
-      setProctoringWarning('⛔ Camera access denied. Please allow camera permissions and refresh.');
-    } else if (error.name === 'NotFoundError') {
-      setProctoringWarning('⛔ No camera found. Please connect a camera and refresh.');
-    } else if (error.name === 'NotReadableError') {
-      setProctoringWarning('⛔ Camera is being used by another application. Please close other apps and refresh.');
-    } else {
-      setProctoringWarning('⛔ Failed to access camera. Please check your device and refresh.');
-    }
-  }
-};
+  };
 
   // Enhanced proctoring status renderer
   const renderProctoringStatus = () => {

@@ -23,9 +23,9 @@ router.post("/validate-credentials", validateCredentials);
 
 router.get('/:contestId/leaderboard', getContestLeaderboard);
 // Authenticated Participant Routes
+router.get("/:contestSlug/questions", getContestQuestions);
 router.use(authMiddleware);
 
-router.get("/:contestSlug/questions", getContestQuestions);
 router.post("/:contestSlug/submit", submitContest);
 
 router.get("/:submissionId/status", getSubmissionStatus);

@@ -172,7 +172,8 @@ export const getContestQuestions = async (req, res) => {
         
         return res.json({
             message: "Fetch Ques success",
-            questions: Ques[0].QuestionBank
+            questions: Ques[0].QuestionBank,
+            quesCount: Ques[0].QuestionBank.length
         })
 
     } catch(error) {
