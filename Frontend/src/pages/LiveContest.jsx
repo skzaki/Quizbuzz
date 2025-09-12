@@ -6,7 +6,6 @@ import { useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import ThankYouScreen from "../components/LiveContest/ThankYouScreen.jsx";
 import { stopFaceMonitor } from '../services/faceMonitor.js';
-import { useExamProtection } from './../hooks/useExamProtection';
 
 
 const calculateTimeLeft = (contestInfo) => {
@@ -144,15 +143,15 @@ const getQuestions = async () => {
   }
 };
 
-  useExamProtection(
-       (msg) => {
-          toast.error(msg); 
-       },
-       () => {
-          toast.error("Too many violations! Submitting quiz...")
-          handleSubmitContest(); 
-       }
-   );
+//   useExamProtection(
+//        (msg) => {
+//           toast.error(msg); 
+//        },
+//        () => {
+//           toast.error("Too many violations! Submitting quiz...")
+//           handleSubmitContest(); 
+//        }
+//    );
 
     // === CAMERA + PREVIEW ===
   useEffect(() => {
