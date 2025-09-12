@@ -325,291 +325,357 @@ useEffect(() => {
     }
   }, [proctoringWarning, faceMonitorStatus]);
 
-// Enhanced iOS-compatible camera initialization
+// FIXED LiveContest.jsx - initializeProctoring function
 const initializeProctoring = async () => {
   try {
     setFaceMonitorStatus("loading");
 
-    // Critical: Check if we're on iOS
+    // Enhanced iOS detection
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+    const isChrome = /Chrome/.test(navigator.userAgent);
     
-    console.log(`Device detection - iOS: ${isIOS}, Safari: ${isSafari}`);
+    console.log(`📱 Device detection - iOS: ${isIOS}, Safari: ${isSafari}, Chrome: ${isChrome}`);
 
-    // iOS-specific video element setup BEFORE getUserMedia
-    if (videoRef.current) {
-      const video = videoRef.current;
-      
-      // Remove any existing srcObject first
-      if (video.srcObject) {
-        video.srcObject.getTracks().forEach(track => track.stop());
-        video.srcObject = null;
-      }
-      
-      // Critical iOS attributes - must be set BEFORE getting stream
-      video.setAttribute("playsinline", "true");
-      video.setAttribute("muted", "true");
-      video.setAttribute("autoplay", "true");
-      video.setAttribute("webkit-playsinline", "true");
-      
-      // Direct property assignment (iOS requires both)
-      video.playsInline = true;
-      video.muted = true;
-      video.autoplay = true;
-      
-      // iOS-specific styling to prevent blank screen
-      video.style.display = 'block';
-      video.style.width = '100%';
-      video.style.height = '100%';
-      video.style.objectFit = 'cover';
-      video.style.backgroundColor = 'black'; // Prevents white flash
-      
-      // Force hardware acceleration on iOS
-      video.style.webkitTransform = 'translateZ(0)';
-      video.style.transform = 'translateZ(0) scaleX(-1)';
+    // CRITICAL: Prepare video element BEFORE getting stream
+    if (!videoRef.current) {
+      throw new Error('Video element not available');
     }
 
-    // iOS-optimized constraints
+    const video = videoRef.current;
+    
+    // Clean up any existing stream
+    if (video.srcObject) {
+      const oldStream = video.srcObject;
+      oldStream.getTracks().forEach(track => track.stop());
+      video.srcObject = null;
+    }
+    
+    // CRITICAL: Set iOS attributes BEFORE getUserMedia
+    console.log('🔧 Configuring video element for iOS...');
+    
+    // Attribute method (for compatibility)
+    video.setAttribute("playsinline", "true");
+    video.setAttribute("muted", "true"); 
+    video.setAttribute("autoplay", "true");
+    video.setAttribute("webkit-playsinline", "true");
+    video.setAttribute("controls", "false");
+    video.setAttribute("preload", "metadata");
+    
+    // Property method (iOS requires both)
+    video.playsInline = true;
+    video.muted = true;
+    video.autoplay = true;
+    video.controls = false;
+    video.defaultMuted = true; // Important for iOS
+    
+    // iOS-critical styling
+    video.style.display = 'block';
+    video.style.width = '100%';
+    video.style.height = '100%';
+    video.style.objectFit = 'cover';
+    video.style.backgroundColor = '#000'; // Prevents white flash
+    video.style.webkitTransform = 'translateZ(0) scaleX(-1)';
+    video.style.transform = 'translateZ(0) scaleX(-1)';
+    
+    console.log('✅ Video element configured for iOS');
+
+    // iOS-optimized camera constraints
     const baseConstraints = {
       video: {
-        facingMode: "user",
-        // iOS-safe resolutions
+        facingMode: 'user',
         width: { ideal: 640, max: 1280 },
         height: { ideal: 480, max: 720 }
       },
-      audio: false // Never request audio on iOS for camera-only apps
+      audio: false // NEVER request audio
     };
 
-    // Simplified constraints for problematic iOS versions
     const fallbackConstraints = {
-      video: { facingMode: "user" },
+      video: { facingMode: 'user' },
       audio: false
     };
 
-    console.log("Starting camera initialization...");
+    console.log('📹 Requesting camera stream...');
 
     let stream;
     try {
-      // Try with full constraints first
       stream = await navigator.mediaDevices.getUserMedia(baseConstraints);
-      console.log("✅ Camera accessed with full constraints");
+      console.log('✅ Camera stream obtained with base constraints');
     } catch (error) {
-      console.warn("⚠️ Full constraints failed, trying fallback:", error.message);
+      console.warn('⚠️ Base constraints failed, trying fallback:', error.message);
       
-      if (error.name === "OverconstrainedError" || error.name === "NotReadableError") {
-        // Try with minimal constraints
+      if (error.name === 'OverconstrainedError' || error.name === 'NotReadableError') {
         stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
-        console.log("✅ Camera accessed with fallback constraints");
+        console.log('✅ Camera stream obtained with fallback constraints');
       } else {
-        throw error; // Re-throw other errors
+        throw error;
       }
     }
 
-    // Verify we got video tracks
+    // Verify stream
     const videoTracks = stream.getVideoTracks();
     if (videoTracks.length === 0) {
-      throw new Error("No video track available");
+      stream.getTracks().forEach(track => track.stop());
+      throw new Error('No video track available');
     }
 
-    console.log(`✅ Got ${videoTracks.length} video track(s)`);
+    console.log(`✅ Stream ready with ${videoTracks.length} video track(s)`);
     
+    // Update states
     setMediaStream(stream);
     setCameraEnabled(true);
 
-    if (videoRef.current) {
-      const video = videoRef.current;
-      
-      // Set srcObject
-      video.srcObject = stream;
-      
-      // iOS-specific play handling
-      const playVideo = () => {
-        return new Promise((resolve, reject) => {
-          const attemptPlay = async () => {
-            try {
-              // Wait for video to be ready
-              if (video.readyState < 2) {
-                console.log("⏳ Waiting for video metadata...");
-                return false;
-              }
+    // CRITICAL: Set srcObject and handle iOS playback
+    video.srcObject = stream;
+    
+    console.log('🔗 Stream attached to video element');
 
-              // Attempt to play
-              const playPromise = video.play();
-              
-              if (playPromise !== undefined) {
-                await playPromise;
-                console.log("✅ Video playing successfully");
-                setPlayFallback(false);
-                resolve(true);
-                return true;
-              } else {
-                // Older browsers without play() promise
-                console.log("✅ Video started (legacy browser)");
-                setPlayFallback(false);
-                resolve(true);
-                return true;
-              }
-            } catch (playError) {
-              console.warn("⚠️ Play attempt failed:", playError.message);
-              
-              if (playError.name === "NotAllowedError") {
-                // iOS requires user interaction
-                console.log("📱 iOS requires user gesture");
-                setPlayFallback(true);
-                resolve(true); // Don't fail, just show fallback button
-                return true;
-              } else if (playError.name === "AbortError") {
-                // Play was interrupted, try again
-                console.log("🔄 Play interrupted, retrying...");
-                return false;
-              } else {
-                throw playError;
-              }
-            }
-          };
-
-          // Handle metadata loading
-          const onLoadedMetadata = async () => {
-            console.log("📊 Video metadata loaded");
-            const success = await attemptPlay();
-            if (success) return;
-            
-            // If first attempt failed, try once more
-            setTimeout(async () => {
-              const retrySuccess = await attemptPlay();
-              if (!retrySuccess) {
-                console.warn("⚠️ Both play attempts failed");
-                setPlayFallback(true);
-                resolve(true);
-              }
-            }, 500);
-          };
-
-          const onError = (error) => {
-            console.error("❌ Video error:", error);
-            reject(new Error("Video playback failed"));
-          };
-
-          // Set up event listeners
-          video.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
-          video.addEventListener('error', onError, { once: true });
-
-          // Fallback timeout
-          setTimeout(() => {
-            console.warn("⏰ Video setup timeout, trying play anyway");
-            attemptPlay().then(success => {
-              if (!success) {
-                setPlayFallback(true);
-              }
-              resolve(true);
-            });
-          }, 3000);
-
-          // If metadata is already loaded, start immediately
-          if (video.readyState >= 1) {
-            console.log("📊 Metadata already loaded");
-            onLoadedMetadata();
+    // iOS-specific playback handling
+    const startPlayback = () => {
+      return new Promise((resolve) => {
+        let playbackResolved = false;
+        
+        const resolveOnce = (success) => {
+          if (!playbackResolved) {
+            playbackResolved = true;
+            resolve(success);
           }
-        });
-      };
+        };
 
-      await playVideo();
-    }
-
-    // Start face monitoring with error handling
-    try {
-      await startFaceMonitor({
-        videoEl: videoRef.current,
-        onWarning: (msg) => {
-          setProctoringWarning(msg);
-          setFaceMonitorStatus("warning");
-
-          setWarningCount((prev) => {
-            const newCount = prev + 1;
-            if (newCount >= 15) {
-              handleSubmitContest();
-            } else if ([5, 4, 3, 2, 1].includes(15 - newCount)) {
-              toast.error(
-                `You have last ${15 - newCount} warning(s) left & after that quiz will be auto submit`
-              );
+        // Multiple strategies for iOS playback
+        const attemptPlay = async () => {
+          try {
+            console.log('🎬 Attempting video playback...');
+            console.log('📊 Video state - readyState:', video.readyState, 'paused:', video.paused);
+            
+            // Wait for minimum readyState
+            if (video.readyState < 2) {
+              console.log('⏳ Waiting for video metadata...');
+              return false;
             }
-            return newCount;
-          });
-        },
-        onClear: () => {
-          setProctoringWarning("");
-          setFaceMonitorStatus("active");
-        },
+
+            // Ensure video is still muted and has playsInline
+            video.muted = true;
+            video.playsInline = true;
+
+            const playPromise = video.play();
+            
+            if (playPromise && typeof playPromise.then === 'function') {
+              await playPromise;
+              console.log('✅ Video playing via Promise');
+              setPlayFallback(false);
+              resolveOnce(true);
+              return true;
+            } else {
+              // Legacy browsers
+              console.log('✅ Video started (legacy browser)');
+              setPlayFallback(false);
+              resolveOnce(true);
+              return true;
+            }
+            
+          } catch (playError) {
+            console.warn('⚠️ Play attempt failed:', playError.name, playError.message);
+            
+            if (playError.name === 'NotAllowedError') {
+              console.log('📱 iOS requires user interaction for autoplay');
+              setPlayFallback(true);
+              resolveOnce(true); // Don't fail, show button
+              return true;
+            } else if (playError.name === 'AbortError') {
+              console.log('🔄 Play was aborted, will retry...');
+              return false; // Retry
+            } else {
+              throw playError;
+            }
+          }
+        };
+
+        // Event handlers for iOS compatibility
+        const onLoadedMetadata = async () => {
+          console.log('📊 Video metadata loaded');
+          const success = await attemptPlay();
+          if (!success) {
+            // Retry after short delay
+            setTimeout(attemptPlay, 200);
+          }
+        };
+
+        const onCanPlay = async () => {
+          console.log('📊 Video can play');
+          if (video.readyState >= 3) {
+            const success = await attemptPlay();
+            if (!success) {
+              setTimeout(attemptPlay, 200);
+            }
+          }
+        };
+
+        const onPlaying = () => {
+          console.log('✅ Video is playing');
+          setPlayFallback(false);
+          resolveOnce(true);
+        };
+
+        const onError = (event) => {
+          console.error('❌ Video error:', event);
+          setFaceMonitorStatus("error");
+          setProctoringWarning("Video playback error");
+          resolveOnce(false);
+        };
+
+        // Set up event listeners
+        video.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
+        video.addEventListener('canplay', onCanPlay, { once: true });
+        video.addEventListener('playing', onPlaying, { once: true });
+        video.addEventListener('error', onError, { once: true });
+
+        // Immediate attempt if ready
+        if (video.readyState >= 1) {
+          console.log('📊 Video metadata already loaded, attempting play');
+          setTimeout(onLoadedMetadata, 0);
+        }
+
+        // Fallback timeout
+        setTimeout(() => {
+          if (!playbackResolved) {
+            console.log('⏰ Playback timeout, showing manual button');
+            setPlayFallback(true);
+            resolveOnce(true);
+          }
+        }, 5000);
       });
+    };
 
-      setFaceMonitorStatus("active");
-      console.log("✅ Face monitoring started successfully");
+    // Start playback
+    const playbackSuccess = await startPlayback();
+    
+    if (playbackSuccess) {
+      console.log('✅ Video playback initialized');
+      
+      // Start face monitoring only after successful video setup
+      try {
+        await startFaceMonitor({
+          videoEl: video,
+          onWarning: (msg) => {
+            console.warn('👁️ Face monitor warning:', msg);
+            setProctoringWarning(msg);
+            setFaceMonitorStatus("warning");
 
-    } catch (faceMonitorError) {
-      console.error("❌ Face monitoring failed:", faceMonitorError);
-      setFaceMonitorStatus("error");
-      setProctoringWarning("⚠️ Face monitoring unavailable");
+            setWarningCount((prev) => {
+              const newCount = prev + 1;
+              if (newCount >= 15) {
+                console.log('❌ Too many warnings, auto-submitting');
+                handleSubmitContest();
+              } else if ([5, 4, 3, 2, 1].includes(15 - newCount)) {
+                toast.error(`Warning: ${15 - newCount} violation(s) remaining before auto-submit`);
+              }
+              return newCount;
+            });
+          },
+          onClear: () => {
+            console.log('✅ Face monitor cleared');
+            setProctoringWarning("");
+            setFaceMonitorStatus("active");
+          },
+        });
+
+        setFaceMonitorStatus("active");
+        console.log('✅ Face monitoring started successfully');
+
+      } catch (faceMonitorError) {
+        console.error('❌ Face monitoring setup failed:', faceMonitorError);
+        setFaceMonitorStatus("error");
+        setProctoringWarning("⚠️ Face monitoring unavailable - continuing without monitoring");
+      }
     }
 
   } catch (error) {
-    console.error("❌ Camera initialization failed:", error);
+    console.error('❌ Camera initialization failed:', error);
     setFaceMonitorStatus("error");
 
-    // Detailed iOS error messages
-    let errorMessage = "❌ Camera access failed. ";
+    let errorMessage = "❌ Camera initialization failed. ";
     
-    if (error.name === "NotAllowedError") {
-      errorMessage += "Please allow camera access: Settings > Safari > Website Settings > Camera > Allow";
-    } else if (error.name === "NotFoundError") {
-      errorMessage += "No camera detected on this device.";
-    } else if (error.name === "NotReadableError") {
-      errorMessage += "Camera is being used by another app. Please close other camera apps and refresh.";
-    } else if (error.name === "OverconstrainedError") {
-      errorMessage += "Camera settings not supported. Please try refreshing the page.";
-    } else if (error.name === "SecurityError") {
-      errorMessage += "Camera blocked due to security settings. Please use HTTPS.";
+    if (error.name === 'NotAllowedError') {
+      errorMessage += "Please enable camera access: Settings > Safari > Camera > Allow for this site";
+    } else if (error.name === 'NotFoundError') {
+      errorMessage += "No camera detected. Please connect a camera and refresh.";
+    } else if (error.name === 'NotReadableError') {
+      errorMessage += "Camera in use by another app. Please close other camera apps and refresh.";
+    } else if (error.name === 'OverconstrainedError') {
+      errorMessage += "Camera settings not supported. Please refresh and try again.";
+    } else if (error.name === 'SecurityError') {
+      errorMessage += "Camera access blocked. Please ensure you're using HTTPS and refresh.";
     } else {
-      errorMessage += `Error: ${error.message}. Please refresh and try again.`;
+      errorMessage += `Error: ${error.message}. Please refresh the page.`;
     }
 
     setProctoringWarning(errorMessage);
   }
 };
 
-// Enhanced fallback button handler for iOS
+// FIXED LiveContest.jsx - handleVideoPlayFallback function
 const handleVideoPlayFallback = async () => {
-  if (!videoRef.current) return;
+  if (!videoRef.current) {
+    console.error('❌ No video element for manual play');
+    return;
+  }
 
   const video = videoRef.current;
+  console.log('🎬 Manual play requested by user');
   
   try {
-    // Ensure video is properly configured for iOS
+    // Ensure iOS-friendly properties
     video.muted = true;
     video.playsInline = true;
+    video.defaultMuted = true;
     
-    // Try to play
+    console.log('📊 Video state before manual play:', {
+      readyState: video.readyState,
+      paused: video.paused,
+      muted: video.muted,
+      playsInline: video.playsInline
+    });
+
+    // Try direct play first
     const playPromise = video.play();
     
-    if (playPromise !== undefined) {
+    if (playPromise && typeof playPromise.then === 'function') {
       await playPromise;
-      console.log("✅ Manual play successful");
+      console.log('✅ Manual play successful via Promise');
+      setPlayFallback(false);
+    } else {
+      console.log('✅ Manual play successful (legacy)');
       setPlayFallback(false);
     }
-  } catch (error) {
-    console.error("❌ Manual play failed:", error);
     
-    // Last resort: try reloading the video element
+  } catch (error) {
+    console.error('❌ Manual play failed:', error);
+    
+    // Last resort: try refreshing the stream
     if (mediaStream && video.srcObject !== mediaStream) {
-      video.srcObject = mediaStream;
+      console.log('🔄 Attempting to refresh video stream...');
       
-      setTimeout(async () => {
-        try {
-          await video.play();
-          setPlayFallback(false);
-        } catch (retryError) {
-          console.error("❌ Video reload play failed:", retryError);
-        }
-      }, 100);
+      try {
+        video.srcObject = mediaStream;
+        
+        // Wait a moment and try again
+        setTimeout(async () => {
+          try {
+            video.muted = true;
+            video.playsInline = true;
+            await video.play();
+            console.log('✅ Stream refresh play successful');
+            setPlayFallback(false);
+          } catch (retryError) {
+            console.error('❌ Stream refresh play failed:', retryError);
+            // Keep the button visible for user to try again
+          }
+        }, 100);
+        
+      } catch (streamError) {
+        console.error('❌ Stream refresh failed:', streamError);
+      }
     }
   }
 };
@@ -940,48 +1006,75 @@ if (showThankYou) {
     <ThankYouScreen/>
 )
 }
-// Updated video JSX with better iOS handling
+// FIXED LiveContest.jsx - Video Element JSX with enhanced iOS support
 const renderVideoElement = () => (
   <div className="relative bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden h-full lg:h-48 max-w-xs mx-auto lg:max-w-none lg:mx-0">
     <video 
-      ref={videoRef} 
-      autoPlay 
-      muted 
-      playsInline
+      ref={videoRef}
+      // iOS CRITICAL attributes
+      autoPlay={true}
+      muted={true}
+      playsInline={true}
       webkit-playsinline="true"
       controls={false}
       preload="metadata"
+      // Additional iOS compatibility
+      defaultMuted={true}
+      disablePictureInPicture={true}
+      // Styling
       className="w-full h-full object-cover"
       style={{ 
         transform: 'scaleX(-1)',
-        backgroundColor: 'black' // Prevents white flash
+        backgroundColor: '#000',
+        // iOS hardware acceleration
+        WebkitTransform: 'translateZ(0) scaleX(-1)',
+        WebkitBackfaceVisibility: 'hidden',
       }}
-      onLoadStart={() => console.log("📹 Video load started")}
-      onCanPlay={() => console.log("📹 Video can play")}
-      onPlaying={() => console.log("📹 Video playing")}
-      onError={(e) => console.error("📹 Video error:", e)}
+      // Enhanced event handlers for debugging
+      onLoadStart={() => console.log('📹 Video: Load started')}
+      onLoadedMetadata={() => console.log('📹 Video: Metadata loaded')}
+      onCanPlay={() => console.log('📹 Video: Can play')}
+      onPlaying={() => {
+        console.log('📹 Video: Playing');
+        setPlayFallback(false);
+      }}
+      onPause={() => console.log('📹 Video: Paused')}
+      onError={(e) => {
+        console.error('📹 Video error:', e.target.error);
+        setFaceMonitorStatus('error');
+      }}
+      onWaiting={() => console.log('📹 Video: Waiting for data')}
     />
     
-    {/* iOS fallback button */}
+    {/* Enhanced iOS fallback button */}
     {playFallback && (
-      <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-        <button
-          onClick={handleVideoPlayFallback}
-          className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-md font-medium"
-        >
-          📹 Start Camera
-        </button>
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white">
+        <div className="text-center p-4">
+          <div className="mb-4">
+            <svg className="w-12 h-12 mx-auto text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <p className="text-sm mb-4">Tap to start camera</p>
+          <button
+            onClick={handleVideoPlayFallback}
+            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-md font-medium transition-colors"
+          >
+            🎥 Start Camera
+          </button>
+        </div>
       </div>
     )}
     
+    {/* Camera status indicators */}
     {!cameraEnabled && (
-      <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">
+      <div className="absolute inset-0 flex items-center justify-center bg-gray-900/75">
         <CameraOff className="h-8 w-8 text-gray-400" />
       </div>
     )}
     
     {cameraEnabled && !playFallback && (
-      <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">
+      <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-medium animate-pulse">
         REC
       </div>
     )}
@@ -1039,46 +1132,10 @@ const renderVideoElement = () => (
           <div className="w-full h-full lg:space-y-4">
             {/* Camera Feed */}
             <div className="relative bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden h-full lg:h-48 max-w-xs mx-auto lg:max-w-none lg:mx-0">
-              <video 
-                ref={videoRef} 
-                autoPlay 
-                muted 
-                playsInline
-                webkit-playsinline="true" 
-                className="w-full h-full object-cover lg:object-cover"
-                style={{ transform: 'scaleX(-1)' }} 
-              />
-              {/* Render fallback button when needed */}
-                {playFallback && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-                        <button
-                        onClick={async () => {
-                            try {
-                            await videoRef.current.play();
-                            setPlayFallback(false);
-                            } catch (err) {
-                            console.error("Manual play still failed:", err);
-                            }
-                        }}
-                        className="px-4 py-2 bg-purple-600 text-white rounded-lg shadow-md"
-                        >
-                        Tap to start camera
-                        </button>
-                    </div>
-                )}
-                
-              {!cameraEnabled && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">
-                  <CameraOff className="h-8 w-8 text-gray-400" />
+              <div className="w-full h-full lg:space-y-4">
+                {/* 🎯 This is where you place the call */}
+                    {renderVideoElement()}
                 </div>
-              )}
-              {cameraEnabled && (
-                <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">REC</div>
-              )}
-              {/* Overlay proctoring status */}
-              <div className="absolute bottom-0 left-0 right-0 p-2">
-                {renderProctoringStatus()}
-              </div>
             </div>
           </div>
         </div>

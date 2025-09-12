@@ -348,48 +348,106 @@ const WaitingRoom = () => {
     navigate('/contest/join');
   }, [navigate]);
 
-  const requestCameraPermission = async () => {
+ // FIXED WaitingRoom.jsx - requestCameraPermission function
+const requestCameraPermission = async () => {
   try {
     setCameraError('');
     setCameraPermission('requesting');
 
+    console.log('🚀 Starting iOS camera request...');
+
+    // Enhanced iOS detection
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+    
+    console.log(`📱 Device: iOS=${isIOS}, Safari=${isSafari}`);
+
+    // iOS-optimized constraints - CRITICAL: Use minimal constraints
     const constraints = {
       video: {
-        width: { ideal: 640 },
-        height: { ideal: 480 },
-        facingMode: 'user'
-      }
+        facingMode: 'user',
+        // iOS-safe resolution - don't over-constrain
+        width: { ideal: 640, max: 1280 },
+        height: { ideal: 480, max: 720 }
+      },
+      audio: false // NEVER request audio on iOS for video-only apps
     };
 
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    // Fallback constraints for problematic devices
+    const fallbackConstraints = {
+      video: { facingMode: 'user' },
+      audio: false
+    };
+
+    console.log('📹 Requesting camera with constraints:', constraints);
+
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log('✅ Camera stream obtained with full constraints');
+    } catch (error) {
+      console.warn('⚠️ Full constraints failed, trying minimal:', error.message);
+      
+      if (error.name === 'OverconstrainedError' || error.name === 'NotReadableError') {
+        stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+        console.log('✅ Camera stream obtained with fallback constraints');
+      } else {
+        throw error;
+      }
+    }
+
+    // Verify stream has video tracks
+    const videoTracks = stream.getVideoTracks();
+    if (videoTracks.length === 0) {
+      throw new Error('No video track available in stream');
+    }
+
+    console.log(`✅ Stream ready with ${videoTracks.length} video track(s)`);
+    console.log('📊 Track settings:', videoTracks[0].getSettings());
 
     // Success - permission granted
     setCameraPermission('granted');
 
     // Stop the stream immediately (we only needed to unlock permission)
-    stream.getTracks().forEach(track => track.stop());
+    stream.getTracks().forEach(track => {
+      track.stop();
+      console.log('🛑 Stopped track:', track.kind);
+    });
 
-    // 👉 Force fullscreen here
+    console.log('✅ Camera permission test completed successfully');
+
+    // Optional: Request fullscreen (but don't fail if it doesn't work)
     if (!document.fullscreenElement) {
-      await document.documentElement.requestFullscreen();
-      console.log("✅ Fullscreen enabled after camera permission");
+      try {
+        await document.documentElement.requestFullscreen();
+        console.log('✅ Fullscreen enabled after camera permission');
+      } catch (fsError) {
+        console.log('ℹ️ Fullscreen not available (this is okay):', fsError.message);
+      }
     }
 
   } catch (error) {
-    console.error('Camera permission error:', error);
+    console.error('❌ Camera permission error:', error);
     setCameraPermission('denied');
 
+    let errorMessage = '';
     if (error.name === 'NotAllowedError') {
-      setCameraError('Camera access was denied. Please allow camera access when prompted, or check your browser settings.');
+      errorMessage = 'Camera access was denied. Please allow camera access in your browser settings:\n\n' +
+                    'Safari: Settings > Safari > Camera > Allow\n' +
+                    'Chrome: Site Settings > Camera > Allow';
     } else if (error.name === 'NotFoundError') {
-      setCameraError('No camera found on this device.');
+      errorMessage = 'No camera found on this device.';
     } else if (error.name === 'NotSupportedError') {
-      setCameraError('Camera is not supported on this browser.');
+      errorMessage = 'Camera is not supported on this browser. Try using Safari or Chrome.';
     } else if (error.name === 'NotReadableError') {
-      setCameraError('Camera is already in use by another application.');
+      errorMessage = 'Camera is already in use by another app. Please close other camera apps and try again.';
+    } else if (error.name === 'SecurityError') {
+      errorMessage = 'Camera blocked due to security settings. Make sure you\'re using HTTPS.';
     } else {
-      setCameraError('Unable to access camera. Please check your browser settings and ensure you\'re using HTTPS.');
+      errorMessage = `Camera error: ${error.message}. Please try refreshing the page.`;
     }
+    
+    setCameraError(errorMessage);
   }
 };
 
