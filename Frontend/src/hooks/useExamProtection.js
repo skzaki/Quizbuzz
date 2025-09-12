@@ -36,25 +36,25 @@ export const useExamProtection = (onViolation, onMaxViolations) => {
 
     // ✅ Camera + Microphone permission check
     // replace checkMediaPermissions in your hook
-    const checkMediaPermissions = async () => {
-        if (!navigator.permissions) {
-            console.warn("⚠️ Permissions API not supported");
-            return;
-        }
+    // const checkMediaPermissions = async () => {
+    //     if (!navigator.permissions) {
+    //         console.warn("⚠️ Permissions API not supported");
+    //         return;
+    //     }
 
-        try {
-            const result = await navigator.permissions.query({ name: "camera" });
-            console.log("📷 Camera permission:", result.state);
-            if (result.state === "denied") {
-            triggerViolation("❌ Camera access denied by user");
-            }
-        } catch (err) {
-            console.warn("⚠️ Permissions check failed:", err.message);
-        }
-    };
+    //     try {
+    //         const result = await navigator.permissions.query({ name: "camera" });
+    //         console.log("📷 Camera permission:", result.state);
+    //         if (result.state === "denied") {
+    //         triggerViolation("❌ Camera access denied by user");
+    //         }
+    //     } catch (err) {
+    //         console.warn("⚠️ Permissions check failed:", err.message);
+    //     }
+    // };
 
 
-    checkMediaPermissions();
+    // checkMediaPermissions();
 
     // Force fullscreen immediately
     const forceFullscreen = () => {

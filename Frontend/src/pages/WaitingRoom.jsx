@@ -9,7 +9,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router-dom";
 import io from "socket.io-client";
-import { useExamProtection } from "../hooks/useExamProtection";
 
 const WaitingRoom = () => {
   const location = useLocation();
@@ -24,7 +23,7 @@ const WaitingRoom = () => {
   const [cameraPermission, setCameraPermission] = useState("prompt"); // prompt | granted | denied | requesting
   const [cameraError, setCameraError] = useState("");
 
-  useExamProtection((msg) => toast.error(msg));
+  // useExamProtection((msg) => toast.error(msg));
 
   const videoRef = useRef(null);
 
