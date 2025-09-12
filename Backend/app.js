@@ -87,6 +87,15 @@ app.use("/api/admin/contests", adminContestRoutes);
 app.use("/api/contests", contestRoutes);
 app.use("/api/payments", paymentRoutes);
 
+app.post("/api/logs", (req, res) => {
+  const { level, message } = req.body;
+  if (["log", "warn", "error"].includes(level)) {
+    console[level](`CLIENT ${level.toUpperCase()}:`, message);
+  } else {
+    console.log("CLIENT LOG:", message);
+  }
+  res.sendStatus(200);
+});
 
 
 export default app;
