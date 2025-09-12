@@ -10,7 +10,7 @@ export const useExamProtection = (onViolation, onMaxViolations) => {
     lastViolationRef.current = now;
 
     violationCountRef.current += 1;
-    const remaining = 15 - violationCountRef.current;
+    const remaining = 10 - violationCountRef.current;
 
     if (typeof onViolation === "function") {
       if (remaining > 0 && remaining <= 3) {

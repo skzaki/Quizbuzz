@@ -1,5 +1,5 @@
 import CryptoJS from "crypto-js";
-import { ArrowRight, CameraOff, Clock } from 'lucide-react';
+import { ArrowRight, Clock } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import toast from "react-hot-toast";
 import { useNavigate } from 'react-router-dom';
@@ -65,7 +65,7 @@ const LiveContest = () => {
   // Get contest info from navigation state
   const userInfo = useRef({});
   const contestInfo = useRef({});
-
+  const canvasRef = useRef(null);
 
 
 const getQuestions = async () => {
@@ -346,16 +346,35 @@ useEffect(() => {
   // Enhanced camera initialization for proctoring
   const initializeProctoring = async () => {
     try {
-      setFaceMonitorStatus('loading');
+
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        if (!video || !canvas) return;        
+
+         video.setAttribute("autoplay", "");
+        video.setAttribute("muted", "");
+        video.setAttribute("playsinline", "");
       
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-            width: { ideal: 320 },
-            height: { ideal: 260},
-            facingMode: { ideal: "user"}
-        },
-        audio: true
-      });
+        setFaceMonitorStatus('loading');
+        const constraints = { audio: false, video: { facingMode: "user" } };
+
+
+        const stream = await navigator.mediaDevices
+            .getUserMedia(constraints)
+            .then((localMediaStream) => {
+                if ("srcObject" in video) {
+                video.srcObject = localMediaStream;
+                } else {
+                video.src = window.URL.createObjectURL(localMediaStream);
+                }
+                video.play();
+                
+            })
+            .catch((err) => {
+                console.error("❌ Camera error:", err);
+                toast.error("Unable to access camera. Please allow camera permission.");
+            });
+      
 
       setMediaStream(stream);
       setCameraEnabled(true);
@@ -409,10 +428,10 @@ useEffect(() => {
 
                     setWarningCount(prev => {
                     const newCount = prev + 1;
-                    if (newCount >= 20) {
+                    if (newCount >= 10) {
                         handleSubmitContest();
-                    } else if ([5, 4, 3, 2, 1].includes(20 - newCount)) {
-                        toast.error(`You have last ${20 - newCount} warning(s) left & after that quiz will be auto submit`);
+                    } else if ([5, 4, 3, 2, 1].includes(10 - newCount)) {
+                        toast.error(`You have last ${10 - newCount} warning(s) left & after that quiz will be auto submit`);
                     }
                     return newCount;
                     });
@@ -836,11 +855,11 @@ if (showThankYou) {
                 className="w-full h-full object-cover lg:object-cover"
                 style={{ transform: 'scaleX(-1)' }} 
               />
-              {!cameraEnabled && (
+              {/* {!cameraEnabled && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">
                   <CameraOff className="h-8 w-8 text-gray-400" />
                 </div>
-              )}
+              )} */}
               {cameraEnabled && (
                 <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">REC</div>
               )}
