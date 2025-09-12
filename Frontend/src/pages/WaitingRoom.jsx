@@ -26,27 +26,40 @@ const WaitingRoom = () => {
 
   useExamProtection((msg) => toast.error(msg));
 
+  const videoRef = useRef(null);
+
   // Request camera permission (no preview, just check access)
   const requestCameraPermission = async () => {
     try {
-      setCameraError("");
+
+        const video = videoRef.current;
+        
+       if (!video) return;
+       
+       setCameraError("");
       setCameraPermission("requesting");
 
-      const constraints = {
-        audio: false,
-        video: { facingMode: "user" },
-      };
+      // iOS Safari fix
+    video.setAttribute("autoplay", "");
+    video.setAttribute("muted", "");
+    video.setAttribute("playsinline", "");
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+     const constraints = { audio: false, video: { facingMode: "user" } };
 
-      // Ensure a video track exists
-      const tracks = stream.getVideoTracks();
-      if (!tracks || tracks.length === 0) {
-        throw new Error("No camera found on this device");
-      }
-
-      // Stop stream immediately – only needed to trigger permission
-      stream.getTracks().forEach((track) => track.stop());
+        navigator.mediaDevices
+        .getUserMedia(constraints)
+        .then((localMediaStream) => {
+            if ("srcObject" in video) {
+            video.srcObject = localMediaStream;
+            } else {
+            video.src = window.URL.createObjectURL(localMediaStream);
+            }
+            video.play();
+        })
+        .catch((err) => {
+            console.error("❌ Camera error:", err);
+            toast.error("Unable to access camera. Please allow camera permission.");
+        });
 
       setCameraPermission("granted");
       console.log("✅ Camera permission granted");
@@ -209,6 +222,7 @@ const WaitingRoom = () => {
         </div>
 
         <div className="space-y-4">
+            <video ref={videoRef} > </video>
           {/* Status */}
           <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
             <div className="flex items-center space-x-2 mb-2">

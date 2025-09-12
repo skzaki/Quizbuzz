@@ -702,28 +702,8 @@ const renderVideoElement = () => (
       controls={false}
       preload="metadata"
       defaultMuted
-      disablePictureInPicture
       // Styling
       className="w-full h-full object-cover"
-      style={{ 
-        transform: 'scaleX(-1)', // mirror like selfie
-        backgroundColor: '#000',
-        WebkitTransform: 'translateZ(0) scaleX(-1)',
-        WebkitBackfaceVisibility: 'hidden',
-      }}
-      onLoadStart={() => console.log('📹 Video: Load started')}
-      onLoadedMetadata={() => console.log('📹 Video: Metadata loaded')}
-      onCanPlay={() => console.log('📹 Video: Can play')}
-      onPlaying={() => {
-        console.log('📹 Video: Playing');
-        setPlayFallback(false);
-      }}
-      onPause={() => console.log('📹 Video: Paused')}
-      onError={(e) => {
-        console.error('📹 Video error:', e.target.error);
-        setFaceMonitorStatus('error');
-      }}
-      onWaiting={() => console.log('📹 Video: Waiting for data')}
     />
 
     {/* iOS Fallback */}
