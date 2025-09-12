@@ -235,7 +235,7 @@ const ContestJoin = () => {
       <div className="relative">
         <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
         <div className="relative">
-          <span className="absolute left-10 top-1/2 transform -translate-y-1/2 text-sm text-white dark:text-gray-400 font-mono">
+          <span className="absolute left-10 top-1/2 transform -translate-y-1/2 text-sm text-black dark:text-white font-mono">
             QUIZ-
           </span>
           <input
