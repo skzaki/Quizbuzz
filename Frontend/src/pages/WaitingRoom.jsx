@@ -165,6 +165,8 @@ const showSystemCheckToast = (cameraPermission, requestCameraPermission) => {
   });
 };
 
+
+
 // Waiting Room Component
 const WaitingRoom = () => {
   const location = useLocation();

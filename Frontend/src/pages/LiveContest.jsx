@@ -68,17 +68,6 @@ const LiveContest = () => {
   const userInfo = useRef({});
   const contestInfo = useRef({});
 
-const ensureVideoPlaying = async () => {
-    if (!videoRef.current) return;
-
-    try {
-      await videoRef.current.play();
-      setPlayFallback(false);
-    } catch (err) {
-      console.warn("Autoplay blocked on iOS, requiring user gesture:", err);
-      setPlayFallback(true); // show button overlay
-    }
-  };
 
 const getQuestions = async () => {
   try {
@@ -242,16 +231,16 @@ const getQuestions = async () => {
 
   // Initialize camera and WebSocket connection
    useEffect(() => {
-    if (!mediaStream) {
-      initializeProctoring();
-    }
-    return () => {
-      if (mediaStream) {
-        mediaStream.getTracks().forEach((track) => track.stop());
-      }
-      stopFaceMonitor();
-    };
-  }, [mediaStream]);
+        if (!mediaStream) {
+            initializeProctoring();
+        }
+        return () => {
+            if (mediaStream) {
+                mediaStream.getTracks().forEach((track) => track.stop());
+            }
+            stopFaceMonitor();
+        };
+    }, [mediaStream]);
 
 
   // Timer effect
@@ -340,90 +329,252 @@ useEffect(() => {
   }, [proctoringWarning, faceMonitorStatus]);
 
 
+// iOS fallback for failed constraints
+const retryWithBasicConstraints = async () => {
+  try {
+    console.log("🔄 Retrying with basic iOS constraints...");
+    
+    const basicConstraints = {
+      video: {
+        facingMode: "user"
+        // No width/height constraints - let iOS decide
+      },
+      audio: false
+    };
 
+    const stream = await navigator.mediaDevices.getUserMedia(basicConstraints);
+    
+    setMediaStream(stream);
+    setCameraEnabled(true);
 
-const initializeProctoring = async () => {
-    try {
-      setFaceMonitorStatus("loading");
-
-      // ✅ Only request video, no audio (fix for iOS Safari blank screen)
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
-      });
-
-      setMediaStream(stream);
-      setCameraEnabled(true);
-
-      if (videoRef.current) {
-        const video = videoRef.current;
-        video.srcObject = stream;
-
-        // iOS-specific requirements
-        video.setAttribute("playsinline", true);
-        video.muted = true;
-        video.autoplay = true;
-
-        await ensureVideoPlaying(); // 👈 Try autoplay, or show fallback
-      }
-
-      // Start face monitor
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      
       try {
-        await startFaceMonitor({
-          videoEl: videoRef.current,
-          onWarning: (msg) => {
-            setProctoringWarning(msg);
-            setFaceMonitorStatus("warning");
-
-            setWarningCount((prev) => {
-              const newCount = prev + 1;
-              if (newCount >= 20) {
-                handleSubmitContest();
-              } else if ([5, 4, 3, 2, 1].includes(20 - newCount)) {
-                toast.error(
-                  `You have last ${20 - newCount} warning(s) left & after that quiz will be auto submit`
-                );
-              }
-              return newCount;
-            });
-          },
-          onClear: () => {
-            setProctoringWarning("");
-            setFaceMonitorStatus("active");
-          },
-        });
-
+        await videoRef.current.play();
+        console.log("✅ Basic constraints worked!");
         setFaceMonitorStatus("active");
-        console.log("✅ Face monitoring started");
-      } catch (faceMonitorError) {
-        console.error("Face monitoring failed:", faceMonitorError);
-        setFaceMonitorStatus("error");
-        setProctoringWarning(
-          "⚠️ Face monitoring unavailable - please refresh the page"
-        );
-      }
-    } catch (error) {
-      console.error("Error accessing camera:", error);
-      setFaceMonitorStatus("error");
-
-      if (error.name === "NotAllowedError") {
-        setProctoringWarning(
-          "⛔ Camera access denied. Please allow camera permissions and refresh."
-        );
-      } else if (error.name === "NotFoundError") {
-        setProctoringWarning(
-          "⛔ No camera found. Please connect a camera and refresh."
-        );
-      } else if (error.name === "NotReadableError") {
-        setProctoringWarning(
-          "⛔ Camera is being used by another app. Please close other apps and refresh."
-        );
-      } else {
-        setProctoringWarning(
-          "⛔ Failed to access camera. Please check your device and refresh."
-        );
+        setProctoringWarning("");
+      } catch (playError) {
+        console.warn("⚠️ Play failed with basic constraints:", playError);
+        setPlayFallback(true);
       }
     }
-  };
+
+  } catch (retryError) {
+    console.error("❌ Retry with basic constraints failed:", retryError);
+    setFaceMonitorStatus("error");
+    setProctoringWarning("❌ Camera completely unavailable. Please try a different device or browser.");
+  }
+};
+
+// Enhanced video play function for iOS
+const ensureVideoPlaying = async () => {
+  if (!videoRef.current) return;
+
+  const video = videoRef.current;
+  
+  // iOS-specific checks
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  
+  try {
+    // For iOS, ensure all attributes are set correctly
+    if (isIOS) {
+      video.setAttribute("playsinline", true);
+      video.setAttribute("muted", true);
+      video.playsInline = true;
+      video.muted = true;
+    }
+
+    // Check if video is ready to play
+    if (video.readyState >= 2) {
+      const playPromise = video.play();
+      
+      if (playPromise !== undefined) {
+        await playPromise;
+        console.log("✅ Video playing after user gesture");
+        setPlayFallback(false);
+      }
+    } else {
+      console.warn("⚠️ Video not ready, waiting for data...");
+      video.addEventListener('canplay', async () => {
+        try {
+          await video.play();
+          setPlayFallback(false);
+        } catch (err) {
+          console.error("❌ Still can't play after canplay event:", err);
+        }
+      }, { once: true });
+    }
+
+  } catch (err) {
+    console.error("❌ ensureVideoPlaying failed:", err);
+    setPlayFallback(true);
+  }
+};
+
+// Enhanced iOS-compatible camera initialization
+const initializeProctoring = async () => {
+  try {
+    setFaceMonitorStatus("loading");
+
+    // iOS-specific video element setup BEFORE getUserMedia
+    if (videoRef.current) {
+      const video = videoRef.current;
+      
+      // Critical iOS attributes - set BEFORE getting stream
+      video.setAttribute("playsinline", true);
+      video.setAttribute("muted", true);
+      video.setAttribute("autoplay", true);
+      video.setAttribute("webkit-playsinline", true); // Legacy iOS support
+      
+      // iOS Safari requires these properties directly
+      video.playsInline = true;
+      video.muted = true;
+      video.autoplay = true;
+      
+      // Ensure video is visible and has proper styles
+      video.style.display = 'block';
+      video.style.width = '100%';
+      video.style.height = '100%';
+      video.style.objectFit = 'cover';
+    }
+
+    // iOS-optimized getUserMedia constraints
+    const constraints = {
+      video: {
+        facingMode: "user",
+        // Use standard resolutions that iOS supports well
+        width: { ideal: 640, max: 1280 },
+        height: { ideal: 480, max: 720 },
+        // Frame rate constraints for iOS stability
+        frameRate: { ideal: 15, max: 30 }
+      },
+      // NEVER request audio on iOS for camera-only apps - causes blank screen
+      audio: false
+    };
+
+    console.log("🍎 Starting iOS-compatible camera initialization...");
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    console.log("✅ Got media stream:", stream.getVideoTracks().length, "video tracks");
+
+    setMediaStream(stream);
+    setCameraEnabled(true);
+
+    if (videoRef.current) {
+      const video = videoRef.current;
+      video.srcObject = stream;
+
+      // iOS-specific: Wait for loadedmetadata before attempting play
+      const playVideo = () => {
+        return new Promise((resolve, reject) => {
+          const tryPlay = async () => {
+            try {
+              // For iOS, we need to handle the play promise
+              const playPromise = video.play();
+              
+              if (playPromise !== undefined) {
+                await playPromise;
+                console.log("✅ Video playing successfully");
+                setPlayFallback(false);
+                resolve();
+              } else {
+                // Older browsers don't return promise
+                resolve();
+              }
+            } catch (error) {
+              console.warn("⚠️ Autoplay failed, will require user gesture:", error);
+              setPlayFallback(true);
+              resolve(); // Don't reject - this is expected on iOS sometimes
+            }
+          };
+
+          // Wait for metadata to load
+          if (video.readyState >= 1) {
+            tryPlay();
+          } else {
+            video.addEventListener('loadedmetadata', tryPlay, { once: true });
+            
+            // Fallback timeout
+            setTimeout(() => {
+              console.warn("⏰ Video metadata load timeout, trying play anyway");
+              tryPlay();
+            }, 3000);
+          }
+        });
+      };
+
+      await playVideo();
+    }
+
+    // Start face monitor with iOS-compatible settings
+    try {
+      await startFaceMonitor({
+        videoEl: videoRef.current,
+        onWarning: (msg) => {
+          setProctoringWarning(msg);
+          setFaceMonitorStatus("warning");
+
+          setWarningCount((prev) => {
+            const newCount = prev + 1;
+            if (newCount >= 20) {
+              handleSubmitContest();
+            } else if ([5, 4, 3, 2, 1].includes(20 - newCount)) {
+              toast.error(
+                `You have last ${20 - newCount} warning(s) left & after that quiz will be auto submit`
+              );
+            }
+            return newCount;
+          });
+        },
+        onClear: () => {
+          setProctoringWarning("");
+          setFaceMonitorStatus("active");
+        },
+      });
+
+      setFaceMonitorStatus("active");
+      console.log("✅ Face monitoring started successfully");
+
+    } catch (faceMonitorError) {
+      console.error("❌ Face monitoring failed:", faceMonitorError);
+      setFaceMonitorStatus("error");
+      setProctoringWarning(
+        "⚠️ Face monitoring unavailable - please refresh the page"
+      );
+    }
+
+  } catch (error) {
+    console.error("❌ Camera initialization error:", error);
+    setFaceMonitorStatus("error");
+
+    // iOS-specific error messages
+    let errorMessage = "❌ Failed to access camera. ";
+    
+    if (error.name === "NotAllowedError") {
+      errorMessage += "Please allow camera permissions in Safari settings: Settings > Safari > Camera > Allow";
+    } else if (error.name === "NotFoundError") {
+      errorMessage += "No camera found. Please ensure your device has a camera.";
+    } else if (error.name === "NotReadableError") {
+      errorMessage += "Camera is busy. Please close other camera apps and refresh.";
+    } else if (error.name === "OverconstrainedError") {
+      errorMessage += "Camera resolution not supported. Trying again with basic settings.";
+      
+      // Retry with minimal constraints for iOS compatibility
+      setTimeout(() => {
+        retryWithBasicConstraints();
+      }, 1000);
+      return;
+    } else if (error.name === "SecurityError") {
+      errorMessage += "Camera access blocked. Please use HTTPS and allow permissions.";
+    } else {
+      errorMessage += `Please refresh and try again. Error: ${error.message}`;
+    }
+
+    setProctoringWarning(errorMessage);
+  }
+};
 
   // Enhanced proctoring status renderer
   const renderProctoringStatus = () => {
@@ -806,6 +957,7 @@ if (showThankYou) {
                 autoPlay 
                 muted 
                 playsInline
+                webkit-playsinline="true" 
                 className="w-full h-full object-cover lg:object-cover"
                 style={{ transform: 'scaleX(-1)' }} 
               />
