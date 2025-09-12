@@ -1,5 +1,5 @@
 import CryptoJS from "crypto-js";
-import { ArrowRight, CameraOff, Clock } from 'lucide-react';
+import { ArrowRight, Clock } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import toast from "react-hot-toast";
 import { useNavigate } from 'react-router-dom';
@@ -699,11 +699,11 @@ const renderVideoElement = () => (
     
 
     {/* Camera Off State */}
-    {!cameraEnabled && (
+    {/* {!cameraEnabled && (
       <div className="absolute inset-0 flex items-center justify-center bg-gray-900/75">
         <CameraOff className="h-8 w-8 text-gray-400" />
       </div>
-    )}
+    )} */}
 
     {/* Recording Indicator */}
     {cameraEnabled && (
