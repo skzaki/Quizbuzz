@@ -8,7 +8,8 @@ import ThankYouScreen from "../components/LiveContest/ThankYouScreen.jsx";
 import { startFaceMonitor, stopFaceMonitor } from '../services/faceMonitor.js';
 import { useExamProtection } from './../hooks/useExamProtection';
 
-  const calculateTimeLeft = (contestInfo) => {
+
+const calculateTimeLeft = (contestInfo) => {
   const now = new Date();
   const contestStartTime = new Date(contestInfo.startTime);
   const durationInMinutes = parseInt(contestInfo.duration);
@@ -54,6 +55,7 @@ const LiveContest = () => {
   const [submissionAttempt, setSubmissionAttempt] = useState(1);
   const [submissionId, setSubmissionId] = useState();
   const [jobId, setJobId] = useState();
+  const [playFallback, setPlayFallback] = useState(false);
   
   // Camera and proctoring states
   const [cameraEnabled, setCameraEnabled] = useState(false);
@@ -66,7 +68,19 @@ const LiveContest = () => {
   const userInfo = useRef({});
   const contestInfo = useRef({});
 
+const ensureVideoPlaying = async () => {
+  if (!videoRef.current) return;
 
+  try {
+    // Try autoplay
+    await videoRef.current.play();
+    setPlayFallback(false); // success, no button needed
+  } catch (err) {
+    console.warn("Video autoplay blocked on iOS, requiring user gesture:", err);
+    toast.error("Please Allow/Enable Camera Permission");
+    setPlayFallback(true); // show button to user
+  }
+};
 
 const getQuestions = async () => {
   try {
@@ -230,7 +244,11 @@ const getQuestions = async () => {
 
   // Initialize camera and WebSocket connection
   useEffect(() => {
-    initializeProctoring();
+    // initializeProctoring();
+
+    if (navigator.mediaDevices && mediaStream === null) {
+        initializeProctoring();
+    }
     
     return () => {
       console.log('Cleaning up proctoring resources...');
@@ -343,114 +361,76 @@ useEffect(() => {
 
 
 
-  // Enhanced camera initialization for proctoring
   const initializeProctoring = async () => {
-    try {
-      setFaceMonitorStatus('loading');
-      
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-            width: { ideal: 320 },
-            height: { ideal: 260},
-            facingMode: { ideal: "user"}
-        },
-        audio: true
-      });
+  try {
+    setFaceMonitorStatus('loading');
 
-      setMediaStream(stream);
-      setCameraEnabled(true);
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-
-        // Wait for video to be fully ready
-        const initializeFaceMonitor = () => {
-          return new Promise((resolve, reject) => {
-            const video = videoRef.current;
-            
-            if (video.readyState >= 2) {
-              // Video is already ready
-              resolve();
-            } else {
-              // Wait for video to load
-              const onLoadedData = () => {
-                video.removeEventListener('loadeddata', onLoadedData);
-                video.removeEventListener('error', onError);
-                resolve();
-              };
-              
-              const onError = () => {
-                video.removeEventListener('loadeddata', onLoadedData);
-                video.removeEventListener('error', onError);
-                reject(new Error('Video failed to load'));
-              };
-              
-              video.addEventListener('loadeddata', onLoadedData);
-              video.addEventListener('error', onError);
-              
-              // Timeout after 10 seconds
-              setTimeout(() => {
-                video.removeEventListener('loadeddata', onLoadedData);
-                video.removeEventListener('error', onError);
-                reject(new Error('Video loading timeout'));
-              }, 8000);
-            }
-          });
-        };
-
-        try {
-          await initializeFaceMonitor();
-          
-            await startFaceMonitor({
-                videoEl: videoRef.current,
-                onWarning: (msg) => {
-                    setProctoringWarning(msg);
-                    setFaceMonitorStatus('warning');
-
-                    setWarningCount(prev => {
-                    const newCount = prev + 1;
-                    if (newCount >= 20) {
-                        handleSubmitContest();
-                    } else if ([5, 4, 3, 2, 1].includes(20 - newCount)) {
-                        toast.error(`You have last ${20 - newCount} warning(s) left & after that quiz will be auto submit`);
-                    }
-                    return newCount;
-                    });
-                },
-                onClear: () => {
-                    setProctoringWarning('');
-                    setFaceMonitorStatus('active');
-                }
-            });
-          
-          setFaceMonitorStatus('active');
-          console.log('Face monitoring started successfully');
-          
-        } catch (faceMonitorError) {
-          console.error('Face monitoring failed:', faceMonitorError);
-          setFaceMonitorStatus('error');
-          setProctoringWarning('⚠️ Face monitoring unavailable - please refresh the page');
-        }
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { 
+        width: { ideal: 320 },
+        height: { ideal: 260 },
+        facingMode: "user"
       }
 
-    
-      
-    } catch (error) {
-      console.error('Error accessing camera/microphone:', error);
-      setFaceMonitorStatus('error');
-      
-      // More specific error messages
-      if (error.name === 'NotAllowedError') {
-        setProctoringWarning('⛔ Camera access denied. Please allow camera permissions and refresh.');
-      } else if (error.name === 'NotFoundError') {
-        setProctoringWarning('⛔ No camera found. Please connect a camera and refresh.');
-      } else if (error.name === 'NotReadableError') {
-        setProctoringWarning('⛔ Camera is being used by another application. Please close other apps and refresh.');
-      } else {
-        setProctoringWarning('⛔ Failed to access camera. Please check your device and refresh.');
+    });
+
+    setMediaStream(stream);
+    setCameraEnabled(true);
+
+    if (videoRef.current) {
+      const video = videoRef.current;
+      video.srcObject = stream;
+      video.setAttribute("playsinline", true); // iOS specific
+      await ensureVideoPlaying(); 
+
+      try {
+        await startFaceMonitor({
+          videoEl: videoRef.current,
+          onWarning: (msg) => {
+            setProctoringWarning(msg);
+            setFaceMonitorStatus('warning');
+
+            setWarningCount(prev => {
+              const newCount = prev + 1;
+              if (newCount >= 20) {
+                handleSubmitContest();
+              } else if ([5, 4, 3, 2, 1].includes(20 - newCount)) {
+                toast.error(
+                  `You have last ${20 - newCount} warning(s) left & after that quiz will be auto submit`
+                );
+              }
+              return newCount;
+            });
+          },
+          onClear: () => {
+            setProctoringWarning('');
+            setFaceMonitorStatus('active');
+          }
+        });
+
+        setFaceMonitorStatus('active');
+        console.log('Face monitoring started successfully');
+      } catch (faceMonitorError) {
+        console.error('Face monitoring failed:', faceMonitorError);
+        setFaceMonitorStatus('error');
+        setProctoringWarning('⚠️ Face monitoring unavailable - please refresh the page');
       }
     }
-  };
+  } catch (error) {
+    console.error('Error accessing camera:', error);
+    setFaceMonitorStatus('error');
+
+    if (error.name === 'NotAllowedError') {
+      setProctoringWarning('⛔ Camera access denied. Please allow camera permissions and refresh.');
+    } else if (error.name === 'NotFoundError') {
+      setProctoringWarning('⛔ No camera found. Please connect a camera and refresh.');
+    } else if (error.name === 'NotReadableError') {
+      setProctoringWarning('⛔ Camera is being used by another application. Please close other apps and refresh.');
+    } else {
+      setProctoringWarning('⛔ Failed to access camera. Please check your device and refresh.');
+    }
+  }
+};
 
   // Enhanced proctoring status renderer
   const renderProctoringStatus = () => {
@@ -836,6 +816,25 @@ if (showThankYou) {
                 className="w-full h-full object-cover lg:object-cover"
                 style={{ transform: 'scaleX(-1)' }} 
               />
+              {/* Render fallback button when needed */}
+                {playFallback && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                        <button
+                        onClick={async () => {
+                            try {
+                            await videoRef.current.play();
+                            setPlayFallback(false);
+                            } catch (err) {
+                            console.error("Manual play still failed:", err);
+                            }
+                        }}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg shadow-md"
+                        >
+                        Tap to start camera
+                        </button>
+                    </div>
+                )}
+                
               {!cameraEnabled && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">
                   <CameraOff className="h-8 w-8 text-gray-400" />
@@ -953,6 +952,8 @@ if (showThankYou) {
           </div>
         </div>
       )}
+
+
     </div>
   );
 
