@@ -200,7 +200,21 @@ const ContestResult = () => {
                 }
             </p>
             <p className="text-sm opacity-90">
-                Time taken: {formatDuration(resultData.createdAt - resultData.contestStartTime)} 
+                Time taken: {
+                    (() => {
+                        const startTime = new Date(resultData.contestStartTime).getTime();
+                        const endTime = new Date(resultData.createdAt).getTime();
+                        
+                        const timeTaken = endTime - startTime; // This will be 344979 ms (5 min 44.979 sec)
+                        
+                        const totalSeconds = Math.floor(timeTaken / 1000);
+                        const minutes = Math.floor(totalSeconds / 60);
+                        const seconds = totalSeconds % 60;
+                        const milliseconds = timeTaken % 1000;
+                        
+                        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+                    })()
+                }
             </p>
         </div>
         
