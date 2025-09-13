@@ -51,7 +51,7 @@ const globalRateLimit = rateLimitMiddleware({
     standardHeaders: true,
     legacyHeaders: false,
 });
-app.use(globalRateLimit);
+// app.use(globalRateLimit);
 
 
 // Health check endpoint (before other middleware)

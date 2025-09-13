@@ -11,21 +11,27 @@ const methodsToOverride = ['log', 'error', 'warn', 'table'];
 methodsToOverride.forEach(methodName => {
   const originalMethod = console[methodName];
   console[methodName] = (...args) => {
-    const now = new Date();
-    const day = String(now.getDate()).padStart(2, '0');
-    const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
-    const year = now.getFullYear();
-    const hours = now.getHours();
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
+    // Get IST time
+    const now = new Date().toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata"
+    });
+    const dateObj = new Date(now);
+
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+    const year = dateObj.getFullYear();
+    const hours = dateObj.getHours();
+    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+    const seconds = String(dateObj.getSeconds()).padStart(2, '0');
     const ampm = hours >= 12 ? 'PM' : 'AM';
     const formattedHours = String(hours % 12 || 12).padStart(2, '0'); // Convert to 12-hour format
 
-    const timestamp = `[${day}-${month}-${year} ${formattedHours}:${minutes}:${seconds} ${ampm}]`;
+    const timestamp = `[${day}-${month}-${year} ${formattedHours}:${minutes}:${seconds} ${ampm} IST]`;
 
     originalMethod.apply(console, [timestamp, ...args]);
   };
 });
+
 
 connectDB();
 // Create HTTP server from Express app
