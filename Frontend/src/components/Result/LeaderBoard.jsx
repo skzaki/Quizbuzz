@@ -263,8 +263,14 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
                         
                       <span>{new Date(submission.createdAt).toLocaleDateString()}</span>
                       <span>
-                        { new Date(submission.createdAt).toLocaleTimeString('en-US', { hour12: true, second: '2-digit', minute: '2-digit', hour: '2-digit' }) } 
-                        .{new Date(submission.createdAt).getMilliseconds().toString().padStart(3, '0')} 
+                         {
+                            new Date(submission.createdAt).toLocaleTimeString('en-US', { 
+                                hour12: true, 
+                                hour: '2-digit',
+                                minute: '2-digit', 
+                                second: '2-digit'
+                            }).replace(/(\d{2}:\d{2}:\d{2})(\s[AP]M)/, `$1.${new Date(submission.createdAt).getMilliseconds().toString().padStart(3, '0')}$2`)
+                        }
                       </span>
                     </div>
                   </td>

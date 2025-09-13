@@ -543,7 +543,7 @@ export const getContestLeaderboard = async (req, res) => {
         
         if(!contestId) return res.status(400).json({ success: false, message: "contest Id needed"});
 
-        const submissions = await Submission.find({ contestId })
+        const submissions = await Submission.find({ contestId, score: { $gte: 50 }})
             .select(' _id userId score totalQuestions createdAt updatedAt')
             .populate('userId', 'registrationId firstName lastName ');
 
