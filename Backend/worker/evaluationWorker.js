@@ -2,7 +2,7 @@
 
 import { Worker } from 'bullmq';
 import dotenv from "dotenv";
-import { Submission, connectDB } from '../Models/DB.js';
+import { Contest, Submission, connectDB } from '../Models/DB.js';
 import redisClient from '../redis.js';
 import { deleteUserState } from '../store/contestStateService.js';
 import { evaluationQueue } from './../queue/submissionQueues.js';
@@ -10,6 +10,51 @@ import { evaluationQueue } from './../queue/submissionQueues.js';
 dotenv.config();
 
 await connectDB();
+
+// Helper function to get correct answers with fallback
+async function getCorrectAnswers(contestSlug) {
+    // Try Redis first
+    const correctAnswersKey = `contest:${contestSlug}:correct_answers`;
+    const correctAnswersJson = await redisClient.get(correctAnswersKey);
+
+    if (correctAnswersJson) {
+        console.log(`📦 Retrieved correct answers from Redis for contest: ${contestSlug}`);
+        return JSON.parse(correctAnswersJson);
+    }
+
+    // Fallback to database
+    console.log(`⚠️ Redis lookup failed, fetching from database for contest: ${contestSlug}`);
+    
+    const contest = await Contest.findOne({ slug: contestSlug })
+        .select('_id title QuestionBank')
+        .populate('QuestionBank');
+
+    if (!contest) {
+        throw new Error(`Contest ${contestSlug} not found in database`);
+    }
+
+    // Extract correct answers in the same format as stored in Redis
+    const correctAnswers = contest.QuestionBank.map(q => ({
+        questionId: q._id.toString(),
+        correctAnswer: q.correctOptionText,   // text
+        correctAnswerIndex: q.correctOptionIndex // index
+    }));
+
+    // Store back in Redis for future use (with shorter TTL since it's a recovery)
+    try {
+        await redisClient.setEx(
+            correctAnswersKey,
+            60 * 60, // 1 hour (shorter than original 24 hours)
+            JSON.stringify(correctAnswers)
+        );
+        console.log(`💾 Re-stored correct answers in Redis for contest: ${contestSlug}`);
+    } catch (redisError) {
+        console.warn(`⚠️ Failed to store answers back to Redis: ${redisError.message}`);
+        // Don't throw here, we still have the answers from DB
+    }
+
+    return correctAnswers;
+}
 
 export const evaluationWorker = new Worker('contest-evaluation', async (job) => {
     const { submissionId, contestSlug, userRegistrationId } = job.data;
@@ -26,14 +71,8 @@ export const evaluationWorker = new Worker('contest-evaluation', async (job) => 
 
         await job.updateProgress(25);
 
-        const correctAnswersKey = `contest:${contestSlug}:correct_answers`;
-        const correctAnswersJson = await redisClient.get(correctAnswersKey);
-
-        if (!correctAnswersJson) {
-            throw new Error(`Correct answers not found for contest ${contestSlug}`);
-        }
-
-        const correctAnswers = JSON.parse(correctAnswersJson);
+        // Get correct answers with fallback to database
+        const correctAnswers = await getCorrectAnswers(contestSlug);
 
         await job.updateProgress(50);
 
@@ -137,8 +176,6 @@ export const evaluationWorker = new Worker('contest-evaluation', async (job) => 
         duration: 60000
     }
 });
-
-
 
 // Worker event handlers
 evaluationWorker.on('completed', (job, returnValue) => {

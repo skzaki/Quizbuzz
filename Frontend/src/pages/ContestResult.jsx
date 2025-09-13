@@ -13,6 +13,16 @@ const ContestResult = () => {
   const [pollCount, setPollCount] = useState(0);
   const [activeTab, setActiveTab] = useState("your-result");
 
+  const formatDuration = (ms) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const milliseconds = ms % 1000;
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+};
+
   const navigate = useNavigate();
 
   const fetchSubmissionResults = async () => {
@@ -177,7 +187,7 @@ const ContestResult = () => {
         {/* Score and Submitted Row */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <p className="text-md">
-                 <span className="font-bold"> Score: {resultData.correctAnswers}</span> / {resultData.totalQuestions} Correct
+                 <span className="font-bold"> Score: {resultData.correctAnswers}</span> / {resultData.totalQuestions} 
             </p>
             <p className="text-sm opacity-90">
                 Submitted: {
@@ -188,6 +198,9 @@ const ContestResult = () => {
                         second: '2-digit'
                     }).replace(/(\d{2}:\d{2}:\d{2})(\s[AP]M)/, `$1.${new Date(resultData.createdAt).getMilliseconds().toString().padStart(3, '0')}$2`)
                 }
+            </p>
+            <p className="text-sm opacity-90">
+                Time taken: {formatDuration(resultData.createdAt - resultData.contestStartTime)} 
             </p>
         </div>
         

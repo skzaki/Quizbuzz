@@ -362,7 +362,7 @@ export const getSubmissionResult = async (req, res) => {
     // Fetch submission with user, contest, and populate question details for answers
     const submission = await Submission.findById(submissionId)
       .populate('userId', 'firstName lastName email')
-      .populate('contestId', '_id title')
+      .populate('contestId', '_id title startTime')
       .populate('answers.questionId')
       .lean();
 
@@ -457,6 +457,7 @@ export const getSubmissionResult = async (req, res) => {
     const response = {
       submissionId,
       contestId: submission.contestId._id,
+      contestStartTime: startTime,
       status: submission.status,
       userName: `${submission.userId.firstName} ${submission.userId.lastName}`,
       userEmail: submission.userId.email,
@@ -531,76 +532,40 @@ export const getSubmissionResult = async (req, res) => {
 };
 
 export const getContestLeaderboard = async (req, res) => {
+    
     try {
         const contestId = new mongoose.Types.ObjectId(req.params.contestId);
-        console.log('In getContestLeaderboard');
+        console.log('In getContestLeaderboard')
         console.log(`BE: ${contestId}`);
-        
-        if (!contestId) {
-            return res.status(400).json({ 
-                success: false, 
-                message: "Contest ID needed" 
-            });
-        }
-
-        // Fetch contest details to get start time
-        const contest = await Contest.findById(contestId).select('startTime');
-        
-        if (!contest) {
-            return res.status(404).json({
-                success: false,
-                message: "Contest not found"
-            });
-        }
-
-        // Calculate 48 hours from contest start time
-        const contestStartTime = new Date(contest.startTime);
-        const currentTime = new Date();
-        const fortyEightHoursAfterStart = new Date(contestStartTime.getTime() + (48 * 60 * 60 * 1000));
-
-        // Check if 48 hours have passed since contest start
-        if (currentTime < fortyEightHoursAfterStart) {
-            return res.json({
-                success: false,
-                message: "Leader board and Merits List will be declared in 48 Hours"
-            });
-        }
-
-        // Check if all jobs are completed
         const allDone = areAllJobsCompleted();
-        if (!allDone) {
-            return res.json({ 
-                success: false,
-                message: "The Quiz or Evaluation is still under processing" 
-            }); 
-        }
 
-        // Fetch submissions after 48 hours have passed
+        if(!allDone) return res.josn({ message: "the Quiz or Evaluattion is still under processing "}); 
+        
+        if(!contestId) return res.status(400).json({ success: false, message: "contest Id needed"});
+
         const submissions = await Submission.find({ contestId })
-            .select('_id userId score totalQuestions createdAt updatedAt')
-            .populate('userId', 'registrationId firstName lastName');
+            .select(' _id userId score totalQuestions createdAt updatedAt')
+            .populate('userId', 'registrationId firstName lastName ');
 
-        if (!submissions || submissions.length === 0) {
+        if(!submissions) {
             console.log(`Failed to fetch submissions/leaderBoard for ${contestId} from Database`);
-            return res.json({ 
-                success: false,
-                message: "Error fetching Leaderboard" 
-            });
+            return res.json({ message: "error fetching Leaderboard" });
         }
+
+
 
         return res.json({
             success: true,
             submissions
-        });
-
-    } catch (err) {
+        })
+    } catch(err) {
         console.log(`ERROR: ${err.message}`);
         return res.json({
             success: false,
-            message: "Error fetching the LeaderBoard"
-        });
+            message: "Error fetching the LeaderBoard for "
+        })
     }
-};
+} 
 
 // Helper function to determine grade
 const getGrade = (percentage) => {
