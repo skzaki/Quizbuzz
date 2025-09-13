@@ -6,7 +6,7 @@ const HeroBanner = () => {
   const navigate = useNavigate();
 
   // Memoize target date to avoid recalculation
-  const targetDate = useMemo(() => new Date('2025-09-14T07:30:00.000Z').getTime(), []);
+  const targetDate = useMemo(() => new Date('2025-09-14T17:00:00.000+05:30').getTime(), []);
 
   // Memoize time calculation function
   const calculateTimeLeft = useCallback(() => {

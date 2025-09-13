@@ -12,11 +12,7 @@ import {
 
 import { authMiddleware } from './../middleware/auth.js';
 
-
-
 const router = Router();
-
-// const validateLimiter = rateLimit({ windowMs: 5*60*1000, max: 20 });
 
 // Public Routes
 router.post("/validate-credentials", validateCredentials);
