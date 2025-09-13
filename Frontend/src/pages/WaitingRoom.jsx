@@ -47,12 +47,7 @@ const showCameraPermissionToast = (requestCameraPermission, cameraPermission) =>
               {cameraPermission === 'requesting' ? 'Requesting...' : 'Enable Camera'}
             </button>
             
-            <button
-              onClick={() => toast.dismiss(t.id)}
-              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-md transition-colors"
-            >
-              Later
-            </button>
+            
           </div>
         </div>
         
@@ -183,6 +178,10 @@ const WaitingRoom = () => {
  useExamProtection((msg) => {
      toast.error(msg);
  });
+
+ useEffect(() => {
+    showCameraPermissionToast(requestCameraPermission, cameraPermission);
+ },[]);
 
   // Enhanced camera permission check for mobile compatibility
   const checkCameraPermission = useCallback(async () => {

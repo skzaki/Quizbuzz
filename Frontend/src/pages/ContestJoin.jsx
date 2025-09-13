@@ -80,28 +80,15 @@ const ContestJoin = () => {
         
         const data = await response.json();
         setContestInfo(data);
-
-        if(data.submissionId) {
-            navigate(`/contest/result/${data.submissionId}`);
-        }
-
         localStorage.setItem("authToken", data.token);
 
-        // If this is a resumed session (welcome back message), skip OTP
-        if (data.message.includes("Welcome back")) {
-          setIsValidating(false);
-          setOtpVerified(true);
-          
-          // Set localStorage items
-          localStorage.setItem("contestInfo", JSON.stringify(data.contestInfo));
-          localStorage.setItem("userInfo", JSON.stringify(data.userInfo));
-          
-          // Navigate directly to waiting room for resumed sessions
-          navigate('/contest/waiting-room');
-          return;
+        // PRIORITY: If user has already submitted, show results regardless of session type
+        if(data.submissionId) {
+            navigate(`/contest/result/${data.submissionId}`);
+            return; // Exit early, don't proceed with OTP or waiting room flow
         }
-        
-        // Send OTP for new sessions
+
+        // For all other cases (new sessions or same device sessions), continue with OTP flow
         await sendOTP();
         
     } catch (error) {

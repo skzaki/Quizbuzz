@@ -934,12 +934,12 @@ if (showThankYou) {
       {/* Navigation Buttons - 10% on mobile, normal on desktop */}
       <div className="h-[10vh] lg:h-auto bg-white dark:bg-gray-800 border-t lg:border-t-0 border-gray-200 dark:border-gray-700 px-4 py-3 md:px-8 md:py-4 flex items-center justify-center lg:justify-end">
         <div className="flex w-full lg:w-auto space-x-3 max-w-md lg:max-w-none">
-          <button
+          {/* <button
             onClick={handleSkip}
             className="flex-1 lg:flex-none px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors font-medium text-sm md:text-base"
           >
             Skip
-          </button>
+          </button> */}
           <button
             onClick={handleSubmitAnswer}
             className="flex-1 lg:flex-none flex items-center justify-center space-x-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium text-sm md:text-base"
