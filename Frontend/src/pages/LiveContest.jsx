@@ -37,6 +37,33 @@ const calculateTimeLeft = (contestInfo) => {
   return Math.max(0, remainingSeconds); // Ensure non-negative
 };
 
+
+
+// Fisher-Yates shuffle algorithm
+const shuffleArray = (array) => {
+  const shuffled = [...array]; // Create a copy to avoid mutating original
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
+// Function to randomize both questions and their options
+const randomizeQuestionsAndOptions = (questions) => {
+  return questions.map(question => {
+    // Create a copy of the question to avoid mutating the original
+    const questionCopy = { ...question };
+    
+    // If options exist, randomize them
+    if (questionCopy.options && Array.isArray(questionCopy.options)) {
+      questionCopy.options = shuffleArray(questionCopy.options);
+    }
+    
+    return questionCopy;
+  });
+};
+
 const LiveContest = () => {
   const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
@@ -80,8 +107,13 @@ const getQuestions = async () => {
         const decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
         if (Array.isArray(decryptedData) && decryptedData.length > 0) {
           console.log("📂 Loaded questions from localStorage");
-          setQuestions(decryptedData);
-          setAnswers(new Array(decryptedData.length).fill(null));
+          
+          // ✨ Randomize questions and their options from localStorage
+          const questionsWithRandomOptions = randomizeQuestionsAndOptions(decryptedData);
+          const shuffledQuestions = shuffleArray(questionsWithRandomOptions);
+          
+          setQuestions(shuffledQuestions);
+          setAnswers(new Array(shuffledQuestions.length).fill(null));
           setIsLoadingQuestions(false);
           return; // ✅ Stop here, no API call
         }
@@ -122,17 +154,21 @@ const getQuestions = async () => {
       console.error("Unexpected questions format:", data);
     }
 
-    // 3: Save in state & localStorage (encrypted)
-    setQuestions(questionsArray);
-    setAnswers(new Array(questionsArray.length).fill(null));
+    // ✨ Randomize questions and their options after fetching from API
+    const questionsWithRandomOptions = randomizeQuestionsAndOptions(questionsArray);
+    const shuffledQuestions = shuffleArray(questionsWithRandomOptions);
+
+    // 3: Save shuffled questions in state & localStorage (encrypted)
+    setQuestions(shuffledQuestions);
+    setAnswers(new Array(shuffledQuestions.length).fill(null));
 
     const encryptedData = CryptoJS.AES.encrypt(
-      JSON.stringify(questionsArray),
+      JSON.stringify(shuffledQuestions),
       import.meta.env.VITE_SECRET_KEY
     ).toString();
 
     localStorage.setItem(`questions_${contestInfo.current.slug}`, encryptedData);
-    console.log("🔒 Questions stored in encrypted localStorage");
+    console.log("🔒 Randomized questions with shuffled options stored in encrypted localStorage");
 
     setIsLoadingQuestions(false);
   } catch (error) {
