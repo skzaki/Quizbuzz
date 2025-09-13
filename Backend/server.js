@@ -11,26 +11,36 @@ const methodsToOverride = ['log', 'error', 'warn', 'table'];
 methodsToOverride.forEach(methodName => {
   const originalMethod = console[methodName];
   console[methodName] = (...args) => {
-    // Get IST time
-    const now = new Date().toLocaleString("en-IN", {
-      timeZone: "Asia/Kolkata"
+    // Get IST parts
+    const now = new Date();
+    const options = { timeZone: "Asia/Kolkata", hour12: true };
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+      ...options,
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
     });
-    const dateObj = new Date(now);
 
-    const day = String(dateObj.getDate()).padStart(2, '0');
-    const month = String(dateObj.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
-    const year = dateObj.getFullYear();
-    const hours = dateObj.getHours();
-    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-    const seconds = String(dateObj.getSeconds()).padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    const formattedHours = String(hours % 12 || 12).padStart(2, '0'); // Convert to 12-hour format
+    // Example: "13/09/2025, 10:25:42 am"
+    const parts = formatter.formatToParts(now);
 
-    const timestamp = `[${day}-${month}-${year} ${formattedHours}:${minutes}:${seconds} ${ampm} IST]`;
+    const day = parts.find(p => p.type === "day").value;
+    const month = parts.find(p => p.type === "month").value;
+    const year = parts.find(p => p.type === "year").value;
+    let hour = parts.find(p => p.type === "hour").value;
+    const minute = parts.find(p => p.type === "minute").value;
+    const second = parts.find(p => p.type === "second").value;
+    const dayPeriod = parts.find(p => p.type === "dayPeriod").value.toUpperCase();
+
+    const timestamp = `[${day}-${month}-${year} ${hour}:${minute}:${second} ${dayPeriod} IST]`;
 
     originalMethod.apply(console, [timestamp, ...args]);
   };
 });
+
 
 
 connectDB();
