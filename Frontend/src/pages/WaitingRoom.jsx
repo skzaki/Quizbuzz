@@ -5,7 +5,6 @@ import {
     Trophy
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import toast from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router-dom";
 import io from "socket.io-client";
 
@@ -54,13 +53,7 @@ const WaitingRoom = () => {
             }
             video.play();
         })
-        .catch((err) => {
-            console.error("❌ Camera error:", err);
-            toast.error("Unable to access camera. Please allow camera permission.");
-        });
-
-      setCameraPermission("granted");
-      console.log("✅ Camera permission granted");
+        
     } catch (err) {
       console.error("❌ Camera permission error:", err);
       setCameraPermission("denied");

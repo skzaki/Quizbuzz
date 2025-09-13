@@ -1,5 +1,5 @@
 import CryptoJS from "crypto-js";
-import { ArrowRight, Clock } from 'lucide-react';
+import { ArrowRight, CameraOff, Clock } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import toast from "react-hot-toast";
 import { useNavigate } from 'react-router-dom';
@@ -345,13 +345,16 @@ useEffect(() => {
 
   // Enhanced camera initialization for proctoring
   const initializeProctoring = async () => {
+    let animationId;
     try {
 
         const video = videoRef.current;
         const canvas = canvasRef.current;
         if (!video || !canvas) return;        
 
-         video.setAttribute("autoplay", "");
+        const ctx = canvas.getContext("2d");
+
+        video.setAttribute("autoplay", "");
         video.setAttribute("muted", "");
         video.setAttribute("playsinline", "");
       
@@ -359,28 +362,40 @@ useEffect(() => {
         const constraints = { audio: false, video: { facingMode: "user" } };
 
 
-        const stream = await navigator.mediaDevices
+        await navigator.mediaDevices
             .getUserMedia(constraints)
             .then((localMediaStream) => {
                 if ("srcObject" in video) {
-                video.srcObject = localMediaStream;
+                    video.srcObject = localMediaStream;
+                    setMediaStream(localMediaStream);
                 } else {
-                video.src = window.URL.createObjectURL(localMediaStream);
+                    video.src = window.URL.createObjectURL(localMediaStream);
                 }
                 video.play();
-                
-            })
-            .catch((err) => {
-                console.error("❌ Camera error:", err);
-                toast.error("Unable to access camera. Please allow camera permission.");
-            });
+
+                // Start drawing loop
+            const draw = () => {
+                if (video.readyState >= 2) {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                }
+                animationId = requestAnimationFrame(draw);
+            };
+            draw();
+                    
+        })
+        .catch((err) => {
+            cancelAnimationFrame(animationId);
+            console.error("❌ Camera error:", err);
+            toast.error("Unable to access camera. Please allow camera permission.");
+        });
       
 
-      setMediaStream(stream);
+      
       setCameraEnabled(true);
 
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
 
         // Wait for video to be fully ready
         const initializeFaceMonitor = () => {
@@ -455,6 +470,7 @@ useEffect(() => {
     
       
     } catch (error) {
+        
       console.error('Error accessing camera/microphone:', error);
       setFaceMonitorStatus('error');
       
@@ -855,11 +871,15 @@ if (showThankYou) {
                 className="w-full h-full object-cover lg:object-cover"
                 style={{ transform: 'scaleX(-1)' }} 
               />
-              {/* {!cameraEnabled && (
+                <canvas
+                    ref={canvasRef}
+                    className="absolute inset-0 w-full h-full object-cover"
+                />
+              {!cameraEnabled && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">
                   <CameraOff className="h-8 w-8 text-gray-400" />
                 </div>
-              )} */}
+              )}
               {cameraEnabled && (
                 <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">REC</div>
               )}
