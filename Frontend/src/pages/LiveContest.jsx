@@ -65,8 +65,6 @@ const LiveContest = () => {
   // Get contest info from navigation state
   const userInfo = useRef({});
   const contestInfo = useRef({});
-  const canvasRef = useRef(null);
-
 
 const getQuestions = async () => {
   try {
@@ -345,14 +343,11 @@ useEffect(() => {
 
   // Enhanced camera initialization for proctoring
   const initializeProctoring = async () => {
-    let animationId;
     try {
 
         const video = videoRef.current;
-        const canvas = canvasRef.current;
-        if (!video || !canvas) return;        
-
-        const ctx = canvas.getContext("2d");
+        
+        if (!video) return;        
 
         video.setAttribute("autoplay", "");
         video.setAttribute("muted", "");
@@ -367,26 +362,18 @@ useEffect(() => {
             .then((localMediaStream) => {
                 if ("srcObject" in video) {
                     video.srcObject = localMediaStream;
-                    setMediaStream(localMediaStream);
+                    // setMediaStream(localMediaStream);
                 } else {
                     video.src = window.URL.createObjectURL(localMediaStream);
                 }
                 video.play();
 
                 // Start drawing loop
-            const draw = () => {
-                if (video.readyState >= 2) {
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                }
-                animationId = requestAnimationFrame(draw);
-            };
-            draw();
+           
                     
         })
         .catch((err) => {
-            cancelAnimationFrame(animationId);
+            
             console.error("❌ Camera error:", err);
             toast.error("Unable to access camera. Please allow camera permission.");
         });
@@ -865,16 +852,10 @@ if (showThankYou) {
             <div className="relative bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden h-full lg:h-48 max-w-xs mx-auto lg:max-w-none lg:mx-0">
               <video 
                 ref={videoRef} 
-                autoPlay 
-                muted 
-                playsInline
                 className="w-full h-full object-cover lg:object-cover"
                 style={{ transform: 'scaleX(-1)' }} 
               />
-                <canvas
-                    ref={canvasRef}
-                    className="absolute inset-0 w-full h-full object-cover"
-                />
+
               {!cameraEnabled && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">
                   <CameraOff className="h-8 w-8 text-gray-400" />
