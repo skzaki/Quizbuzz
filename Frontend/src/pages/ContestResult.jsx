@@ -187,7 +187,7 @@ const ContestResult = () => {
         {/* Score and Submitted Row */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <p className="text-md">
-                 <span className="font-bold"> Score: {resultData.correctAnswers}</span> / {resultData.totalQuestions} 
+                 <span className="font-bold"> Score: {resultData.score}</span> / {resultData.totalQuestions} 
             </p>
             <p className="text-sm opacity-90">
                 Submitted: {
