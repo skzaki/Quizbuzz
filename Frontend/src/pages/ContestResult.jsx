@@ -254,7 +254,7 @@ const ContestResult = () => {
               >
                 Your Result
               </button>
-              <button
+              {/* <button
                 onClick={() => setActiveTab("leaderboard")}
                 className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === "leaderboard"
@@ -263,7 +263,7 @@ const ContestResult = () => {
                 }`}
               >
                 Leader Board
-              </button>
+              </button> */}
             </nav>
           </div>
         </div>
