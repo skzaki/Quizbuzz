@@ -28,6 +28,7 @@ export const validateCredentials = async (req, res) => {
 
     console.log(`slug:${slug}`);
     console.log(`registrationId: ${registrationId} | phone: ${phone}`);
+    
     // Check if contest exists
     const contest = await Contest.findOne({ slug, isDeleted: false });
     if (!contest) {
@@ -51,22 +52,89 @@ export const validateCredentials = async (req, res) => {
       });
     }
 
-    // 5 Check if user is registered for this contest
-    // const isRegistered = contest.participants.includes(user._id);
-    // if (!isRegistered) {
-    //   return res.status(403).json({
-    //     message: "You are not registered for this contest. Please register first to participate."
-    //   });
-    // }
+    // NEW: Check if user already has an active session on another device
+    const existingActiveSession = await Session.findOne({ 
+      userId: user._id, 
+      isActive: true 
+    });
 
+    if (existingActiveSession) {
+      // Check if it's the same device trying to login again
+      const isSameDevice = existingActiveSession.userAgent === userAgent && 
+                          existingActiveSession.ipAddress === ipAddress;
+      
+      if (!isSameDevice) {
+        return res.status(409).json({
+          message: "You are already logged in on another device. Please logout from the other device first or continue using that device to access the contest.",
+          error: "MULTIPLE_DEVICE_LOGIN_BLOCKED",
+          existingSession: {
+            device: existingActiveSession.device,
+            lastActivity: existingActiveSession.lastActivity,
+            ipAddress: existingActiveSession.ipAddress.substring(0, 7) + "***" // Partial IP for privacy
+          }
+        });
+      }
+      
+      // If same device, update the existing session
+      existingActiveSession.lastActivity = new Date();
+      await existingActiveSession.save();
+      
+      // Update Redis session
+      await saveSession(existingActiveSession.sessionId, {
+        userId: user._id.toString(),
+        ipAddress,
+        userAgent,
+        isActive: true,
+        lastActivity: new Date().toISOString(),
+      }, 60 * 60 * 24);
 
-    // Invalidate existing active session in DB
-    await Session.updateMany(
-      { userId: user._id, isActive: true },
-      { $set: { isActive: false, endedAt: new Date() } }
-    );
+      // Generate new JWT with existing session
+      const token = jwt.sign(
+        { 
+          userId: user._id, 
+          sessionId: existingActiveSession.sessionId, 
+          email: user.email, 
+          userName: `${user.firstName} ${user.lastName}`,
+          contestId: contest._id 
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "24h" }
+      );
 
-    // Create new session ID
+      // Contest response data
+      const contestInfo = {
+        id: contest._id,
+        slug: contest.slug,
+        title: contest.title,
+        description: contest.description,
+        details: contest.details,
+        topics: contest.topics,
+        rules: contest.rules,
+        registerFee: contest.registerFee,
+        duration: contest.duration,
+        cutOff: contest.cutOff,
+        startTime: contest.startTime,
+        deadline: contest.deadline,
+        participants: contest.participants.length,
+        prizes: contest.prizes,
+        totalQuestions: contest.QuestionBank.length
+      };
+
+      return res.json({
+        message: "Welcome back! Resuming your session.",
+        token,
+        userInfo: {
+          registrationId: user.registrationId,
+          _id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email
+        },
+        contestInfo
+      });
+    }
+
+    // If no active session exists, create new session
     const sessionId = crypto.randomUUID();
 
     // Save to MongoDB
@@ -103,7 +171,7 @@ export const validateCredentials = async (req, res) => {
       { expiresIn: "24h" }
     );
 
-    // contest response data
+    // Contest response data
     const contestInfo = {
       id: contest._id,
       slug: contest.slug,
@@ -122,7 +190,7 @@ export const validateCredentials = async (req, res) => {
       totalQuestions: contest.QuestionBank.length
     };
 
-    // response
+    // Response
     res.json({
       message: "Login successful. Welcome to the contest!",
       token,

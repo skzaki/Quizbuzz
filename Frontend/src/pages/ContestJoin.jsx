@@ -3,9 +3,12 @@
 import {
     AlertCircle,
     ArrowRight,
+    Clock,
     Key,
     Loader,
-    Mail
+    Mail,
+    MapPin,
+    Smartphone
 } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
@@ -28,6 +31,9 @@ const ContestJoin = () => {
   const [showTerms, setShowTerms] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
+  // New state for multiple device login error
+  const [multipleDeviceError, setMultipleDeviceError] = useState(null);
+
   const validateCredentials = async (fullRegId = null) => {
     
     const regId = fullRegId || `QUIZ-${registrationId}`;
@@ -39,6 +45,7 @@ const ContestJoin = () => {
 
     setIsValidating(true);
     setValidationError('');
+    setMultipleDeviceError(null); // Clear any previous multiple device errors
 
     try {
       // Actual API call for credential validation
@@ -57,6 +64,14 @@ const ContestJoin = () => {
       
       if (!response.ok) {
           const error = await response.json();
+          
+          // Handle multiple device login error specifically
+          if (response.status === 409 && error.error === 'MULTIPLE_DEVICE_LOGIN_BLOCKED') {
+            setMultipleDeviceError(error);
+            setIsValidating(false);
+            return;
+          }
+          
           setValidationError(error.message || 'Validation failed');
           setIsValidating(false);
           return;
@@ -72,9 +87,21 @@ const ContestJoin = () => {
 
         localStorage.setItem("authToken", data.token);
 
-
+        // If this is a resumed session (welcome back message), skip OTP
+        if (data.message.includes("Welcome back")) {
+          setIsValidating(false);
+          setOtpVerified(true);
+          
+          // Set localStorage items
+          localStorage.setItem("contestInfo", JSON.stringify(data.contestInfo));
+          localStorage.setItem("userInfo", JSON.stringify(data.userInfo));
+          
+          // Navigate directly to waiting room for resumed sessions
+          navigate('/contest/waiting-room');
+          return;
+        }
         
-        // Send OTP after successful validation
+        // Send OTP for new sessions
         await sendOTP();
         
     } catch (error) {
@@ -201,8 +228,81 @@ const ContestJoin = () => {
     }
   };
 
+  const handleDismissMultipleDeviceError = () => {
+    setMultipleDeviceError(null);
+  };
+
   // Function to determine what to render based on current state
   const renderContent = () => {
+    // Show multiple device error modal
+    if (multipleDeviceError) {
+      return (
+        <div className="space-y-6">
+          <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-6">
+            <div className="flex items-start space-x-3">
+              <AlertCircle className="h-6 w-6 text-orange-600 dark:text-orange-400 mt-1 flex-shrink-0" />
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-orange-800 dark:text-orange-200 mb-2">
+                  Multiple Device Login Detected
+                </h3>
+                <p className="text-sm text-orange-700 dark:text-orange-300 mb-4">
+                  {multipleDeviceError.message}
+                </p>
+                
+                {multipleDeviceError.existingSession && (
+                  <div className="bg-orange-100 dark:bg-orange-800/30 rounded-md p-3 mb-4">
+                    <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-2">
+                      Current Active Session:
+                    </h4>
+                    <div className="space-y-2 text-xs text-orange-700 dark:text-orange-300">
+                      <div className="flex items-center space-x-2">
+                        <Smartphone className="h-4 w-4" />
+                        <span>Device: {multipleDeviceError.existingSession.device}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Clock className="h-4 w-4" />
+                        <span>Last Activity: {new Date(multipleDeviceError.existingSession.lastActivity).toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <MapPin className="h-4 w-4" />
+                        <span>IP: {multipleDeviceError.existingSession.ipAddress}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <p className="text-sm text-orange-700 dark:text-orange-300">
+                    <strong>What you can do:</strong>
+                  </p>
+                  <ul className="text-sm text-orange-700 dark:text-orange-300 space-y-1 ml-4">
+                    <li>• Continue using your other device to access the contest</li>
+                    <li>• Logout from the other device first, then try again here</li>
+                    <li>• Contact support if you believe this is an error</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex space-x-3">
+            <button
+              onClick={handleDismissMultipleDeviceError}
+              className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     if (showTerms && contestInfo && otpVerified) {
       return (
         <TermsAndConditions
