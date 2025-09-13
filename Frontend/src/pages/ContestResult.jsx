@@ -1,4 +1,4 @@
-import { Award, Clock, Loader2, TrendingUp, XCircle } from "lucide-react";
+import { Award, Clock, Loader2, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import LeaderBoard from "../components/Result/LeaderBoard";
@@ -169,7 +169,6 @@ const ContestResult = () => {
       <div className="max-w-5xl mx-auto">
         
         {/* Score Card */}
-        {/* Score Card */}
 <div className="bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl p-6 md:p-10 text-white shadow-lg mb-6">
     <div className="flex flex-col gap-4">
         {/* Header */}
@@ -193,13 +192,13 @@ const ContestResult = () => {
         </div>
         
         {/* Percentage and Evaluated Row */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        {/* <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />
                 <span className="text-md font-bold">{percentage}%</span>
             </div>
             
-        </div>
+        </div> */}
         
         {/* Download Certificate Button */}
         <div className="mt-2">

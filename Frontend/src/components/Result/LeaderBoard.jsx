@@ -26,10 +26,6 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
         }
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch leaderboard: ${response.status} ${response.statusText}`);
-      }
-
       const data = await response.json();
       
       // Check if it's a waiting message (48 hours not passed)
@@ -37,6 +33,17 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
         setWaitingMessage(data.message);
         setLeaderboardData([]);
         return;
+      }
+      // Check if it's a processing message
+      if (!data.success && data.message && data.message.includes("processing")) {
+        setWaitingMessage(data.message);
+        setLeaderboardData([]);
+        return;
+      }
+     
+      // actual HTTP errors or unknown API errors 
+      if (!response.ok) {
+        throw new Error(`Failed to fetch leaderboard: ${response.status} ${response.statusText}`);
       }
       
       if (!data.success) {
@@ -63,12 +70,12 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
   useEffect(() => {
     fetchLeaderboard();
     
-    // Set up polling to check every minute if we're in waiting state
+    // Set up polling to check every 3 minute if we're in waiting state
     const interval = setInterval(() => {
       if (waitingMessage) {
         fetchLeaderboard();
       }
-    }, 60000); // Check every minute
+    }, 3*60000); // Check every 3 minute
 
     return () => clearInterval(interval);
   }, [contestId, waitingMessage]);
