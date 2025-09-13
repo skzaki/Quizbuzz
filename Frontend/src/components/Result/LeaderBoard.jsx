@@ -26,9 +26,20 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
         }
       });
 
-      const data = await response.json();
+      // Check if response is actually JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response received:', text.substring(0, 200));
+        throw new Error('Server returned non-JSON response. Please check the API endpoint.');
+      }
 
-      console.log(`Response Data: ${JSON.stringify(data)}`);
+      const data = await response.json();
+      
+      // Only throw error for actual HTTP errors
+      if (!response.ok) {
+        throw new Error(`Failed to fetch leaderboard: ${response.status} ${response.statusText}`);
+      }
       
       // Check if it's a waiting message (48 hours not passed)
       if (!data.success && data.message && data.message.includes("48 Hours")) {
@@ -36,18 +47,15 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
         setLeaderboardData([]);
         return;
       }
+      
       // Check if it's a processing message
       if (!data.success && data.message && data.message.includes("processing")) {
         setWaitingMessage(data.message);
         setLeaderboardData([]);
         return;
       }
-     
-      // actual HTTP errors or unknown API errors 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch leaderboard: ${response.status} ${response.statusText}`);
-      }
       
+      // If not successful and no recognizable message, throw error
       if (!data.success) {
         throw new Error(data.message || 'API request was not successful');
       }
@@ -72,12 +80,12 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
   useEffect(() => {
     fetchLeaderboard();
     
-    // Set up polling to check every 3 minute if we're in waiting state
+    // Set up polling to check every minute if we're in waiting state
     const interval = setInterval(() => {
       if (waitingMessage) {
         fetchLeaderboard();
       }
-    }, 3*60000); // Check every 3 minute
+    }, 60000); // Check every minute
 
     return () => clearInterval(interval);
   }, [contestId, waitingMessage]);
