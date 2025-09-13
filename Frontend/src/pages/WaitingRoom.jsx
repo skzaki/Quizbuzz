@@ -8,7 +8,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
-import { useExamProtection } from '../hooks/useExamProtection';
 
 // Custom Toast Component for Camera Permission
 const showCameraPermissionToast = (requestCameraPermission, cameraPermission) => {
@@ -175,9 +174,9 @@ const WaitingRoom = () => {
   const [cameraError, setCameraError] = useState('');
 
 
- useExamProtection((msg) => {
-     toast.error(msg);
- });
+//  useExamProtection((msg) => {
+//      toast.error(msg);
+//  });
 
  useEffect(() => {
     showCameraPermissionToast(requestCameraPermission, cameraPermission);
