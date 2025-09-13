@@ -1,19 +1,21 @@
-import { Crown, Loader2, Medal, Trophy } from "lucide-react";
+import { Clock, Crown, Loader2, Medal, Trophy } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const LeaderBoard = ({ contestId, currentUserId }) => {
   const [leaderboardData, setLeaderboardData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [waitingMessage, setWaitingMessage] = useState(null);
 
   console.log(`Leader: ${contestId}`);
+  
   const fetchLeaderboard = async () => {
     if (!contestId) return;
-
 
     try {
       setLoading(true);
       setError(null);
+      setWaitingMessage(null);
       
       const authToken = localStorage.getItem('authToken');
       const response = await fetch(`${import.meta.env.VITE_URL}/contests/${contestId}/leaderboard`, {
@@ -30,8 +32,15 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
 
       const data = await response.json();
       
+      // Check if it's a waiting message (48 hours not passed)
+      if (!data.success && data.message && data.message.includes("48 Hours")) {
+        setWaitingMessage(data.message);
+        setLeaderboardData([]);
+        return;
+      }
+      
       if (!data.success) {
-        throw new Error('API request was not successful');
+        throw new Error(data.message || 'API request was not successful');
       }
 
       // Sort by score (desc), then by createdAt (asc) for same scores
@@ -53,7 +62,16 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
 
   useEffect(() => {
     fetchLeaderboard();
-  }, [contestId]);
+    
+    // Set up polling to check every minute if we're in waiting state
+    const interval = setInterval(() => {
+      if (waitingMessage) {
+        fetchLeaderboard();
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, [contestId, waitingMessage]);
 
   const getRankIcon = (rank) => {
     switch (rank) {
@@ -118,6 +136,37 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
         <div className="p-8 text-center">
           <Loader2 className="h-6 w-6 animate-spin text-purple-500 mx-auto mb-2" />
           <p className="text-gray-600 dark:text-gray-400">Loading leaderboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show waiting message when 48 hours haven't passed
+  if (waitingMessage) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <Trophy className="h-5 w-5 text-yellow-500" />
+            Contest Leaderboard
+          </h2>
+        </div>
+        <div className="p-8 text-center">
+          <div className="flex flex-col items-center space-y-4">
+            <Clock className="h-12 w-12 text-blue-500" />
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                Results Coming Soon!
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                {waitingMessage}
+              </p>
+              <div className="inline-flex items-center px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg">
+                <Clock className="h-4 w-4 mr-2" />
+                <span className="text-sm">Checking automatically...</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -262,10 +311,14 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
                     <div className="flex flex-col text-sm">
                         
                       <span>{new Date(submission.createdAt).toLocaleDateString()}</span>
-                      <span>
-                        { new Date(submission.createdAt).toLocaleTimeString('en-US', { hour12: true, second: '2-digit', minute: '2-digit', hour: '2-digit' }) } 
-                        .{new Date(submission.createdAt).getMilliseconds().toString().padStart(3, '0')} 
-                      </span>
+                        <span>
+                            { new Date(submission.createdAt).toLocaleTimeString('en-US', { 
+                                hour12: true, 
+                                hour: '2-digit',
+                                minute: '2-digit', 
+                                second: '2-digit'
+                            }).replace(/(\d{2}:\d{2}:\d{2})(\s[AP]M)/, `$1.${new Date(submission.createdAt).getMilliseconds().toString().padStart(3, '0')}$2`) }
+                        </span>
                     </div>
                   </td>
                 </tr>

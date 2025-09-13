@@ -8,7 +8,7 @@ import ThankYouScreen from "../components/LiveContest/ThankYouScreen.jsx";
 import { startFaceMonitor, stopFaceMonitor } from '../services/faceMonitor.js';
 import { useExamProtection } from './../hooks/useExamProtection';
 
-  const calculateTimeLeft = (contestInfo) => {
+const calculateTimeLeft = (contestInfo) => {
   const now = new Date();
   const contestStartTime = new Date(contestInfo.startTime);
   const durationInMinutes = parseInt(contestInfo.duration);
@@ -65,6 +65,8 @@ const LiveContest = () => {
   // Get contest info from navigation state
   const userInfo = useRef({});
   const contestInfo = useRef({});
+
+
 
 const getQuestions = async () => {
   try {
@@ -226,50 +228,32 @@ const getQuestions = async () => {
 
   const totalQuestions = questions.length;
 
-  // === CAMERA + PROCTORING ===
-    useEffect(() => {
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-        if (!video) return;
-
-        // iOS Safari fix
-        video.setAttribute("autoplay", "");
-        video.setAttribute("muted", "");
-        video.setAttribute("playsinline", "");
-
-        const constraints = { audio: false, video: { facingMode: "user" } };
-
-        navigator.mediaDevices
-            .getUserMedia(constraints)
-            .then((localMediaStream) => {
-            setMediaStream(localMediaStream);
-            video.srcObject = localMediaStream;
-            video.play();
-            setCameraEnabled(true);
-
-            // ✅ Start face monitoring on VIDEO element
-            startFaceMonitor({
-                videoEl: video,
-                onWarning: setProctoringWarning,
-                onClear: () => setFaceMonitorStatus("active"),
-            });
-            })
-            .catch((err) => {
-            console.error("❌ Camera error:", err);
-            toast.error("Unable to access camera. Please allow camera permission.");
-            });
-
-        return () => {
-            // Stop monitoring
-            stopFaceMonitor();
-
-            // Stop camera
-            if (mediaStream) {
-            mediaStream.getTracks().forEach((track) => track.stop());
-            }
-        };
-    }, []);
-
+  // Initialize camera and WebSocket connection
+  useEffect(() => {
+    initializeProctoring();
+    
+    return () => {
+      console.log('Cleaning up proctoring resources...');
+      
+      // Stop face monitoring first
+      try {
+        stopFaceMonitor();
+      } catch (error) {
+        console.warn('Error stopping face monitor:', error);
+      }
+      
+      // Stop media tracks
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => {
+          try {
+            track.stop();
+          } catch (error) {
+            console.warn('Error stopping media track:', error);
+          }
+        });
+      }
+    };
+  }, []);
 
   // Timer effect
   useEffect(() => {
@@ -362,45 +346,22 @@ useEffect(() => {
   // Enhanced camera initialization for proctoring
   const initializeProctoring = async () => {
     try {
-
-        const video = videoRef.current;
-        
-        if (!video) return;        
-
-        video.setAttribute("autoplay", "");
-        video.setAttribute("muted", "");
-        video.setAttribute("playsinline", "");
+      setFaceMonitorStatus('loading');
       
-        setFaceMonitorStatus('loading');
-        const constraints = { audio: false, video: { facingMode: "user" } };
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+            width: { ideal: 320 },
+            height: { ideal: 260},
+            facingMode: { ideal: "user"}
+        },
+        audio: true
+      });
 
-
-        await navigator.mediaDevices
-            .getUserMedia(constraints)
-            .then((localMediaStream) => {
-                if ("srcObject" in video) {
-                    video.srcObject = localMediaStream;
-                    // setMediaStream(localMediaStream);
-                } else {
-                    video.src = window.URL.createObjectURL(localMediaStream);
-                }
-                video.play();
-
-                // Start drawing loop
-           
-                    
-        })
-        .catch((err) => {
-            
-            console.error("❌ Camera error:", err);
-            toast.error("Unable to access camera. Please allow camera permission.");
-        });
-      
-
-      
+      setMediaStream(stream);
       setCameraEnabled(true);
 
       if (videoRef.current) {
+        videoRef.current.srcObject = stream;
 
         // Wait for video to be fully ready
         const initializeFaceMonitor = () => {
@@ -475,7 +436,6 @@ useEffect(() => {
     
       
     } catch (error) {
-        
       console.error('Error accessing camera/microphone:', error);
       setFaceMonitorStatus('error');
       
@@ -870,10 +830,12 @@ if (showThankYou) {
             <div className="relative bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden h-full lg:h-48 max-w-xs mx-auto lg:max-w-none lg:mx-0">
               <video 
                 ref={videoRef} 
-                className="w-full h-full object-cover"
+                autoPlay 
+                muted 
+                playsInline
+                className="w-full h-full object-cover lg:object-cover"
                 style={{ transform: 'scaleX(-1)' }} 
               />
-            
               {!cameraEnabled && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">
                   <CameraOff className="h-8 w-8 text-gray-400" />

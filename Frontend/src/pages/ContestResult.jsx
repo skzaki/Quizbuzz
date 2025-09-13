@@ -182,9 +182,13 @@ const ContestResult = () => {
             </p>
             <p className="text-sm opacity-90">
                 Submitted: {
-                    new Date(resultData.createdAt).toLocaleTimeString('en-US', { hour12: true, second: '2-digit', minute: '2-digit', hour: '2-digit' })
+                    new Date(resultData.createdAt).toLocaleTimeString('en-US', { 
+                        hour12: true, 
+                        hour: '2-digit',
+                        minute: '2-digit', 
+                        second: '2-digit'
+                    }).replace(/(\d{2}:\d{2}:\d{2})(\s[AP]M)/, `$1.${new Date(resultData.createdAt).getMilliseconds().toString().padStart(3, '0')}$2`)
                 }
-                .{new Date(resultData.createdAt).getMilliseconds().toString().padStart(3, '0')}
             </p>
         </div>
         
@@ -194,13 +198,7 @@ const ContestResult = () => {
                 <TrendingUp className="h-5 w-5" />
                 <span className="text-md font-bold">{percentage}%</span>
             </div>
-            <p className="text-sm opacity-90">
-                Evaluated: {
-                    new Date(resultData.updatedAt).toLocaleTimeString('en-US', { hour12: true, second: '2-digit', minute: '2-digit', hour: '2-digit' })
-                } 
-                .{new Date(resultData.updatedAt).getMilliseconds().toString().padStart(3, '0')}
-                
-            </p>
+            
         </div>
         
         {/* Download Certificate Button */}
