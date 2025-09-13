@@ -27,6 +27,8 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
       });
 
       const data = await response.json();
+
+      console.log(`Response Data: ${JSON.stringify(data)}`);
       
       // Check if it's a waiting message (48 hours not passed)
       if (!data.success && data.message && data.message.includes("48 Hours")) {
