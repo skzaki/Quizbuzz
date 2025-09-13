@@ -457,7 +457,7 @@ export const getSubmissionResult = async (req, res) => {
     const response = {
       submissionId,
       contestId: submission.contestId._id,
-      contestStartTime: startTime,
+      contestStartTime: submission.contestId.startTime,
       status: submission.status,
       userName: `${submission.userId.firstName} ${submission.userId.lastName}`,
       userEmail: submission.userId.email,
