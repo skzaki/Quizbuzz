@@ -226,32 +226,50 @@ const getQuestions = async () => {
 
   const totalQuestions = questions.length;
 
-  // Initialize camera and WebSocket connection
-  useEffect(() => {
-    initializeProctoring();
-    
-    return () => {
-      console.log('Cleaning up proctoring resources...');
-      
-      // Stop face monitoring first
-      try {
-        stopFaceMonitor();
-      } catch (error) {
-        console.warn('Error stopping face monitor:', error);
-      }
-      
-      // Stop media tracks
-      if (mediaStream) {
-        mediaStream.getTracks().forEach(track => {
-          try {
-            track.stop();
-          } catch (error) {
-            console.warn('Error stopping media track:', error);
-          }
-        });
-      }
-    };
-  }, []);
+  // === CAMERA + PROCTORING ===
+    useEffect(() => {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        if (!video) return;
+
+        // iOS Safari fix
+        video.setAttribute("autoplay", "");
+        video.setAttribute("muted", "");
+        video.setAttribute("playsinline", "");
+
+        const constraints = { audio: false, video: { facingMode: "user" } };
+
+        navigator.mediaDevices
+            .getUserMedia(constraints)
+            .then((localMediaStream) => {
+            setMediaStream(localMediaStream);
+            video.srcObject = localMediaStream;
+            video.play();
+            setCameraEnabled(true);
+
+            // ✅ Start face monitoring on VIDEO element
+            startFaceMonitor({
+                videoEl: video,
+                onWarning: setProctoringWarning,
+                onClear: () => setFaceMonitorStatus("active"),
+            });
+            })
+            .catch((err) => {
+            console.error("❌ Camera error:", err);
+            toast.error("Unable to access camera. Please allow camera permission.");
+            });
+
+        return () => {
+            // Stop monitoring
+            stopFaceMonitor();
+
+            // Stop camera
+            if (mediaStream) {
+            mediaStream.getTracks().forEach((track) => track.stop());
+            }
+        };
+    }, []);
+
 
   // Timer effect
   useEffect(() => {
@@ -852,10 +870,10 @@ if (showThankYou) {
             <div className="relative bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden h-full lg:h-48 max-w-xs mx-auto lg:max-w-none lg:mx-0">
               <video 
                 ref={videoRef} 
-                className="w-full h-full object-cover lg:object-cover"
+                className="w-full h-full object-cover"
                 style={{ transform: 'scaleX(-1)' }} 
               />
-
+            
               {!cameraEnabled && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">
                   <CameraOff className="h-8 w-8 text-gray-400" />
