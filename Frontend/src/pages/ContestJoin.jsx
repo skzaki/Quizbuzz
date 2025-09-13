@@ -354,6 +354,9 @@ const ContestJoin = () => {
         <input
           type="tel"
           value={phone}
+          inputMode='numeric'
+          pattern='[0-9]*'
+          maxLength="10"
           onChange={(e) => setPhone(e.target.value)}
           placeholder="Enter your registered phone number"
           className="w-full pl-10 text-sm pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"

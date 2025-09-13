@@ -91,22 +91,34 @@ export const evaluationWorker = new Worker('contest-evaluation', async (job) => 
             if (userAnswer) {
                 // user attempted this question
                 const isCorrect = userAnswer.answer === q.correctAnswer;
+                const isSkipped = !userAnswer.answer || userAnswer.answer.trim() === "";
+                
+                let questionScore = 0;
+                if (isSkipped) {
+                    questionScore = 0; // No penalty for skipped questions
+                } else if (isCorrect) {
+                    questionScore = 1; // +1 for correct answer
+                } else {
+                    questionScore = -0.25; // -0.25 for wrong answer
+                }
                 
                 evaluatedAnswers.push({
                     ...userAnswer.toObject(),
                     isCorrect,
-                    correctAnswer: q.correctAnswer
+                    correctAnswer: q.correctAnswer,
+                    questionScore
                 });
 
-                if (isCorrect) score++;
+                score += questionScore;
             } else {
-                // unanswered -> mark wrong
+                // unanswered -> no penalty (0 points)
                 evaluatedAnswers.push({
                     questionId: q.questionId,
                     answer: "",
                     correctAnswer: q.correctAnswer,
                     answerIndex: null,
                     isCorrect: false,
+                    questionScore: 0,
                     submittedAt: null
                 });
             }
