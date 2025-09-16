@@ -196,8 +196,6 @@ export const verifyOtp = async (req, res) => {
       console.log(`ERROR: ${error.message}`);
     }
 
-    
-
     // return success if no submission found
     return res.json({ message: isVerifred.message });
   } catch (error) {

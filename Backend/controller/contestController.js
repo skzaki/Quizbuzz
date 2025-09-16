@@ -38,7 +38,7 @@ export const validateCredentials = async (req, res) => {
     }
 
     // Check if user exists
-    const user = await User.findOne({ registrationId });
+    const user = await User.findOne({ registrationId, isDeleted: false });
     if (!user) {
       return res.status(401).json({ 
         message: "No user found. Please check your email for the correct credentials." 
@@ -49,88 +49,6 @@ export const validateCredentials = async (req, res) => {
     if (parseInt(phone) !== user.phone) {
       return res.status(400).json({
         message: "Registration ID does not match the phone number. Please enter the same phone number used during registration."
-      });
-    }
-
-    // NEW: Check if user already has an active session on another device
-    const existingActiveSession = await Session.findOne({ 
-      userId: user._id, 
-      isActive: true 
-    });
-
-    if (existingActiveSession) {
-      // Check if it's the same device trying to login again
-      const isSameDevice = existingActiveSession.userAgent === userAgent && 
-                          existingActiveSession.ipAddress === ipAddress;
-      
-      if (!isSameDevice) {
-        return res.status(409).json({
-          message: "You are already logged in on another device. Please logout from the other device first or continue using that device to access the contest.",
-          error: "MULTIPLE_DEVICE_LOGIN_BLOCKED",
-          existingSession: {
-            device: existingActiveSession.device,
-            lastActivity: existingActiveSession.lastActivity,
-            ipAddress: existingActiveSession.ipAddress.substring(0, 7) + "***" // Partial IP for privacy
-          }
-        });
-      }
-      
-      // If same device, update the existing session
-      existingActiveSession.lastActivity = new Date();
-      await existingActiveSession.save();
-      
-      // Update Redis session
-      await saveSession(existingActiveSession.sessionId, {
-        userId: user._id.toString(),
-        ipAddress,
-        userAgent,
-        isActive: true,
-        lastActivity: new Date().toISOString(),
-      }, 60 * 60 * 24);
-
-      // Generate new JWT with existing session
-      const token = jwt.sign(
-        { 
-          userId: user._id, 
-          sessionId: existingActiveSession.sessionId, 
-          email: user.email, 
-          userName: `${user.firstName} ${user.lastName}`,
-          contestId: contest._id 
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: "24h" }
-      );
-
-      // Contest response data
-      const contestInfo = {
-        id: contest._id,
-        slug: contest.slug,
-        title: contest.title,
-        description: contest.description,
-        details: contest.details,
-        topics: contest.topics,
-        rules: contest.rules,
-        registerFee: contest.registerFee,
-        duration: contest.duration,
-        cutOff: contest.cutOff,
-        startTime: contest.startTime,
-        deadline: contest.deadline,
-        participants: contest.participants.length,
-        prizes: contest.prizes,
-        totalQuestions: contest.QuestionBank.length
-      };
-
-      return res.json({
-        message: "Welcome back! Resuming your session.",
-        token,
-        userInfo: {
-          registrationId: user.registrationId,
-          _id: user._id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email
-        },
-        contestInfo
       });
     }
 
@@ -446,6 +364,8 @@ export const getSubmissionResult = async (req, res) => {
     // If submission is not evaluated yet, return status info
     if (submission.status === 'submitted') {
       const statusResponse = {
+        contestId: submission.contestId?._id,
+        userId: submission.userId?._id,
         submissionId,
         status: submission.status,
         message: 'Your submission is being evaluated. Please wait...',
@@ -600,40 +520,69 @@ export const getSubmissionResult = async (req, res) => {
 };
 
 export const getContestLeaderboard = async (req, res) => {
-    
     try {
         const contestId = new mongoose.Types.ObjectId(req.params.contestId);
-        console.log('In getContestLeaderboard')
+        console.log('In getContestLeaderboard');
         console.log(`BE: ${contestId}`);
+        
         const allDone = areAllJobsCompleted();
 
-        if(!allDone) return res.josn({ message: "the Quiz or Evaluattion is still under processing "}); 
+        if(!allDone) {
+            return res.json({ 
+                success: false,
+                message: "The Quiz or Evaluation is still under processing" 
+            }); 
+        }
         
-        if(!contestId) return res.status(400).json({ success: false, message: "contest Id needed"});
-
-        const submissions = await Submission.find({ contestId, score: { $gte: 50 }})
-            .select(' _id userId score totalQuestions createdAt updatedAt')
-            .populate('userId', 'registrationId firstName lastName ');
-
-        if(!submissions) {
-            console.log(`Failed to fetch submissions/leaderBoard for ${contestId} from Database`);
-            return res.json({ message: "error fetching Leaderboard" });
+        if(!contestId) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Contest ID needed"
+            });
         }
 
+        const submissions = await Submission.find({ 
+            contestId, 
+            score: { $gte: 50 }
+        })
+        .select('_id userId score totalQuestions createdAt updatedAt')
+        .populate('userId', 'registrationId firstName lastName college')
+        .populate('contestId', 'startTime'); // Fixed: correct field name and syntax
 
+        if(!submissions || submissions.length === 0) {
+            console.log(`No submissions found for contest ${contestId}`);
+            return res.json({ 
+                success: true,
+                submissions: [],
+                message: "No submissions found for this contest" 
+            });
+        }
+
+        // Sort by score (descending), then by createdAt (ascending for same scores)
+        const sortedData = submissions.sort((a, b) => {
+            if(b.score !== a.score) {
+                return b.score - a.score;
+            }
+            return new Date(a.createdAt) - new Date(b.createdAt);
+        });
+
+        // Get top 25 submissions
+        const top25 = sortedData.slice(0, 25);
 
         return res.json({
             success: true,
-            submissions
-        })
+            submissions: top25
+        });
+
     } catch(err) {
-        console.log(`ERROR: ${err.message}`);
-        return res.json({
+        console.error(`ERROR in getContestLeaderboard: ${err.message}`);
+        return res.status(500).json({
             success: false,
-            message: "Error fetching the LeaderBoard for "
-        })
+            message: "Error fetching the LeaderBoard",
+            error: err.message
+        });
     }
-} 
+};
 
 // Helper function to determine grade
 const getGrade = (percentage) => {

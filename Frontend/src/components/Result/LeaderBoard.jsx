@@ -1,4 +1,4 @@
-import { Crown, Loader2, Medal, Trophy } from "lucide-react";
+import { Clock, Crown, Loader2, Medal, Trophy } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const LeaderBoard = ({ contestId, currentUserId }) => {
@@ -9,7 +9,6 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
   console.log(`Leader: ${contestId}`);
   const fetchLeaderboard = async () => {
     if (!contestId) return;
-
 
     try {
       setLoading(true);
@@ -102,6 +101,29 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
     return currentIndex + 1;
   };
 
+  const calculateTimeTaken = (submittedAt, contestStartTime) => {
+    if (!submittedAt || !contestStartTime) return 'N/A';
+    
+    const startTime = new Date(contestStartTime);
+    const endTime = new Date(submittedAt);
+    const timeDiff = endTime - startTime;
+    
+    if (timeDiff < 0) return 'N/A';
+    
+    const hours = Math.floor(timeDiff / (1000 * 60 * 60));
+    const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+    const milliseconds = timeDiff % 1000;
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m ${seconds}s ${milliseconds}ms`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${seconds}s ${milliseconds}ms`;
+    } else {
+      return `${seconds}s ${milliseconds}ms`;
+    }
+  };
+
   const calculatePercentage = (score, totalQuestions) => {
     return totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
   };
@@ -166,7 +188,7 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
           <Trophy className="h-5 w-5 text-yellow-500" />
-          Contest Leaderboard
+          QuizBuzz-3
         </h2>
         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
           {leaderboardData.length} participants
@@ -180,8 +202,8 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
               <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Rank</th>
               <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Participant</th>
               <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Score</th>
-              {/* <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Percentage</th> */}
-              <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Submitted At</th>
+              <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">Time Taken</th>
+              <th className="p-3 text-left text-gray-900 dark:text-white font-semibold">College</th>
             </tr>
           </thead>
           <tbody>
@@ -189,6 +211,7 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
               const rank = calculateRank(leaderboardData, idx);
               const isCurrentUser = submission.userId._id === currentUserId;
               const percentage = calculatePercentage(submission.score, submission.totalQuestions);
+              const timeTaken = calculateTimeTaken(submission.createdAt, submission.contestId.startTime);
               
               return (
                 <tr
@@ -230,49 +253,24 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
                   
                   {/* Score */}
                   <td className="p-3 text-gray-800 dark:text-gray-200 font-semibold">
-                    {submission.score}/{submission.totalQuestions}
+                    {submission.score} 
                   </td>
                   
-                  {/* Percentage */}
-                  {/* <td className="p-3">
-                    <div className="flex items-center gap-2">
-                      <span className={`font-semibold ${
-                        percentage >= 80 
-                          ? 'text-green-600 dark:text-green-400'
-                          : percentage >= 60 
-                            ? 'text-yellow-600 dark:text-yellow-400'
-                            : 'text-red-600 dark:text-red-400'
-                      }`}>
-                        {percentage}%
-                      </span>
-                      <div className="w-16 h-2 bg-gray-200 dark:bg-gray-600 rounded-full">
-                        <div 
-                          className={`h-2 rounded-full transition-all duration-500 ${
-                            percentage >= 80 ? 'bg-green-400' : 
-                            percentage >= 60 ? 'bg-yellow-400' : 'bg-red-400'
-                          }`}
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  </td> */}
-                  
-                  {/* Submitted At */}
+                  {/* Time Taken */}
                   <td className="p-3 text-gray-600 dark:text-gray-400">
-                    <div className="flex flex-col text-sm">
-                        
-                      <span>{new Date(submission.createdAt).toLocaleDateString()}</span>
-                      <span>
-                         {
-                            new Date(submission.createdAt).toLocaleTimeString('en-US', { 
-                                hour12: true, 
-                                hour: '2-digit',
-                                minute: '2-digit', 
-                                second: '2-digit'
-                            }).replace(/(\d{2}:\d{2}:\d{2})(\s[AP]M)/, `$1.${new Date(submission.createdAt).getMilliseconds().toString().padStart(3, '0')}$2`)
-                        }
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-4 w-8" />
+                      <span className="text-sm font-medium">
+                        {timeTaken}
                       </span>
                     </div>
+                  </td>
+
+                  {/* College */}
+                  <td className="p-3">
+                    <span className="text-gray-700 dark:text-gray-300 text-sm">
+                      {submission.userId.college || 'N/A'}
+                    </span>
                   </td>
                 </tr>
               );
