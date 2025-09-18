@@ -88,8 +88,11 @@ const HeroBanner = () => {
           className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-bold py-4 px-10 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
           onClick={() => navigate('/contest/join')}
         >
-          Start Contest
+          Login
         </button>
+        <p className=" py-3 text-gray-800 text-lg md:text-xl mb-4 font-medium">
+          To view your Result & Merit List
+        </p>
       </div>
     </div>
   );
