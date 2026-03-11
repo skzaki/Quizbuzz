@@ -11,7 +11,7 @@ const HeroBanner = () => {
   // Memoize time calculation function
   const calculateTimeLeft = useCallback(() => {
     const distance = targetDate - Date.now();
-    
+
     if (distance <= 0) {
       return { days: 0, hours: 0, minutes: 0, seconds: 0 };
     }
@@ -27,7 +27,7 @@ const HeroBanner = () => {
   useEffect(() => {
     // Initial calculation
     setTimeLeft(calculateTimeLeft());
-    
+
     const timer = setInterval(() => {
       setTimeLeft(calculateTimeLeft());
     }, 1000);
@@ -52,16 +52,16 @@ const HeroBanner = () => {
     <div className="relative py-4 px-4 text-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 ">
       <div className="max-w-4xl mx-auto">
         {/* YSM Logo */}
-        <img 
-          src="/ysm-logo.avif" 
-          alt="YSM Logo" 
+        <img
+          src="/ysm-logo.avif"
+          alt="YSM Logo"
           className="mx-auto w-28 h-14 object-contain"
         />
 
         {/* Quiz Logo */}
-        <img 
-          src="/quizBuzz-logo.png" 
-          alt="Quiz Buzz Logo" 
+        <img
+          src="/quizBuzz-logo.png"
+          alt="Quiz Buzz Logo"
           className="mx-auto w-72 h-69 object-contain "
         />
 
@@ -72,7 +72,7 @@ const HeroBanner = () => {
 
         {/* Date */}
         <p className="text-gray-800 text-lg md:text-xl mb-4 font-medium">
-          Date: 14th September 2025
+          Coming Soon...
         </p>
 
         {/* Countdown Timer */}
@@ -84,7 +84,7 @@ const HeroBanner = () => {
         </div>
 
         {/* Registration Button */}
-        <button 
+        <button
           className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-bold py-4 px-10 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
           onClick={() => navigate('/contest/join')}
         >

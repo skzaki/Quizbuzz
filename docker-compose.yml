@@ -1,21 +1,23 @@
-
 services:
   mongo:
     image: mongo
-    container_name: mongo
+    container_name: quizbuzz-mongo
     ports:
-      - "27018:27017"
+      - "27017:27017"
     volumes:
-      - mongo-data:/data/db
+      - quizbuzz-mongo-data:/data/db
+    restart: unless-stopped
+
   redis:
     image: redis:alpine
-    container_name: redis
+    container_name: quizbuzz-redis
     ports:
-      - 6379:6379
+      - "6379:6379"
+    restart: unless-stopped
 
   backend:
     build: ./Backend
-    container_name: backend
+    container_name: quizbuzz-backend
     ports:
       - "5000:5000"
     env_file:
@@ -23,27 +25,29 @@ services:
     depends_on:
       - mongo
       - redis
+    restart: unless-stopped
 
   worker:
     build: ./Backend
-    container_name: worker
+    container_name: quizbuzz-worker
     command: ["node", "worker/evaluationWorker.js"]
     env_file:
       - ./Backend/.env
     depends_on:
       - mongo
       - redis
-
+    restart: unless-stopped
 
   frontend:
     build: ./Frontend
-    container_name: frontend
+    container_name: quizbuzz-frontend
     ports:
       - "3000:80"
     env_file:
       - ./Frontend/.env
     depends_on:
       - backend
+    restart: unless-stopped
 
 volumes:
-  mongo-data:
+  quizbuzz-mongo-data:
