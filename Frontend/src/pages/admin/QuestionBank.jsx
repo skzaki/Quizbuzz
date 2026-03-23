@@ -1,346 +1,144 @@
-import {
-    BookOpen,
-    Database,
-    Download,
-    Plus, Search,
-    Target,
-    Upload,
-} from 'lucide-react';
-import React, { Suspense, useCallback, useMemo, useState } from 'react';
+import { BookOpen, Database, Download, Plus, Search, Target, Upload } from 'lucide-react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import LoadingSpinner from "../../components/UI/LoadingSpinner";
-import UnsavedWarning from "../../components/UI/UnsavedWarning";
 
-import QuestionFormModal from '../../components/QuestionBank/QuestionFormModal';
-import QuestionPreview from '../../components/QuestionBank/QuestionPreview';
-import BulkImportModal from './../../components/QuestionBank/BulkImportModal';
-import QuestionRow from './../../components/QuestionBank/QuestionRow';
+const BASE_URL = `${import.meta.env.VITE_URL}/admin`;
 
 const QuestionBank = () => {
-  // State management
   const [searchTerm, setSearchTerm] = useState('');
   const [topicFilter, setTopicFilter] = useState('all');
   const [difficultyFilter, setDifficultyFilter] = useState('all');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
-  const [showBulkImport, setShowBulkImport] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewQuestion, setPreviewQuestion] = useState(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [questions, setQuestions] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [error, setError] = useState('');
+  const itemsPerPage = 10;
 
-  const [newQuestion, setNewQuestion] = useState({
-    text: '',
+  const [form, setForm] = useState({
+    questionText: '',
     options: ['', '', '', ''],
-    correctAnswer: 0,
-    explanation: '',
-    topic: '',
+    correctOptionIndex: 0,
+    correctOptionText: '',
     difficulty: 'medium',
-    category: '',
-    tags: '',
-    xpReward: 10
+    hint: '',
+    explanation: '',
   });
 
-  // Mock data - TODO: Replace with API calls
-  const topics = ['JavaScript', 'React', 'CSS', 'HTML', 'Node.js', 'TypeScript', 'Python'];
-  const categories = ['Frontend', 'Backend', 'Full Stack', 'Data Structures', 'Algorithms'];
+  const token = localStorage.getItem('authToken');
 
-  // Mock questions data
-  const mockQuestions = [
-    {
-      id: '1',
-      text: 'What is the output of console.log(typeof null)?',
-      options: ['null', 'undefined', 'object', 'boolean'],
-      correctAnswer: 2,
-      explanation: 'In JavaScript, typeof null returns "object" due to a historical bug that has been kept for compatibility reasons.',
-      topic: 'JavaScript',
-      difficulty: 'easy',
-      category: 'Frontend',
-      tags: ['typeof', 'null', 'operators'],
-      xpReward: 10,
-      createdAt: '2024-01-15',
-      updatedAt: '2024-01-15'
-    },
-    {
-      id: '2',
-      text: 'Which hook is used to manage state in functional React components?',
-      options: ['useEffect', 'useState', 'useContext', 'useReducer'],
-      correctAnswer: 1,
-      explanation: 'useState is the primary hook for managing state in functional React components.',
-      topic: 'React',
-      difficulty: 'medium',
-      category: 'Frontend',
-      tags: ['hooks', 'state', 'functional-components'],
-      xpReward: 15,
-      createdAt: '2024-01-16',
-      updatedAt: '2024-01-16'
-    },
-    {
-      id: '3',
-      text: 'What does the CSS property "contain: layout" do?',
-      options: [
-        'Contains the element within its parent',
-        'Isolates the element for layout calculations',
-        'Prevents overflow',
-        'Sets the display property'
-      ],
-      correctAnswer: 1,
-      explanation: 'The "contain: layout" property creates a new containing block for layout, isolating the element for performance optimizations.',
-      topic: 'CSS',
-      difficulty: 'hard',
-      category: 'Frontend',
-      tags: ['contain', 'layout', 'performance'],
-      xpReward: 25,
-      createdAt: '2024-01-17',
-      updatedAt: '2024-01-17'
-    }
-  ];
+  useEffect(() => {
+    fetchQuestions();
+  }, [currentPage, searchTerm, difficultyFilter]);
 
-  // Initialize questions on component mount
-  React.useEffect(() => {
-    // TODO: Replace with actual API call
-    // fetchQuestions();
-    setQuestions(mockQuestions);
-  }, []);
-
-  // API Functions - TODO: Implement actual API calls
-  
-  /**
-   * Fetch all questions with pagination and filters
-   * API: GET /api/questions?page=1&limit=10&search=term&topic=javascript&difficulty=easy
-   */
-  const fetchQuestions = useCallback(async () => {
+  const fetchQuestions = async () => {
     setIsLoading(true);
     try {
-      // TODO: Actual API call
-      // const response = await fetch(`/api/questions?page=${currentPage}&limit=${itemsPerPage}&search=${searchTerm}&topic=${topicFilter}&difficulty=${difficultyFilter}`);
-      // const data = await response.json();
-      // setQuestions(data.questions);
-      
-      // Mock delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setQuestions(mockQuestions);
-    } catch (error) {
-      console.error('Error fetching questions:', error);
+      const params = new URLSearchParams({
+        page: currentPage,
+        limit: itemsPerPage,
+        ...(searchTerm && { search: searchTerm }),
+        ...(difficultyFilter !== 'all' && { difficulty: difficultyFilter }),
+      });
+      const res = await fetch(`${BASE_URL}/questions?${params}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const json = await res.json();
+      setQuestions(json.data?.questions || []);
+      setTotalPages(json.data?.pagination?.totalPages || 1);
+      setTotalItems(json.data?.pagination?.totalItems || 0);
+    } catch (err) {
+      setError('Failed to fetch questions');
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, itemsPerPage, searchTerm, topicFilter, difficultyFilter]);
-
-  /**
-   * Create a new question
-   * API: POST /api/questions
-   */
-  const createQuestion = async (questionData) => {
-    try {
-      // TODO: Actual API call
-      // const response = await fetch('/api/questions', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(questionData)
-      // });
-      // const newQuestion = await response.json();
-      
-      console.log('Creating question:', questionData);
-      setHasUnsavedChanges(false);
-      return { success: true, question: questionData };
-    } catch (error) {
-      console.error('Error creating question:', error);
-      return { success: false, error };
-    }
   };
 
-  /**
-   * Update an existing question
-   * API: PUT /api/questions/:id
-   */
-  const updateQuestion = async (id, questionData) => {
-    try {
-      // TODO: Actual API call
-      // const response = await fetch(`/api/questions/${id}`, {
-      //   method: 'PUT',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(questionData)
-      // });
-      // const updatedQuestion = await response.json();
-      
-      console.log('Updating question:', id, questionData);
-      setHasUnsavedChanges(false);
-      return { success: true, question: questionData };
-    } catch (error) {
-      console.error('Error updating question:', error);
-      return { success: false, error };
-    }
-  };
-
-  /**
-   * Delete a question
-   * API: DELETE /api/questions/:id
-   */
-  const deleteQuestion = async (id) => {
-    try {
-      // TODO: Actual API call
-      // const response = await fetch(`/api/questions/${id}`, {
-      //   method: 'DELETE'
-      // });
-      
-      console.log('Deleting question:', id);
-      return { success: true };
-    } catch (error) {
-      console.error('Error deleting question:', error);
-      return { success: false, error };
-    }
-  };
-
-  /**
-   * Bulk import questions
-   * API: POST /api/questions/bulk-import
-   */
-  const bulkImportQuestions = async (file) => {
-    try {
-      // TODO: Actual API call
-      // const formData = new FormData();
-      // formData.append('file', file);
-      // const response = await fetch('/api/questions/bulk-import', {
-      //   method: 'POST',
-      //   body: formData
-      // });
-      // const result = await response.json();
-      
-      console.log('Bulk importing questions from file:', file);
-      return { success: true, imported: 0, failed: 0 };
-    } catch (error) {
-      console.error('Error bulk importing questions:', error);
-      return { success: false, error} ;
-
-    }
-  };
-
-  /**
-   * Export questions
-   * API: GET /api/questions/export?format=csv|json
-   */
-  const exportQuestions = async (format = 'csv') => {
-    try {
-      // TODO: Actual API call
-      // const response = await fetch(`/api/questions/export?format=${format}`);
-      // const blob = await response.blob();
-      // const url = window.URL.createObjectURL(blob);
-      // const a = document.createElement('a');
-      // a.href = url;
-      // a.download = `questions.${format}`;
-      // a.click();
-      
-      console.log('Exporting questions as:', format);
-    } catch (error) {
-      console.error('Error exporting questions:', error);
-    }
-  };
-
-  // Memoized filtered questions for performance
-  const filteredQuestions = useMemo(() => {
-    return questions.filter(question => {
-      const matchesSearch = question.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           question.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-      const matchesTopic = topicFilter === 'all' || question.topic === topicFilter;
-      const matchesDifficulty = difficultyFilter === 'all' || question.difficulty === difficultyFilter;
-      return matchesSearch && matchesTopic && matchesDifficulty;
+  const resetForm = () => {
+    setForm({
+      questionText: '',
+      options: ['', '', '', ''],
+      correctOptionIndex: 0,
+      correctOptionText: '',
+      difficulty: 'medium',
+      hint: '',
+      explanation: '',
     });
-  }, [questions, searchTerm, topicFilter, difficultyFilter]);
+    setEditingQuestion(null);
+    setError('');
+  };
 
-  // Pagination
-  const paginatedQuestions = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredQuestions.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredQuestions, currentPage, itemsPerPage]);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
 
-  const totalPages = Math.ceil(filteredQuestions.length / itemsPerPage);
+    const payload = {
+      ...form,
+      correctOptionIndex: parseInt(form.correctOptionIndex),
+      correctOptionText: form.options[parseInt(form.correctOptionIndex)] || '',
+    };
 
-  // Event handlers
-  const handleCreateQuestion = async () => {
-    const result = await createQuestion(newQuestion);
-    if (result.success) {
+    try {
+      const url = editingQuestion
+        ? `${BASE_URL}/questions/${editingQuestion._id}`
+        : `${BASE_URL}/questions`;
+      const method = editingQuestion ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.message || 'Failed to save question');
+        return;
+      }
+
       setShowCreateForm(false);
       resetForm();
-      fetchQuestions(); // Refresh the list
+      fetchQuestions();
+    } catch (err) {
+      setError('Network error. Please try again.');
     }
   };
 
-  const handleEditQuestion = (question) => {
+  const handleEdit = (question) => {
     setEditingQuestion(question);
-    setNewQuestion({
-      text: question.text,
-      options: [...question.options],
-      correctAnswer: question.correctAnswer,
-      explanation: question.explanation,
-      topic: question.topic,
+    setForm({
+      questionText: question.questionText,
+      options: question.options,
+      correctOptionIndex: question.correctOptionIndex,
+      correctOptionText: question.correctOptionText,
       difficulty: question.difficulty,
-      category: question.category,
-      tags: question.tags.join(', '),
-      xpReward: question.xpReward
+      hint: question.hint || '',
+      explanation: question.explanation || '',
     });
     setShowCreateForm(true);
   };
 
-  const handleDeleteQuestion = async (id) => {
-    if (confirm('Are you sure you want to delete this question?')) {
-      const result = await deleteQuestion(id);
-      if (result.success) {
-        fetchQuestions(); // Refresh the list
-      }
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this question?')) return;
+    try {
+      await fetch(`${BASE_URL}/questions/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchQuestions();
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  const handlePreviewQuestion = (question) => {
-    setPreviewQuestion(question);
-    setShowPreview(true);
-  };
-
-  const resetForm = () => {
-    setNewQuestion({
-      text: '',
-      options: ['', '', '', ''],
-      correctAnswer: 0,
-      explanation: '',
-      topic: '',
-      difficulty: 'medium',
-      category: '',
-      tags: '',
-      xpReward: 10
-    });
-    setEditingQuestion(null);
-    setHasUnsavedChanges(false);
-  };
-
-  const handleFormChange = (field, value) => {
-    setNewQuestion(prev => ({ ...prev, [field]: value }));
-    setHasUnsavedChanges(true);
-  };
-
-  const handleSaveChanges = () => {
-    if (editingQuestion) {
-      updateQuestion(editingQuestion.id, newQuestion);
-    } else {
-      createQuestion(newQuestion);
-    }
-  };
-
-  const handleDiscardChanges = () => {
-    resetForm();
-    setShowCreateForm(false);
-  };
+  const easyCount = questions.filter(q => q.difficulty === 'easy').length;
+  const hardCount = questions.filter(q => q.difficulty === 'hard').length;
 
   return (
-    <div className="space-y-6">
-      {/* Unsaved changes warning */}
-      <UnsavedWarning 
-        show={hasUnsavedChanges}
-        onSave={handleSaveChanges}
-        onDiscard={handleDiscardChanges}
-      />
-
+    <div className="space-y-6 p-6">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between">
@@ -350,234 +148,253 @@ const QuestionBank = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Question Bank</h1>
-              <p className="text-gray-600 dark:text-gray-400">Manage your quiz questions and content</p>
+              <p className="text-gray-600 dark:text-gray-400">{totalItems} questions total</p>
             </div>
           </div>
-          <div className="flex space-x-3">
-            <button
-              onClick={() => setShowBulkImport(true)}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
-            >
-              <Upload className="h-4 w-4" />
-              <span>Bulk Import</span>
-            </button>
-            <button
-              onClick={() => exportQuestions('csv')}
-              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
-            >
-              <Download className="h-4 w-4" />
-              <span>Export</span>
-            </button>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add Question</span>
-            </button>
-          </div>
+          <button
+            onClick={() => { resetForm(); setShowCreateForm(true); }}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Question</span>
+          </button>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">{questions.length}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Total Questions</div>
-            </div>
-            <BookOpen className="h-8 w-8 text-purple-600 dark:text-purple-400" />
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">{topics.length}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Topics</div>
-            </div>
-            <Target className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                {questions.filter(q => q.difficulty === 'easy').length}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label: 'Total', value: totalItems, icon: BookOpen, color: 'text-purple-400' },
+          { label: 'Easy', value: easyCount, icon: Target, color: 'text-green-400' },
+          { label: 'Hard', value: hardCount, icon: Target, color: 'text-red-400' },
+          { label: 'Medium', value: totalItems - easyCount - hardCount, icon: Target, color: 'text-yellow-400' },
+        ].map((s) => (
+          <div key={s.label} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{s.value}</div>
+                <div className="text-sm text-gray-500">{s.label} Questions</div>
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Easy Questions</div>
-            </div>
-            <div className="w-8 h-8 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
-              <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+              <s.icon className={`h-6 w-6 ${s.color}`} />
             </div>
           </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                {questions.filter(q => q.difficulty === 'hard').length}
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Hard Questions</div>
-            </div>
-            <div className="w-8 h-8 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
-              <div className="w-4 h-4 bg-red-500 rounded-full"></div>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search questions..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-          <select
-            value={topicFilter}
-            onChange={(e) => setTopicFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
-          >
-            <option value="all">All Topics</option>
-            {topics.map(topic => (
-              <option key={topic} value={topic}>{topic}</option>
-            ))}
-          </select>
-          <select
-            value={difficultyFilter}
-            onChange={(e) => setDifficultyFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
-          >
-            <option value="all">All Difficulties</option>
-            <option value="easy">Easy</option>
-            <option value="medium">Medium</option>
-            <option value="hard">Hard</option>
-          </select>
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 flex flex-col md:flex-row gap-3">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search questions..."
+            value={searchTerm}
+            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
         </div>
+        <select
+          value={difficultyFilter}
+          onChange={(e) => { setDifficultyFilter(e.target.value); setCurrentPage(1); }}
+          className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+        >
+          <option value="all">All Difficulties</option>
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
       </div>
 
-      {/* Questions Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      {/* Table */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         {isLoading ? (
-          <LoadingSpinner />
+          <div className="p-8 text-center text-gray-500"><LoadingSpinner /></div>
+        ) : questions.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            No questions yet.{' '}
+            <button onClick={() => setShowCreateForm(true)} className="text-purple-500 hover:underline">
+              Add one
+            </button>
+          </div>
         ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Question
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Topic
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Difficulty
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      XP Reward
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {paginatedQuestions.map((question) => (
-                    <QuestionRow 
-                      key={question.id}
-                      question={question}
-                      onEdit={handleEditQuestion}
-                      onDelete={handleDeleteQuestion}
-                      onPreview={handlePreviewQuestion}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-700 dark:text-gray-300">
-                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredQuestions.length)} of {filteredQuestions.length} results
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded disabled:opacity-50"
-                    >
-                      Previous
-                    </button>
-                    <span className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300">
-                      {currentPage} of {totalPages}
+          <table className="w-full">
+            <thead className="bg-gray-50 dark:bg-gray-700">
+              <tr>
+                {['Question', 'Difficulty', 'Options', 'Actions'].map(h => (
+                  <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              {questions.map((q) => (
+                <tr key={q._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-white max-w-xs truncate">
+                    {q.questionText}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                      q.difficulty === 'easy' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                      q.difficulty === 'hard' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                      'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                    }`}>
+                      {q.difficulty}
                     </span>
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded disabled:opacity-50"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    {q.options?.length} options
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handleEdit(q)}
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(q._id)}
+                        className="text-red-600 hover:text-red-800 text-sm font-medium"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <p className="text-sm text-gray-500">Page {currentPage} of {totalPages}</p>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 rounded disabled:opacity-50"
+              >Previous</button>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 rounded disabled:opacity-50"
+              >Next</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Create/Edit Modal */}
+      {showCreateForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              {editingQuestion ? 'Edit Question' : 'Add Question'}
+            </h2>
+
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 rounded-lg text-red-600 text-sm">
+                {error}
               </div>
             )}
-          </>
-        )}
-      </div>
 
-      {/* Lazy loaded modals */}
-      <Suspense fallback={<LoadingSpinner />}>
-        {showCreateForm && (
-          <QuestionFormModal
-            question={newQuestion}
-            editingQuestion={editingQuestion}
-            topics={topics}
-            categories={categories}
-            isOpen={showCreateForm}
-            onClose={() => {
-              if (hasUnsavedChanges) {
-                if (confirm('You have unsaved changes. Are you sure you want to close?')) {
-                  handleDiscardChanges();
-                }
-              } else {
-                setShowCreateForm(false);
-                setEditingQuestion(null);
-              }
-            }}
-            onSave={handleCreateQuestion}
-            onChange={handleFormChange}
-            hasUnsavedChanges={hasUnsavedChanges}
-          />
-        )}
-        
-        {showBulkImport && (
-          <BulkImportModal
-            isOpen={showBulkImport}
-            onClose={() => setShowBulkImport(false)}
-            onImport={bulkImportQuestions}
-          />
-        )}
-        
-        {showPreview && previewQuestion && (
-          <QuestionPreview
-            question={previewQuestion}
-            isOpen={showPreview}
-            onClose={() => setShowPreview(false)}
-          />
-        )}
-      </Suspense>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Question Text *</label>
+                <textarea
+                  rows={3}
+                  value={form.questionText}
+                  onChange={(e) => setForm(p => ({ ...p, questionText: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Options *</label>
+                {form.options.map((opt, i) => (
+                  <div key={i} className="flex items-center gap-2 mb-2">
+                    <input
+                      type="radio"
+                      name="correctOption"
+                      checked={parseInt(form.correctOptionIndex) === i}
+                      onChange={() => setForm(p => ({ ...p, correctOptionIndex: i, correctOptionText: p.options[i] }))}
+                      className="text-purple-600"
+                    />
+                    <input
+                      type="text"
+                      placeholder={`Option ${i + 1}`}
+                      value={opt}
+                      onChange={(e) => {
+                        const newOpts = [...form.options];
+                        newOpts[i] = e.target.value;
+                        setForm(p => ({ ...p, options: newOpts }));
+                      }}
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      required
+                    />
+                    <span className="text-xs text-gray-400">{parseInt(form.correctOptionIndex) === i ? '✓ Correct' : ''}</span>
+                  </div>
+                ))}
+                <p className="text-xs text-gray-500">Select the radio button next to the correct answer</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Difficulty *</label>
+                  <select
+                    value={form.difficulty}
+                    onChange={(e) => setForm(p => ({ ...p, difficulty: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Topic / Hint</label>
+                  <input
+                    type="text"
+                    value={form.hint}
+                    onChange={(e) => setForm(p => ({ ...p, hint: e.target.value }))}
+                    placeholder="e.g. JavaScript"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Explanation</label>
+                <textarea
+                  rows={2}
+                  value={form.explanation}
+                  onChange={(e) => setForm(p => ({ ...p, explanation: e.target.value }))}
+                  placeholder="Explain the correct answer..."
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowCreateForm(false); resetForm(); }}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg"
+                >
+                  {editingQuestion ? 'Update' : 'Create'} Question
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

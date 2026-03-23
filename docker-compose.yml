@@ -6,6 +6,7 @@ services:
       - "27017:27017"
     volumes:
       - quizbuzz-mongo-data:/data/db
+      - quizbuzz-mongo-config:/data/configdb
     restart: unless-stopped
 
   redis:
@@ -51,3 +52,4 @@ services:
 
 volumes:
   quizbuzz-mongo-data:
+  quizbuzz-mongo-config:

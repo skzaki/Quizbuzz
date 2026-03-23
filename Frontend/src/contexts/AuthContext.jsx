@@ -13,12 +13,11 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   const parseToken = (token) => {
     try {
       const decoded = jwtDecode(token);
-
-      // ✅ Map role → isAdmin
       return {
         ...decoded,
         isAdmin: decoded.role === "admin",
@@ -36,10 +35,11 @@ export const AuthProvider = ({ children }) => {
       if (parsedUser) setUser(parsedUser);
       else localStorage.removeItem("authToken");
     }
+    setLoading(false);
   }, []);
 
   const login = (token) => {
-    // localStorage.setItem("authToken", token);
+    localStorage.setItem("authToken", token);
     const parsedUser = parseToken(token);
     setUser(parsedUser);
   };
@@ -50,7 +50,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

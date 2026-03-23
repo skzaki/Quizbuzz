@@ -10,6 +10,7 @@ import adminContestRoutes from "./routes/admin/contestRoutes.js";
 import paymentRoutes from './routes/admin/paymentRoutes.js';
 import authRoutes from "./routes/authRoutes.js";
 import contestRoutes from "./routes/contestRoutes.js";
+import questionRoutes from "./routes/admin/questionRoutes.js";
 
 dotenv.config();
 
@@ -85,6 +86,7 @@ app.get('/health', async (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/admin/contests", adminContestRoutes);
 app.use("/api/contests", contestRoutes);
+app.use("/api/admin/questions", questionRoutes);
 app.use("/api/payments", paymentRoutes);
 
 app.post("/api/logs", (req, res) => {

@@ -10,7 +10,7 @@ export const adminMiddleware = (req, res, next) => {
                 }
             });
         }
-        console.table(req.user);
+        console.log("Admin user:", req.user.userId, req.user.role);
         // Check if user has admin role
         if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
             return res.status(403).json({

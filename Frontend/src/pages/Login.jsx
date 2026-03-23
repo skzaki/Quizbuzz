@@ -1,8 +1,6 @@
-// src/pages/Login.jsx
 import { jwtDecode } from "jwt-decode";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import OTPModal from "../components/OTPModal";
 import { useAuth } from "../contexts/AuthContext";
 
 const Login = () => {
@@ -11,16 +9,14 @@ const Login = () => {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [isOtpOpen, setIsOtpOpen] = useState(false);
   const { login, user } = useAuth();
 
-
   useEffect(() => {
-    if(user) {
-        if(user.isAdmin) navigate('/admin');
-        else navigate("/contest/join");
+    if (user) {
+      if (user.isAdmin) navigate('/admin');
+      else navigate("/contest/join");
     }
-  },[user, navigate]);
+  }, [user, navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -28,7 +24,6 @@ const Login = () => {
     setError("");
 
     try {
-      // Step 1: Login API
       const loginRes = await fetch(`${import.meta.env.VITE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -42,59 +37,18 @@ const Login = () => {
 
       const loginData = await loginRes.json();
       if (loginData.token) {
-        localStorage.setItem("authToken", loginData.token);
+        login(loginData.token);
+        const parsedUser = jwtDecode(loginData.token);
+        if (parsedUser.role === 'admin') {
+          navigate("/admin");
+        } else {
+          navigate('/contest/join');
+        }
       }
-
-      // Step 2: Send OTP
-      const otpRes = await fetch(`${import.meta.env.VITE_URL}/auth/send-otp`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-        },
-        body: JSON.stringify({ phone }),
-      });
-
-      if (!otpRes.ok) {
-        const err = await otpRes.json();
-        throw new Error(err.message || "Failed to send OTP");
-      }
-
-      // Step 3: Show OTP Modal
-      setIsOtpOpen(true);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleOtpSuccess = () => {
-    const token = localStorage.getItem("authToken");
-    if(token) {
-        login(token);
-        const parsedUser = jwtDecode(token);
-        if(parsedUser.role === 'admin') {
-            navigate("/admin");
-        } else {
-            navigate('/contest/join');
-        }
-    }
-    setIsOtpOpen(false);
-  };
-
-  const handleResendOtp = async () => {
-    try {
-      await fetch(`${import.meta.env.VITE_URL}/auth/sendOtp`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-        },
-        body: JSON.stringify({ phone }),
-      });
-    } catch (err) {
-      console.error("Resend OTP error:", err);
     }
   };
 
@@ -113,9 +67,7 @@ const Login = () => {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">
-              Email
-            </label>
+            <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Email</label>
             <input
               type="email"
               className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
@@ -127,9 +79,7 @@ const Login = () => {
           </div>
 
           <div>
-            <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">
-              Phone Number
-            </label>
+            <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Phone Number</label>
             <input
               type="tel"
               className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
@@ -149,14 +99,6 @@ const Login = () => {
           </button>
         </form>
       </div>
-
-      <OTPModal
-        isOpen={isOtpOpen}
-        phone={phone}
-        onClose={() => setIsOtpOpen(false)}
-        onVerifySuccess={handleOtpSuccess}
-        onResendOTP={handleResendOtp}
-      />
     </div>
   );
 };

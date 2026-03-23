@@ -1,4 +1,3 @@
-// ContestManagement.jsx
 import { Calendar, Plus } from 'lucide-react';
 import { Suspense, lazy, useEffect, useState } from 'react';
 import ErrorBoundary from '../../components/ErrorBoundary';
@@ -17,6 +16,7 @@ const ContestManagement = () => {
   const [contests, setContests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [createError, setCreateError] = useState('');
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -37,9 +37,9 @@ const ContestManagement = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const json = await res.json();
-      setContests(json.data.contests);
-      setTotalContests(json.data.pagination.totalItems);
-      setTotalPages(json.data.pagination.totalPages);
+      setContests(json.data?.contests || []);
+      setTotalContests(json.data?.pagination?.totalItems || 0);
+      setTotalPages(json.data?.pagination?.totalPages || 1);
       setError(null);
     } catch (err) {
       setError('Failed to fetch contests');
@@ -48,17 +48,76 @@ const ContestManagement = () => {
     }
   };
 
-  const handleCreateContest = async (contestData) => {
+  const handleCreateContest = async (formData) => {
+    setCreateError('');
     try {
-      await fetch(`${BASE_URL}/contests`, {
+      // Build rules array
+      const rulesRaw = formData.rules || '';
+      const rulesArray = rulesRaw
+        .split('\n')
+        .map(r => r.trim())
+        .filter(Boolean);
+      if (rulesArray.length === 0) rulesArray.push('Follow all contest guidelines');
+
+      // Build topics array
+      const topicsRaw = Array.isArray(formData.topics)
+        ? formData.topics
+        : (formData.topics || '').split(',').map(t => t.trim()).filter(Boolean);
+      if (topicsRaw.length === 0) topicsRaw.push('General');
+
+      // Prize pool → prizes array
+      const prizeAmount = parseFloat(formData.prizePool) || 0;
+
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        startDate: formData.startDate,          // YYYY-MM-DD
+        startTime: formData.startTime,          // HH:MM
+        duration: parseInt(formData.duration),
+        registrationFee: parseFloat(formData.registrationFee) || 0,
+        maxParticipants: parseInt(formData.maxParticipants) || 100,
+        topics: topicsRaw,
+        rules: rulesArray,
+        prizes: [{
+          rankFrom: 1,
+          rankTo: 1,
+          amount: prizeAmount,
+          currency: 'INR',
+          benefits: []
+        }],
+        status: formData.status || 'draft',
+      };
+
+      console.log('Sending payload:', payload);
+
+      const res = await fetch(`${BASE_URL}/contests`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(contestData)
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
       });
+
+      const json = await res.json();
+      console.log('Response:', json);
+
+      if (!res.ok) {
+        // Show validation errors if any
+        if (json?.error?.details?.length > 0) {
+          const msgs = json.error.details.map(d => `${d.field}: ${d.message}`).join('\n');
+          setCreateError(msgs);
+        } else {
+          setCreateError(json?.error?.message || json?.message || 'Failed to create contest');
+        }
+        return;
+      }
+
       setShowCreateForm(false);
       fetchContests();
     } catch (err) {
-      console.error(err);
+      console.error('Create contest error:', err);
+      setCreateError('Network error. Please try again.');
     }
   };
 
@@ -101,83 +160,78 @@ const ContestManagement = () => {
     }
   };
 
-
   return (
     <ErrorBoundary>
-        
-    
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="bg-purple-100 dark:bg-purple-900/20 p-3 rounded-lg">
-              <Calendar className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="bg-purple-100 dark:bg-purple-900/20 p-3 rounded-lg">
+                <Calendar className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Contest Management</h1>
+                <p className="text-gray-600 dark:text-gray-400">Create and manage quiz contests</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Contest Management</h1>
-              <p className="text-gray-600 dark:text-gray-400">Create and manage quiz contests</p>
-            </div>
+            <button
+              onClick={() => { setCreateError(''); setShowCreateForm(true); }}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Create Contest</span>
+            </button>
           </div>
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Create Contest</span>
-          </button>
         </div>
-      </div>
 
-      {/* Filters */}
-       <ErrorBoundary>
-            <Suspense fallback={<LoadingSpinner />}>
-                <ContestFilters
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-                statusFilter={statusFilter}
-                setStatusFilter={setStatusFilter}
-                />
-            </Suspense>
+        {/* Filters */}
+        <ErrorBoundary>
+          <Suspense fallback={<LoadingSpinner />}>
+            <ContestFilters
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+            />
+          </Suspense>
         </ErrorBoundary>
 
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <p className="text-red-600 dark:text-red-400">{error}</p>
-        </div>
-      )}
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+            <p className="text-red-600 dark:text-red-400">{error}</p>
+          </div>
+        )}
 
-      {/* Contest Table */}
-      <ErrorBoundary>
-        <Suspense fallback={<LoadingSpinner />}>
+        <ErrorBoundary>
+          <Suspense fallback={<LoadingSpinner />}>
             <ContestTable
-            contests={contests}
-            loading={loading}
-            onEdit={handleEditContest}
-            onDelete={handleDeleteContest}
-            onStatusChange={handleStatusChange}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalContests={totalContests}
-            onPageChange={setCurrentPage}
+              contests={contests}
+              loading={loading}
+              onEdit={handleEditContest}
+              onDelete={handleDeleteContest}
+              onStatusChange={handleStatusChange}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalContests={totalContests}
+              onPageChange={setCurrentPage}
             />
-        </Suspense>
-      </ErrorBoundary>
+          </Suspense>
+        </ErrorBoundary>
 
-      {/* Create Contest Modal */}
-      <ErrorBoundary>
-        {showCreateForm && (
+        <ErrorBoundary>
+          {showCreateForm && (
             <Suspense fallback={<LoadingSpinner />}>
-            <CreateContestModal
+              <CreateContestModal
                 isOpen={showCreateForm}
                 onClose={() => setShowCreateForm(false)}
                 onSubmit={handleCreateContest}
-            />
+                serverError={createError}
+              />
             </Suspense>
-        )}
+          )}
         </ErrorBoundary>
-    </div>
+      </div>
     </ErrorBoundary>
   );
 };
