@@ -148,6 +148,20 @@ export const connectDB = async () => {
             });
             console.log('Admin user seeded.');
         }
+        // Seed test participant
+        const testUser = await User.findOne({ registrationId: 'QUIZ-001001' });
+        if (!testUser) {
+            await User.create({
+                registrationId: 'QUIZ-001001',
+                firstName: 'Test',
+                lastName: 'User',
+                email: 'quizbuzz@gmail.com',
+                phone: '7248988485',
+                isAdmin: false,
+                isDeleted: false,
+            });
+            console.log('Test participant seeded.');
+        }
     } catch (error) {
         console.error('MongoDB connection failed', error);
         process.exit(1);
