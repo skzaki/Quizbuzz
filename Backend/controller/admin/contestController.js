@@ -54,7 +54,7 @@ export const getAllContests = async (req, res) => {
 
         // Build query
         let query = { isDeleted: false };
-        
+
         // Search filter
         if (search) {
             query.title = { $regex: search, $options: 'i' };
@@ -124,7 +124,7 @@ export const getAllContests = async (req, res) => {
         }));
 
         const totalPages = Math.ceil(totalItems / limitNum);
-        
+
         const response = {
             success: true,
             data: {
@@ -214,10 +214,11 @@ export const getContestById = async (req, res) => {
             updatedAt: contest.updatedAt,
             participants: contest.participants.map(p => ({
                 userId: p._id,
-                username: `${p.firstName} ${p.lastName}` ,
+                username: `${p.firstName} ${p.lastName}`,
                 email: p.email,
                 registeredAt: p.createdAt
-            }))
+            })),
+            QuestionBank: contest.QuestionBank || []
         };
 
         const response = {
@@ -255,7 +256,7 @@ export const createContest = async (req, res) => {
     try {
         // Validate request body
         const validation = contestSchema.safeParse(req.body);
-        
+
         if (!validation.success) {
             return res.status(400).json({
                 success: false,
@@ -339,7 +340,7 @@ export const updateContest = async (req, res) => {
 
         // Validate request body
         const validation = updateContestSchema.safeParse(req.body);
-        
+
         if (!validation.success) {
             return res.status(400).json({
                 success: false,
@@ -355,13 +356,13 @@ export const updateContest = async (req, res) => {
         }
 
         const updateData = { ...validation.data };
-        
+
         // Handle date/time updates
         if (validation.data.startDate || validation.data.startTime) {
             const existingContest = await Contest.findById(id);
             const currentStartDate = validation.data.startDate || existingContest.startTime.toISOString().split('T')[0];
             const currentStartTime = validation.data.startTime || existingContest.startTime.toTimeString().split(' ')[0].substring(0, 5);
-            
+
             updateData.startTime = new Date(`${currentStartDate} ${currentStartTime}`);
             updateData.deadline = new Date(updateData.startTime.getTime() + (validation.data.duration || existingContest.duration) * 60000);
         }
@@ -506,7 +507,7 @@ export const updateContestStatus = async (req, res) => {
 export const deleteContest = async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         const contest = await Contest.findByIdAndUpdate(
             id,
             { isDeleted: true, updatedAt: new Date() },
@@ -641,7 +642,7 @@ export const bulkUpdateStatus = async (req, res) => {
     try {
         // Validate request body
         const validation = bulkStatusUpdateSchema.safeParse(req.body);
-        
+
         if (!validation.success) {
             return res.status(400).json({
                 success: false,
@@ -743,21 +744,21 @@ export const bulkDeleteContests = async (req, res) => {
 
 export const addQuestionsToContest = async (req, res) => {
     const { contestId, questions } = req.body;
-    
+
     console.log(`contestId: ${contestId}`);
 
     const notAcceptedQues = [];
     const acceptedQues = [];
-    
+
     // Validation checks
     if (!contestId) {
         return res.status(400).json({ message: "Provide the contest ID to add questions" });
     }
-    
+
     if (!questions || !Array.isArray(questions)) {
         return res.status(400).json({ message: "Questions must be provided as an array" });
     }
-    
+
     if (questions.length === 0) {
         return res.status(400).json({ message: "Enter at least one question to insert" });
     }
@@ -766,7 +767,7 @@ export const addQuestionsToContest = async (req, res) => {
         // Process each question
         questions.forEach(question => {
             const result = questionsSchema.safeParse(question);
-            
+
             if (!result.success) {
                 notAcceptedQues.push({
                     question,
@@ -791,10 +792,10 @@ export const addQuestionsToContest = async (req, res) => {
                 const updateResult = await Contest.findByIdAndUpdate(
                     contestId,
                     {
-                        $push: { 
-                            QuestionBank: { 
-                                $each: insertedQuestionIds 
-                            } 
+                        $push: {
+                            QuestionBank: {
+                                $each: insertedQuestionIds
+                            }
                         }
                     }
                 );
@@ -802,8 +803,8 @@ export const addQuestionsToContest = async (req, res) => {
                 if (!updateResult) {
                     // Contest not found - clean up inserted questions
                     await Question.deleteMany({ _id: { $in: insertedQuestionIds } });
-                    return res.status(404).json({ 
-                        message: "Contest not found. Questions were not added." 
+                    return res.status(404).json({
+                        message: "Contest not found. Questions were not added."
                     });
                 }
             } catch (error) {

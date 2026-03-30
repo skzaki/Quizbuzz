@@ -2,6 +2,7 @@ import express from 'express';
 import { Contest, Question } from '../../Models/DB.js';
 import { adminMiddleware } from '../../middleware/admin.js';
 import { authMiddleware } from '../../middleware/auth.js';
+import redisClient from '../../redis.js';
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -53,6 +54,13 @@ router.post('/assign-to-contest', async (req, res) => {
     );
 
     if (!contest) return res.status(404).json({ success: false, message: 'Contest not found' });
+
+    // Invalidate Redis cache for this contest
+    try {
+      await redisClient.del(`contest:${contestId}`);
+    } catch (e) {
+      console.warn('Cache invalidation failed:', e.message);
+    }
 
     res.json({
       success: true,
