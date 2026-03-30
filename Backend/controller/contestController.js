@@ -46,7 +46,7 @@ export const validateCredentials = async (req, res) => {
     }
 
     // Verify phone number matches
-    if (parseInt(phone) !== user.phone) {
+    if (phone.toString().trim() !== user.phone.toString().trim()) {
       return res.status(400).json({
         message: "Registration ID does not match the phone number. Please enter the same phone number used during registration."
       });

@@ -9,21 +9,42 @@ import {
     submitContest,
     validateCredentials
 } from "../controller/contestController.js";
-
+import { Contest } from "../Models/DB.js";
 import { authMiddleware } from './../middleware/auth.js';
 
 const router = Router();
 
 // Public Routes
-router.post("/validate-credentials", validateCredentials);
+router.get('/active', async (req, res) => {
+    try {
+        const contest = await Contest.findOne({
+            isDeleted: false,
+            status: { $in: ['upcoming', 'ongoing'] }
+        })
+            .select('title slug description duration registerFee startTime deadline topics prizes QuestionBank')
+            .sort({ startTime: 1 })
+            .lean();
 
+        if (!contest) {
+            return res.status(404).json({ message: 'No active contest found' });
+        }
+
+        res.json({
+            ...contest,
+            totalQuestions: contest.QuestionBank?.length || 0
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+router.post("/validate-credentials", validateCredentials);
 router.get('/:contestId/leaderboard', getContestLeaderboard);
+
 // Authenticated Participant Routes
 router.get("/:contestSlug/questions", getContestQuestions);
 router.use(authMiddleware);
-
 router.post("/:contestSlug/submit", submitContest);
-
 router.get("/:submissionId/status", getSubmissionStatus);
 router.get("/:submissionId/results", getSubmissionResult);
 router.get("/:contestSlug/certificate", getContestCertificate);

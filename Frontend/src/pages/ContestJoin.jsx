@@ -1,14 +1,14 @@
 // Main ContestJoin Component
 
 import {
-    AlertCircle,
-    ArrowRight,
-    Clock,
-    Key,
-    Loader,
-    Mail,
-    MapPin,
-    Smartphone
+  AlertCircle,
+  ArrowRight,
+  Clock,
+  Key,
+  Loader,
+  Mail,
+  MapPin,
+  Smartphone
 } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
@@ -24,7 +24,7 @@ const ContestJoin = () => {
   const [isValidating, setIsValidating] = useState(false);
   const [validationError, setValidationError] = useState('');
   const [contestInfo, setContestInfo] = useState(null);
-  
+
   // New states for the flow
   const [showOTPModal, setShowOTPModal] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
@@ -35,12 +35,12 @@ const ContestJoin = () => {
   const [multipleDeviceError, setMultipleDeviceError] = useState(null);
 
   const validateCredentials = async (fullRegId = null) => {
-    
+
     const regId = fullRegId || `QUIZ-${registrationId}`;
-  
+
     if (!regId.trim() || !phone.trim()) {
-        setValidationError('Please enter both Registration ID and phone number');
-        return;
+      setValidationError('Please enter both Registration ID and phone number');
+      return;
     }
 
     setIsValidating(true);
@@ -54,43 +54,43 @@ const ContestJoin = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           registrationId: regId.trim(),
           phone: phone.trim(),
-          slug: 'quizbuzz-3'
+          slug: searchParams.get('slug') || 'quizbuzz-3'
         })
       });
 
-      
+
       if (!response.ok) {
-          const error = await response.json();
-          
-          // Handle multiple device login error specifically
-          if (response.status === 409 && error.error === 'MULTIPLE_DEVICE_LOGIN_BLOCKED') {
-            setMultipleDeviceError(error);
-            setIsValidating(false);
-            return;
-          }
-          
-          setValidationError(error.message || 'Validation failed');
+        const error = await response.json();
+
+        // Handle multiple device login error specifically
+        if (response.status === 409 && error.error === 'MULTIPLE_DEVICE_LOGIN_BLOCKED') {
+          setMultipleDeviceError(error);
           setIsValidating(false);
           return;
         }
 
-        
-        const data = await response.json();
-        setContestInfo(data);
-        localStorage.setItem("authToken", data.token);
+        setValidationError(error.message || 'Validation failed');
+        setIsValidating(false);
+        return;
+      }
 
-        // PRIORITY: If user has already submitted, show results regardless of session type
-        if(data.submissionId) {
-            navigate(`/contest/result/${data.submissionId}`);
-            return; // Exit early, don't proceed with OTP or waiting room flow
-        }
 
-        // For all other cases (new sessions or same device sessions), continue with OTP flow
-        await sendOTP();
-        
+      const data = await response.json();
+      setContestInfo(data);
+      localStorage.setItem("authToken", data.token);
+
+      // PRIORITY: If user has already submitted, show results regardless of session type
+      if (data.submissionId) {
+        navigate(`/contest/result/${data.submissionId}`);
+        return; // Exit early, don't proceed with OTP or waiting room flow
+      }
+
+      // For all other cases (new sessions or same device sessions), continue with OTP flow
+      await sendOTP();
+
     } catch (error) {
       console.error('Validation error:', error);
       setValidationError('Network error. Please check your connection and try again.');
@@ -102,11 +102,11 @@ const ContestJoin = () => {
     try {
       const response = await fetch(`${import.meta.env.VITE_URL}/auth/send-otp`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           phone: phone.trim()
         })
       });
@@ -122,7 +122,7 @@ const ContestJoin = () => {
       setIsValidating(false);
       setShowOTPModal(true);
       toast.success("OTP send successfully");
-      
+
     } catch (error) {
       console.error('Error sending OTP:', error);
       setValidationError('Failed to send OTP. Please try again.');
@@ -130,28 +130,28 @@ const ContestJoin = () => {
     }
   };
 
-  const handleOTPVerified = (submissionId = null ) => {
-    
+  const handleOTPVerified = (submissionId = null) => {
+
     setShowOTPModal(false);
     setOtpVerified(true);
-    
+
     // Set localStorage items after OTP verification
     if (contestInfo) {
       localStorage.setItem("contestInfo", JSON.stringify(contestInfo.contestInfo));
       localStorage.setItem("userInfo", JSON.stringify(contestInfo.userInfo));
     }
-    if(submissionId) {
-        navigate(`/contest/result/${submissionId}`);
+    if (submissionId) {
+      navigate(`/contest/result/${submissionId}`);
     } else {
-        setShowTerms(true);
+      setShowTerms(true);
     }
-    
+
   };
 
   const handleTermsAccepted = () => {
     setShowTerms(false);
     setTermsAccepted(true);
-    
+
     // Navigate to waiting room with contest info
     // Pass contest data through navigation state
     navigate('/contest/waiting-room');
@@ -177,7 +177,7 @@ const ContestJoin = () => {
     setShowTerms(false);
     setOtpVerified(false);
     setContestInfo(null);
-    
+
     // TODO: API call to log terms decline (for analytics)
     // fetch('/api/contests/terms-declined', {
     //   method: 'POST',
@@ -194,20 +194,20 @@ const ContestJoin = () => {
     try {
       const response = await fetch(`${import.meta.env.VITE_URL}/auth/send-otp`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           phone: phone.trim()
         })
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || 'Failed to resend OTP');
       }
-      
+
       console.log('OTP resent successfully');
     } catch (error) {
       console.error('Error resending OTP:', error);
@@ -235,7 +235,7 @@ const ContestJoin = () => {
                 <p className="text-sm text-orange-700 dark:text-orange-300 mb-4">
                   {multipleDeviceError.message}
                 </p>
-                
+
                 {multipleDeviceError.existingSession && (
                   <div className="bg-orange-100 dark:bg-orange-800/30 rounded-md p-3 mb-4">
                     <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-2">
@@ -298,7 +298,7 @@ const ContestJoin = () => {
         />
       );
     }
-    
+
     if (contestInfo && otpVerified && !showTerms) {
       // This is the state after terms are accepted but before navigation
       // Show a loading state or success message
@@ -311,98 +311,98 @@ const ContestJoin = () => {
         </div>
       );
     }
-    
+
     // Default: Show the join form
     return (
-  <div className="space-y-6">
-    <div>
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        Registration ID
-      </label>
-      <div className="relative">
-        <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-        <div className="relative">
-          <span className="absolute left-10 top-1/2 transform -translate-y-1/2 text-sm text-black dark:text-white font-mono">
-            QUIZ-
-          </span>
-          <input
-            type="text"
-            value={registrationId}
-            onChange={(e) => {
-              const value = e.target.value.toUpperCase();
-              // Only allow alphanumeric characters and limit to 6 characters
-              const cleanValue = value.replace(/[^A-Z0-9]/g, '').slice(0, 6);
-              setRegistrationId(cleanValue);
-            }}
-            placeholder="123456"
-            className="w-full pl-20 text-sm pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 font-mono"
-            maxLength={6}
-          />
+      <div className="space-y-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Registration ID
+          </label>
+          <div className="relative">
+            <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <div className="relative">
+              <span className="absolute left-10 top-1/2 transform -translate-y-1/2 text-sm text-black dark:text-white font-mono">
+                QUIZ-
+              </span>
+              <input
+                type="text"
+                value={registrationId}
+                onChange={(e) => {
+                  const value = e.target.value.toUpperCase();
+                  // Only allow alphanumeric characters and limit to 6 characters
+                  const cleanValue = value.replace(/[^A-Z0-9]/g, '').slice(0, 6);
+                  setRegistrationId(cleanValue);
+                }}
+                placeholder="123456"
+                className="w-full pl-20 text-sm pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 font-mono"
+                maxLength={6}
+              />
+            </div>
+          </div>
+          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Enter 6 characters (letters and numbers only). Full ID will be: QUIZ-{registrationId || 'XXXXXX'}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Registered Phone Number
+          </label>
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="tel"
+              value={phone}
+              inputMode='numeric'
+              pattern='[0-9]*'
+              maxLength="10"
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Enter your registered phone number"
+              className="w-full pl-10 text-sm pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+        </div>
+
+        {validationError && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+              <span className="text-sm text-red-800 dark:text-red-300">{validationError}</span>
+            </div>
+          </div>
+        )}
+
+        <button
+          onClick={() => {
+            // When validating, use the full registration ID with prefix
+            const fullRegistrationId = `QUIZ-${registrationId}`;
+            validateCredentials(fullRegistrationId);
+          }}
+          disabled={isValidating || registrationId.length !== 6}
+          className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-4 py-3 rounded-lg transition-colors font-medium flex items-center justify-center space-x-2"
+        >
+          {isValidating ? (
+            <>
+              <Loader className="h-5 w-5 animate-spin" />
+              <span>Validating...</span>
+            </>
+          ) : (
+            <>
+              <span>Validate & Send OTP</span>
+              <ArrowRight className="h-5 w-5" />
+            </>
+          )}
+        </button>
+
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="text-sm text-blue-800 dark:text-blue-300">
+            <strong>Need help?</strong> Your Registration ID was sent to you after registration.
+            Enter only the 6 characters after "QUIZ-" (e.g., if your full ID is QUIZ-ABC123, enter ABC123).
+          </div>
         </div>
       </div>
-      <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-        Enter 6 characters (letters and numbers only). Full ID will be: QUIZ-{registrationId || 'XXXXXX'}
-      </div>
-    </div>
-
-    <div>
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        Registered Phone Number
-      </label>
-      <div className="relative">
-        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-        <input
-          type="tel"
-          value={phone}
-          inputMode='numeric'
-          pattern='[0-9]*'
-          maxLength="10"
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="Enter your registered phone number"
-          className="w-full pl-10 text-sm pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500"
-        />
-      </div>
-    </div>
-
-    {validationError && (
-      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-        <div className="flex items-center space-x-2">
-          <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
-          <span className="text-sm text-red-800 dark:text-red-300">{validationError}</span>
-        </div>
-      </div>
-    )}
-
-    <button
-      onClick={() => {
-        // When validating, use the full registration ID with prefix
-        const fullRegistrationId = `QUIZ-${registrationId}`;
-        validateCredentials(fullRegistrationId);
-      }}
-      disabled={isValidating || registrationId.length !== 6}
-      className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-4 py-3 rounded-lg transition-colors font-medium flex items-center justify-center space-x-2"
-    >
-      {isValidating ? (
-        <>
-          <Loader className="h-5 w-5 animate-spin" />
-          <span>Validating...</span>
-        </>
-      ) : (
-        <>
-          <span>Validate & Send OTP</span>
-          <ArrowRight className="h-5 w-5" />
-        </>
-      )}
-    </button>
-
-    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-      <div className="text-sm text-blue-800 dark:text-blue-300">
-        <strong>Need help?</strong> Your Registration ID was sent to you after registration. 
-        Enter only the 6 characters after "QUIZ-" (e.g., if your full ID is QUIZ-ABC123, enter ABC123).
-      </div>
-    </div>
-  </div>
-);
+    );
   };
 
   return (
