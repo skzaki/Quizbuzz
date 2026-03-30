@@ -17,9 +17,13 @@ const router = Router();
 // Public Routes
 router.get('/active', async (req, res) => {
     try {
+        const now = new Date();
         const contest = await Contest.findOne({
             isDeleted: false,
-            status: { $in: ['upcoming', 'ongoing'] }
+            $or: [
+                { startTime: { $gt: now } },
+                { startTime: { $lte: now }, deadline: { $gt: now } }
+            ]
         })
             .select('title slug description duration registerFee startTime deadline topics prizes QuestionBank')
             .sort({ startTime: 1 })
