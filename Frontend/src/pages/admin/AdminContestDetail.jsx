@@ -40,7 +40,9 @@ const AdminContestDetail = () => {
     const socketRef = useRef(null);
     const token = localStorage.getItem('authToken');
 
-    useEffect(() => { fetchContestData(); }, [id]);
+    useEffect(() => {
+        fetchContestData();
+    }, [id]);
 
     useEffect(() => {
         if (!contest) return;
@@ -49,22 +51,24 @@ const AdminContestDetail = () => {
             auth: { token },
             transports: ['websocket'],
         });
+
         socketRef.current.on('connect', () => {
             socketRef.current.emit('get-room-status', { contestId: id });
         });
+
         socketRef.current.on('room-status', ({ waiting, quiz }) => {
             setWaitingRoom(waiting || []);
             setQuizRoom(quiz || []);
         });
+
         socketRef.current.on('participant-joined', () => {
             socketRef.current.emit('get-room-status', { contestId: id });
         });
-        socketRef.current.on('participant-left', () => {
-            socketRef.current.emit('get-room-status', { contestId: id });
-        });
+
         const interval = setInterval(() => {
             socketRef.current?.emit('get-room-status', { contestId: id });
         }, 10000);
+
         return () => {
             clearInterval(interval);
             socketRef.current?.disconnect();
@@ -104,12 +108,12 @@ const AdminContestDetail = () => {
     };
 
     const handleStartNow = () => {
-        if (socketRef.current) socketRef.current.emit('start-quiz', { contestId: id });
+        socketRef.current?.emit('start-quiz', { contestId: id });
         handleStatusChange('ongoing');
     };
 
     const handleDelete = async () => {
-        if (!window.confirm('Delete this contest? This cannot be undone.')) return;
+        if (!window.confirm('Are you sure you want to delete this contest?')) return;
         try {
             await fetch(`${BASE_URL}/contests/${id}`, {
                 method: 'DELETE',
@@ -125,8 +129,9 @@ const AdminContestDetail = () => {
         if (!participants.length) return;
         const headers = ['Name', 'Email', 'Joined At'];
         const rows = participants.map(p => [
-            `${p.firstName} ${p.lastName}`, p.email,
-            new Date(p.createdAt).toLocaleDateString()
+            `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.username || '—',
+            p.email,
+            new Date(p.createdAt || p.registeredAt).toLocaleDateString()
         ]);
         const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
         const blob = new Blob([csv], { type: 'text/csv' });
@@ -171,9 +176,9 @@ const AdminContestDetail = () => {
                                 <StatusBadge status={contest.status} />
                             </div>
                             <p className="text-sm text-slate-500 mt-0.5">
-                                {new Date(contest.startTime).toLocaleString('en-IN')} •
+                                {contest.startDate} {contest.startTime} •
                                 {contest.duration} mins •
-                                {contest.registerFee === 0 ? ' Free' : ` ₹${contest.registerFee}`} •
+                                {contest.registrationFee === 0 ? ' Free' : ` ₹${contest.registrationFee}`} •
                                 {contest.QuestionBank?.length || 0} questions
                             </p>
                         </div>
@@ -230,13 +235,13 @@ const AdminContestDetail = () => {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                             {[
                                 { label: 'Status', value: <StatusBadge status={contest.status} /> },
-                                { label: 'Start Time', value: new Date(contest.startTime).toLocaleString('en-IN') },
-                                { label: 'Deadline', value: new Date(contest.deadline).toLocaleString('en-IN') },
+                                { label: 'Start Date', value: contest.startDate },
+                                { label: 'Start Time', value: contest.startTime },
                                 { label: 'Duration', value: `${contest.duration} minutes` },
-                                { label: 'Registration Fee', value: contest.registerFee === 0 ? 'Free' : `₹${contest.registerFee}` },
+                                { label: 'Registration Fee', value: contest.registrationFee === 0 ? 'Free' : `₹${contest.registrationFee}` },
                                 { label: 'Participants', value: participants.length },
                                 { label: 'Questions', value: contest.QuestionBank?.length || 0 },
-                                { label: 'Slug', value: contest.slug },
+                                { label: 'Prize Pool', value: `₹${contest.prizePool || 0}` },
                             ].map(item => (
                                 <div key={item.label} className="bg-slate-700/30 rounded-lg p-3">
                                     <p className="text-xs text-slate-500 mb-1">{item.label}</p>
@@ -260,29 +265,16 @@ const AdminContestDetail = () => {
                                 </div>
                             </div>
                         )}
-                        {contest.rules?.length > 0 && (
+                        {contest.rules && (
                             <div>
                                 <p className="text-xs text-slate-500 mb-2">Rules</p>
                                 <ul className="space-y-1">
-                                    {contest.rules.map((r, i) => (
+                                    {(typeof contest.rules === 'string' ? contest.rules.split('\n') : contest.rules).map((r, i) => (
                                         <li key={i} className="text-sm text-slate-300 flex gap-2">
                                             <span className="text-indigo-400">{i + 1}.</span> {r}
                                         </li>
                                     ))}
                                 </ul>
-                            </div>
-                        )}
-                        {contest.prizes?.length > 0 && (
-                            <div>
-                                <p className="text-xs text-slate-500 mb-2">Prizes</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {contest.prizes.map((p, i) => (
-                                        <div key={i} className="bg-slate-700/50 rounded-lg px-3 py-2 text-sm">
-                                            <span className="text-yellow-400">🏆 Rank {p.rankFrom}-{p.rankTo}:</span>
-                                            <span className="text-slate-200 ml-1">₹{p.amount}</span>
-                                        </div>
-                                    ))}
-                                </div>
                             </div>
                         )}
                     </div>
@@ -294,8 +286,7 @@ const AdminContestDetail = () => {
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                                <span className="text-sm text-slate-300">Live Waiting Room</span>
-                                <span className="text-xs text-slate-500">— {waitingRoom.length} waiting, {quizRoom.length} in quiz</span>
+                                <span className="text-sm text-slate-300">Live — {waitingRoom.length} waiting, {quizRoom.length} in quiz</span>
                             </div>
                             {contest.status === 'upcoming' && (
                                 <button onClick={handleStartNow}
@@ -305,7 +296,7 @@ const AdminContestDetail = () => {
                             )}
                         </div>
                         {waitingRoom.length === 0 && quizRoom.length === 0 ? (
-                            <div className="text-center py-8 text-slate-500 text-sm">No participants in waiting room yet</div>
+                            <div className="text-center py-8 text-slate-500 text-sm">No participants in waiting room</div>
                         ) : (
                             <table className="w-full">
                                 <thead>
@@ -322,7 +313,7 @@ const AdminContestDetail = () => {
                                         </tr>
                                     ))}
                                     {quizRoom.map((userId, i) => (
-                                        <tr key={`quiz-${i}`} className="border-b border-white/[0.04]">
+                                        <tr key={`q-${i}`} className="border-b border-white/[0.04]">
                                             <td className="py-2 text-sm text-slate-300 font-mono">{userId}</td>
                                             <td className="py-2"><span className="text-xs text-green-400">In Quiz</span></td>
                                         </tr>
@@ -347,27 +338,25 @@ const AdminContestDetail = () => {
                         </div>
                         {!contest.QuestionBank?.length ? (
                             <div className="text-center py-8 text-slate-500 text-sm">
-                                No questions assigned.{' '}
+                                No questions assigned yet.{' '}
                                 <button onClick={() => setShowAddQuestions(true)} className="text-indigo-400 hover:underline">
-                                    Add from question bank
+                                    Add some
                                 </button>
                             </div>
                         ) : (
                             contest.QuestionBank.map((q, i) => (
-                                <div key={q._id || i} className="bg-slate-700/30 rounded-lg p-3">
-                                    <div className="flex items-start justify-between gap-2">
-                                        <p className="text-sm text-slate-200">
-                                            <span className="text-slate-500 mr-2">{i + 1}.</span>
-                                            {q.questionText || 'Question ID: ' + (q._id || q)}
-                                        </p>
-                                        {q.difficulty && (
-                                            <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
-                                                q.difficulty === 'easy' ? 'bg-green-500/20 text-green-400' :
-                                                q.difficulty === 'hard' ? 'bg-red-500/20 text-red-400' :
-                                                'bg-yellow-500/20 text-yellow-400'
-                                            }`}>{q.difficulty}</span>
-                                        )}
-                                    </div>
+                                <div key={q._id || i} className="bg-slate-700/30 rounded-lg p-3 flex items-start justify-between gap-2">
+                                    <p className="text-sm text-slate-200">
+                                        <span className="text-slate-500 mr-2">{i + 1}.</span>
+                                        {q.questionText || q}
+                                    </p>
+                                    {q.difficulty && (
+                                        <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
+                                            q.difficulty === 'easy' ? 'bg-green-500/20 text-green-400' :
+                                            q.difficulty === 'hard' ? 'bg-red-500/20 text-red-400' :
+                                            'bg-yellow-500/20 text-yellow-400'
+                                        }`}>{q.difficulty}</span>
+                                    )}
                                 </div>
                             ))
                         )}
@@ -377,9 +366,9 @@ const AdminContestDetail = () => {
                 {/* PARTICIPANTS */}
                 {activeTab === 'participants' && (
                     <div className="space-y-3">
-                        <h2 className="text-sm font-semibold text-slate-300">{participants.length} Registered Participants</h2>
+                        <h2 className="text-sm font-semibold text-slate-300">{participants.length} Registered</h2>
                         {!participants.length ? (
-                            <div className="text-center py-8 text-slate-500 text-sm">No participants registered yet</div>
+                            <div className="text-center py-8 text-slate-500 text-sm">No participants yet</div>
                         ) : (
                             <table className="w-full">
                                 <thead>
@@ -392,10 +381,10 @@ const AdminContestDetail = () => {
                                 <tbody>
                                     {participants.map((p, i) => (
                                         <tr key={p._id || i} className="border-b border-white/[0.04]">
-                                            <td className="py-2 text-sm text-slate-200 pr-4">{p.firstName} {p.lastName}</td>
+                                            <td className="py-2 text-sm text-slate-200 pr-4">{p.username || `${p.firstName || ''} ${p.lastName || ''}`.trim()}</td>
                                             <td className="py-2 text-sm text-slate-400 pr-4">{p.email}</td>
-                                            <td className="py-2 text-sm text-slate-400 pr-4 font-mono">{p.registrationId}</td>
-                                            <td className="py-2 text-sm text-slate-400">{new Date(p.createdAt).toLocaleDateString('en-IN')}</td>
+                                            <td className="py-2 text-sm text-slate-400 pr-4 font-mono">{p.registrationId || '—'}</td>
+                                            <td className="py-2 text-sm text-slate-400">{new Date(p.createdAt || p.registeredAt).toLocaleDateString('en-IN')}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -411,7 +400,7 @@ const AdminContestDetail = () => {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             {[
                                 { label: 'Registered', value: participants.length, color: 'text-blue-400' },
-                                { label: 'In Waiting Room', value: waitingRoom.length, color: 'text-yellow-400' },
+                                { label: 'Waiting Room', value: waitingRoom.length, color: 'text-yellow-400' },
                                 { label: 'In Quiz', value: quizRoom.length, color: 'text-green-400' },
                                 { label: 'Questions', value: contest.QuestionBank?.length || 0, color: 'text-purple-400' },
                             ].map(s => (
@@ -449,7 +438,7 @@ const AdminContestDetail = () => {
                                 <div className="flex items-center gap-3 mb-3">
                                     <Award className="w-5 h-5 text-yellow-400" />
                                     <div>
-                                        <p className="text-sm font-medium text-slate-200">Contest Details JSON</p>
+                                        <p className="text-sm font-medium text-slate-200">Contest JSON</p>
                                         <p className="text-xs text-slate-500">Full contest data</p>
                                     </div>
                                 </div>
