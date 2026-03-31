@@ -20,7 +20,7 @@ function getBreadcrumb(pathname) {
 }
 
 export default function TopNavbar({ onMenuClick }) {
-  const { isDark, toggleTheme: toggle } = useTheme()
+  const { isDark, toggleTheme } = useTheme()
   const location = useLocation()
   const current = getBreadcrumb(location.pathname)
 
@@ -45,23 +45,38 @@ export default function TopNavbar({ onMenuClick }) {
 
       {/* Actions */}
       <div className="flex items-center gap-2">
-        {/* Theme toggle */}
+
+        {/* Theme toggle — properly animated pill switch */}
         <button
-          onClick={toggle}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-slate-200 dark:border-white/[0.07] text-[12px] font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors bg-slate-50 dark:bg-slate-900/50"
+          onClick={toggleTheme}
+          title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
         >
-          <div className="w-[26px] h-[14px] rounded-full bg-indigo-500 relative">
+          {/* Pill track */}
+          <div className={`relative w-[34px] h-[18px] rounded-full transition-colors duration-300 ${isDark ? "bg-indigo-500" : "bg-slate-300"}`}>
+            {/* Knob */}
             <div
-              className={`w-2.5 h-2.5 rounded-full bg-white absolute top-[2px] transition-transform duration-200 ${
-                isDark ? "translate-x-[14px] left-[2px]" : "left-[2px]"
+              className={`absolute top-[3px] w-3 h-3 rounded-full bg-white shadow-sm transition-transform duration-300 ${
+                isDark ? "translate-x-[17px] left-[2px]" : "left-[2px] translate-x-0"
               }`}
             />
           </div>
-          {isDark ? "Dark" : "Light"}
+          {/* Icon + label */}
+          {isDark ? (
+            <>
+              <Moon className="w-3.5 h-3.5 text-indigo-300" />
+              <span className="text-[12px] font-medium text-slate-400 dark:text-slate-300">Dark</span>
+            </>
+          ) : (
+            <>
+              <Sun className="w-3.5 h-3.5 text-amber-500" />
+              <span className="text-[12px] font-medium text-slate-500">Light</span>
+            </>
+          )}
         </button>
 
         {/* Notifications */}
-        <button className="relative w-8 h-8 rounded-lg border border-slate-200 dark:border-white/[0.07] flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors">
+        <button className="relative w-8 h-8 rounded-lg border border-slate-200 dark:border-white/[0.07] flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
           <Bell className="w-3.5 h-3.5" />
           <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-white dark:border-slate-800" />
         </button>

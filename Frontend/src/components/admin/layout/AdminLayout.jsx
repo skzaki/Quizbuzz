@@ -7,7 +7,7 @@ export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-[#0f172a] font-sans">
+    <div className="flex h-screen overflow-hidden bg-slate-100 dark:bg-[#0f172a] font-sans transition-colors duration-300">
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
