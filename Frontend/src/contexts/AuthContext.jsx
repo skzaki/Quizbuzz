@@ -18,12 +18,31 @@ export const AuthProvider = ({ children }) => {
   const parseToken = (token) => {
     try {
       const decoded = jwtDecode(token);
+
+      // Reject expired tokens
+      const now = Math.floor(Date.now() / 1000);
+      if (decoded.exp && decoded.exp < now) {
+        console.warn("AuthContext: token is expired — discarding");
+        return null;
+      }
+
+      // ✅ KEY FIX: authToken is exclusively for admin sessions.
+      // If the stored token has role !== "admin" it is a stale participant
+      // token left over from the old ContestJoin flow (before the fix).
+      // Discard it silently so the admin never needs localStorage.clear().
+      if (decoded.role !== "admin") {
+        console.warn(
+          "AuthContext: found non-admin token in authToken — discarding stale participant token"
+        );
+        return null;
+      }
+
       return {
         ...decoded,
-        isAdmin: decoded.role === "admin",
+        isAdmin: true,
       };
     } catch (err) {
-      console.error("Invalid token:", err);
+      console.error("AuthContext: invalid token —", err.message);
       return null;
     }
   };
@@ -32,15 +51,24 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem("authToken");
     if (token) {
       const parsedUser = parseToken(token);
-      if (parsedUser) setUser(parsedUser);
-      else localStorage.removeItem("authToken");
+      if (parsedUser) {
+        setUser(parsedUser);
+      } else {
+        // Token is invalid, expired, or belongs to a participant — remove it
+        localStorage.removeItem("authToken");
+      }
     }
     setLoading(false);
   }, []);
 
   const login = (token) => {
-    localStorage.setItem("authToken", token);
+    // Only accept admin tokens into the admin auth context
     const parsedUser = parseToken(token);
+    if (!parsedUser) {
+      console.error("AuthContext.login: rejected non-admin or invalid token");
+      return;
+    }
+    localStorage.setItem("authToken", token);
     setUser(parsedUser);
   };
 
