@@ -27,7 +27,7 @@ const ContestResult = () => {
 
   const fetchSubmissionResults = async () => {
     try {
-      const authToken = localStorage.getItem('authToken');
+      const authToken = localStorage.getItem('contestToken');
       const response = await fetch(`${import.meta.env.VITE_URL}/contests/${submissionId}/results`, {
         method: 'GET',
         headers: {

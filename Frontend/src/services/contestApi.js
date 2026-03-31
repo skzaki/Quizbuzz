@@ -8,7 +8,7 @@ export async function submitContest({ contestSlug, userRegistrationId }) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      Authorization: `Bearer ${localStorage.getItem("contestToken")}`,
     },
     body: JSON.stringify({ contestSlug, userRegistrationId }),
   });
@@ -28,7 +28,7 @@ export async function getSubmissionStatus(contestSlug, submissionId) {
   const res = await fetch(url, {
     method: "GET",
     headers: {
-      Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      Authorization: `Bearer ${localStorage.getItem("contestToken")}`,
     },
   });
 

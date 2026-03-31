@@ -11,7 +11,7 @@ const useContestSocket = (questions, answers, currentQ) => {
     socketRef.current = io(import.meta.env.VITE_WEBSOCKET_URL, {
       path: "/ws/",
       transports: ["websocket"],
-      auth: { token: localStorage.getItem("authToken") },
+      auth: { token: localStorage.getItem("contestToken") },
     });
 
     socketRef.current.on("connect", () => {

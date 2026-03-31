@@ -130,7 +130,7 @@ const getQuestions = async () => {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          Authorization: `Bearer ${localStorage.getItem("contestToken")}`,
         },
       }
     );
@@ -214,7 +214,7 @@ const getQuestions = async () => {
     socketRef.current = io(import.meta.env.VITE_WEBSOCKET_URL , {
         path: "/ws/",
         transports: ["websocket"],
-        auth: { token: localStorage.getItem("authToken") }
+        auth: { token: localStorage.getItem("contestToken") }
     });
 
     socketRef.current.on("connect", () => {
@@ -657,7 +657,7 @@ useEffect(() => {
 
                 headers: {
                     "Content-Type": "application/json",
-                    "Authorization": `Bearer ${localStorage.getItem("authToken")}`
+                    "Authorization": `Bearer ${localStorage.getItem("contestToken")}`
                 },
                 body: JSON.stringify({
                     contestSlug: contestInfo.current.slug,

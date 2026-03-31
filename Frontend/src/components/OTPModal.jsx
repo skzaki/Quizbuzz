@@ -50,7 +50,8 @@ const OTPModal = ({ isOpen, onClose, phone, onVerifySuccess, onResendOTP }) => {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          // Use contestToken (participant), never authToken (admin)
+          'Authorization': `Bearer ${localStorage.getItem('contestToken')}`
         },
         body: JSON.stringify({ 
           phone: phone.trim(), 
@@ -70,7 +71,8 @@ const OTPModal = ({ isOpen, onClose, phone, onVerifySuccess, onResendOTP }) => {
       
       // If the API returns updated token or additional data, handle it here
       if (data.token) {
-        localStorage.setItem('authToken', data.token);
+        // Keep using the separate participant key — never touch authToken
+        localStorage.setItem('contestToken', data.token);
       }
       toast.success("OTP verify successfully");
 

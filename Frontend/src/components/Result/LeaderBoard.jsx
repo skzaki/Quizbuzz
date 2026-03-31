@@ -14,7 +14,7 @@ const LeaderBoard = ({ contestId, currentUserId }) => {
       setLoading(true);
       setError(null);
       
-      const authToken = localStorage.getItem('authToken');
+      const authToken = localStorage.getItem('contestToken');
       const response = await fetch(`${import.meta.env.VITE_URL}/contests/${contestId}/leaderboard`, {
         method: 'GET',
         headers: {

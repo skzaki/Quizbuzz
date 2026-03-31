@@ -80,7 +80,10 @@ const ContestJoin = () => {
 
       const data = await response.json();
       setContestInfo(data);
-      localStorage.setItem("authToken", data.token);
+
+      // ✅ KEY FIX: Store participant token under a SEPARATE key ('contestToken')
+      // so it NEVER overwrites the admin's 'authToken' stored by AuthContext.
+      localStorage.setItem("contestToken", data.token);
 
       // PRIORITY: If user has already submitted, show results regardless of session type
       if (data.submissionId) {
@@ -104,7 +107,7 @@ const ContestJoin = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          'Authorization': `Bearer ${localStorage.getItem('contestToken')}`
         },
         body: JSON.stringify({
           phone: phone.trim()
@@ -135,7 +138,7 @@ const ContestJoin = () => {
     setShowOTPModal(false);
     setOtpVerified(true);
 
-    // Set localStorage items after OTP verification
+    // Store contest and user info right after OTP verification
     if (contestInfo) {
       localStorage.setItem("contestInfo", JSON.stringify(contestInfo.contestInfo));
       localStorage.setItem("userInfo", JSON.stringify(contestInfo.userInfo));
@@ -196,7 +199,7 @@ const ContestJoin = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          'Authorization': `Bearer ${localStorage.getItem('contestToken')}`
         },
         body: JSON.stringify({
           phone: phone.trim()

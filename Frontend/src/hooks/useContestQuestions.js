@@ -29,7 +29,7 @@ const useContestQuestions = () => {
 
       // 2: API call
       const res = await fetch(`${import.meta.env.VITE_URL}/contests/${contestInfo.slug}/questions`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
+        headers: { Authorization: `Bearer ${localStorage.getItem("contestToken")}` },
       });
 
       if (!res.ok) throw new Error("Failed to fetch questions");

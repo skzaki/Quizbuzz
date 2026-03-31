@@ -243,7 +243,7 @@ const WaitingRoom = () => {
     const socket = io(import.meta.env.VITE_WEBSOCKET_URL , {
       path: "/ws/",
       transports: ["websocket"],
-      auth: { token: localStorage.getItem("authToken") }
+      auth: { token: localStorage.getItem("contestToken") }
     });
 
     socket.on("connect", () => {
