@@ -51,7 +51,7 @@ const ContestManagement = () => {
   const handleCreateContest = async (formData) => {
     setCreateError('');
     try {
-      // Build rules array
+      // Build rules array from newline-separated string
       const rulesRaw = formData.rules || '';
       const rulesArray = rulesRaw
         .split('\n')
@@ -59,22 +59,22 @@ const ContestManagement = () => {
         .filter(Boolean);
       if (rulesArray.length === 0) rulesArray.push('Follow all contest guidelines');
 
-      // Build topics array
+      // Build topics array from comma-separated string
       const topicsRaw = Array.isArray(formData.topics)
         ? formData.topics
         : (formData.topics || '').split(',').map(t => t.trim()).filter(Boolean);
       if (topicsRaw.length === 0) topicsRaw.push('General');
 
-      // Prize pool → prizes array
       const prizeAmount = parseFloat(formData.prizePool) || 0;
+
 
       const payload = {
         title: formData.title,
         description: formData.description,
-        startDate: formData.startDate,          // YYYY-MM-DD
-        startTime: formData.startTime,          // HH:MM
+        startDate: formData.startDate,           // YYYY-MM-DD (Zod expects this)
+        startTime: formData.startTime,           // HH:MM     (Zod expects this)
         duration: parseInt(formData.duration),
-        registrationFee: parseFloat(formData.registrationFee) || 0,
+        registrationFee: parseFloat(formData.registrationFee) || 0,  // exact Zod field name
         maxParticipants: parseInt(formData.maxParticipants) || 100,
         topics: topicsRaw,
         rules: rulesArray,
@@ -103,21 +103,21 @@ const ContestManagement = () => {
       console.log('Response:', json);
 
       if (!res.ok) {
-        // Show validation errors if any
+        // Build a human-readable error message from Zod validation details if present
         if (json?.error?.details?.length > 0) {
           const msgs = json.error.details.map(d => `${d.field}: ${d.message}`).join('\n');
-          setCreateError(msgs);
-        } else {
-          setCreateError(json?.error?.message || json?.message || 'Failed to create contest');
+          throw new Error(msgs);
         }
-        return;
+        throw new Error(json?.error?.message || json?.message || 'Failed to create contest');
       }
 
       setShowCreateForm(false);
       fetchContests();
     } catch (err) {
       console.error('Create contest error:', err);
-      setCreateError('Network error. Please try again.');
+      // Re-throw so the modal's catch block can display it inside the modal
+      setCreateError(err.message);
+      throw err;
     }
   };
 

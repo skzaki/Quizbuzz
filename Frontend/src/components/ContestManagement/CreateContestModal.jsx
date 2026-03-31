@@ -105,8 +105,9 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
   };
 
   const handleSubmit = async (e, isDraft = false) => {
-    e.preventDefault();
-    
+    // e may be a real form submit event OR a synthetic button click — guard both cases
+    if (e && e.preventDefault) e.preventDefault();
+
     const newErrors = validateForm();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -118,26 +119,33 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
       }
       return;
     }
-    
+
     setLoading(true);
-    
+
     try {
+      // Pass raw primitive values — let the parent (ContestManagement) do the
+      // final shaping so there is only ONE place that builds the API payload.
       const contestData = {
-        ...formData,
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        // Send as separate fields — parent combines them into startTime (Date)
+        startDate: formData.startDate,
+        startTime: formData.startTime,
+        duration: formData.duration,
+        registrationFee: formData.registrationFee,
+        prizePool: formData.prizePool,
+        maxParticipants: formData.maxParticipants,
+        // Send raw comma-separated string so parent's split() works correctly
+        topics: formData.topics,
+        rules: formData.rules,
         status: isDraft ? 'draft' : 'upcoming',
-        topics: formData.topics.split(',').map(topic => topic.trim()).filter(Boolean),
-        duration: parseInt(formData.duration),
-        registrationFee: parseFloat(formData.registrationFee) || 0,
-        prizePool: parseFloat(formData.prizePool) || 0,
-        maxParticipants: parseInt(formData.maxParticipants) || null,
-        startDateTime: `${formData.startDate}T${formData.startTime}:00Z`
       };
-      
+
       await onSubmit(contestData);
       resetForm();
     } catch (error) {
       console.error('Error submitting form:', error);
-      setErrors({ general: 'Failed to save contest. Please try again.' });
+      setErrors({ general: error.message || 'Failed to save contest. Please try again.' });
     } finally {
       setLoading(false);
     }
