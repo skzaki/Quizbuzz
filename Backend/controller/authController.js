@@ -62,7 +62,11 @@ export const login = async (req, res) => {
       token,
       userInfo: {
         registrationId: user.registrationId,
-        _id: user._id
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.isAdmin ? "admin" : "user",
       },
     });
   } catch (error) {

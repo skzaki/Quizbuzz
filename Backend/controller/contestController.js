@@ -76,11 +76,11 @@ export const validateCredentials = async (req, res) => {
       lastActivity: new Date().toISOString(),
     }, 60 * 60 * 24);
 
-    // Generate JWT
-    const token = jwt.sign(
+  const token = jwt.sign(
       { 
         userId: user._id, 
         sessionId, 
+        role: "user",
         email: user.email, 
         userName: `${user.firstName} ${user.lastName}`,
         contestId: contest._id 
@@ -174,7 +174,9 @@ export const getContestQuestions = async (req, res) => {
 
 export const submitContest = async (req, res) => {
      
-    const { contestSlug, userRegistrationId } = req.body;
+    // Read contestSlug from URL param, userRegistrationId from body
+    const contestSlug = req.params.contestSlug;
+    const { userRegistrationId } = req.body;
     console.log(`IN submitContest: ${contestSlug} | ${userRegistrationId}`);
 
     if(!contestSlug || !userRegistrationId) {
@@ -283,7 +285,7 @@ export const getSubmissionStatus = async (req, res) => {
     }
 
     // Check Redis cache first
-    const cachedStatus = await redis.get(`submission:${submissionId}:status`);
+    const cachedStatus = await redisClient.get(`submission:${submissionId}:status`);
     if (cachedStatus) {
       return res.json(JSON.parse(cachedStatus));
     }
@@ -607,10 +609,18 @@ export const endContest = async (req, res) => {
 
 export const getContestCertificate = async (req, res) => {
   try {
-    const { contestId } = req.params;
-    const userId = req.user.id;
+    const { contestSlug } = req.params;
+    const userId = req.user.userId;  // fixed: was req.user.id
 
-    const submission = await Submission.findOne({ contestId, userId }).populate("contest user");
+    // Find submission by contestSlug (look up contest first) and userId
+    const contest = await Contest.findOne({ slug: contestSlug, isDeleted: false });
+    if (!contest) {
+      return res.status(404).json({ message: "Contest not found" });
+    }
+
+    const submission = await Submission.findOne({ contestId: contest._id, userId })
+      .populate("contestId", "title")
+      .populate("userId", "firstName lastName");
 
     if (!submission) {
       return res.status(404).json({ message: "No submission found" });
@@ -620,18 +630,21 @@ export const getContestCertificate = async (req, res) => {
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="certificate-${contestId}.pdf"`
+      `attachment; filename="certificate-${contestSlug}.pdf"`
     );
+
+    const participantName = `${submission.userId.firstName} ${submission.userId.lastName}`;
+    const contestTitle = submission.contestId.title;
 
     doc.fontSize(24).text("Certificate of Participation", { align: "center" });
     doc.moveDown();
-    doc.fontSize(16).text(`This is to certify that ${submission.user.name}`, { align: "center" });
-    doc.text(`participated in the contest "${submission.contest.title}".`, { align: "center" });
+    doc.fontSize(16).text(`This is to certify that ${participantName}`, { align: "center" });
+    doc.text(`participated in the contest "${contestTitle}".`, { align: "center" });
     doc.moveDown();
     doc.text(`Score: ${submission.score}`, { align: "center" });
 
-    doc.end();
     doc.pipe(res);
+    doc.end();
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });

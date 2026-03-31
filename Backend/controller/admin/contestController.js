@@ -1,6 +1,6 @@
 // controller/admin/contestController.js
 import { Contest, Question } from "../../Models/DB.js";
-import { contestSchema, questionsSchema } from "../../Models/zodSchmea.js";
+import { bulkStatusUpdateSchema, contestSchema, questionsSchema, updateContestSchema } from "../../Models/zodSchmea.js";
 import redisClient from '../../redis.js';
 
 // Redis key helpers

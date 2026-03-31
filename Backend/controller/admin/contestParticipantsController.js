@@ -1,7 +1,7 @@
 // controller/admin/contestParticipantsController.js
 import { Parser } from 'json2csv';
 import { Certificate, Contest, User } from "../../Models/DB.js";
-import { exportParticipantsSchema, issueCertificateSchema } from "../../Models/zodParticipantsSchema.js";
+import { exportParticipantsSchema, issueCertificateSchema } from "../../Models/zodParticipantsSchemee.js";
 import redisClient from '../../redis.js';
 
 // Redis cache keys

@@ -43,6 +43,13 @@ const contestSchema = new mongoose.Schema({
     cutOff: { type: Number },
     startTime: { type: Date, required: true },
     deadline: { type: Date, required: true },
+    // Explicit status field: draft → upcoming → ongoing → completed
+    status: {
+        type: String,
+        enum: ['draft', 'upcoming', 'ongoing', 'completed', 'cancelled'],
+        default: 'draft',
+        index: true
+    },
     participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     QuestionBank: [{ type: mongoose.Schema.Types.ObjectId, ref: "Question" }],
     prizes: [{
