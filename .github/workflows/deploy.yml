@@ -53,7 +53,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 2222
           script: |
-          script: |
             cd /var/www/quizbuzz
             # Create backup of current state
             docker compose ps -q | xargs -r docker inspect -f '{{.Name}} {{.Config.Image}}' > deploy_backup.txt
