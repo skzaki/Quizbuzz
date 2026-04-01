@@ -22,7 +22,7 @@ jobs:
           cache-dependency-path: Backend/package-lock.json
 
       - name: Install Backend Dependencies
-        run: cd Backend && npm ci
+        run: cd Backend && npm install
 
       - name: Backend Lint check
         run: cd Backend && npm run lint || true # Skip for now until lint is clean
