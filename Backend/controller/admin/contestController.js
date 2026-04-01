@@ -1,6 +1,6 @@
 // controller/admin/contestController.js
-import { Contest, Question } from "../../Models/DB.js";
-import { bulkStatusUpdateSchema, contestSchema, questionsSchema, updateContestSchema } from "../../Models/zodSchmea.js";
+import { Contest, Question, Submission, User } from "../../Models/DB.js";
+import { bulkStatusUpdateSchema, contestSchema, questionsSchema, updateContestSchema } from "../../Models/zodSchema.js";
 import redisClient from '../../redis.js';
 
 // Redis key helpers
@@ -276,7 +276,7 @@ export const createContest = async (req, res) => {
             startTime: new Date(`${validation.data.startDate} ${validation.data.startTime}`),
             deadline: new Date(new Date(`${validation.data.startDate} ${validation.data.startTime}`).getTime() + validation.data.duration * 60000),
             registerFee: validation.data.registrationFee,
-            createdBy: req.user?.id || 'admin_user_id'
+            createdBy: req.user?.userId || 'admin_user_id'
         };
 
         const contest = await Contest.create(contestData);
@@ -360,6 +360,15 @@ export const updateContest = async (req, res) => {
         // Handle date/time updates
         if (validation.data.startDate || validation.data.startTime) {
             const existingContest = await Contest.findById(id);
+            if (!existingContest) {
+                return res.status(404).json({
+                    success: false,
+                    error: {
+                        code: "NOT_FOUND",
+                        message: "Contest not found"
+                    }
+                });
+            }
             const currentStartDate = validation.data.startDate || existingContest.startTime.toISOString().split('T')[0];
             const currentStartTime = validation.data.startTime || existingContest.startTime.toTimeString().split(' ')[0].substring(0, 5);
 
@@ -566,8 +575,7 @@ export const getContestStatistics = async (req, res) => {
             console.warn('Redis cache read error:', redisError);
         }
 
-        const contest = await Contest.findById(id)
-            .populate('participants', 'username country createdAt');
+        const contest = await Contest.findById(id);
 
         if (!contest || contest.isDeleted) {
             return res.status(404).json({
@@ -579,33 +587,71 @@ export const getContestStatistics = async (req, res) => {
             });
         }
 
-        // Calculate statistics
+        // Calculate real statistics using aggregation
+        const stats = await Submission.aggregate([
+            { $match: { contestId: contest._id } },
+            {
+                $group: {
+                    _id: null,
+                    registrationCount: { $sum: 1 },
+                    completedParticipants: { $sum: { $cond: [{ $eq: ["$status", "evaluated"] }, 1, 0] } },
+                    averageScore: { $avg: "$score" },
+                    highestScore: { $max: "$score" },
+                    lowestScore: { $min: "$score" }
+                }
+            }
+        ]);
+
+        const result = stats[0] || {
+            registrationCount: 0,
+            completedParticipants: 0,
+            averageScore: 0,
+            highestScore: 0,
+            lowestScore: 0
+        };
+
         const registrationCount = contest.participants.length;
-        const completedParticipants = registrationCount; // Placeholder - implement based on your logic
         const totalRevenue = registrationCount * contest.registerFee;
 
-        // Mock data for statistics - implement based on your actual data structure
-        const participantsByCountry = contest.participants.reduce((acc, participant) => {
-            const country = participant.country || 'Unknown';
-            acc[country] = (acc[country] || 0) + 1;
+        // Group participants by country
+        const participantsByCountry = await User.aggregate([
+            { $match: { _id: { $in: contest.participants } } },
+            {
+                $group: {
+                    _id: "$country",
+                    count: { $sum: 1 }
+                }
+            }
+        ]).then(res => res.reduce((acc, curr) => {
+            acc[curr._id || 'Unknown'] = curr.count;
             return acc;
-        }, {});
+        }, {}));
 
-        // Mock registration trend - implement based on actual data
-        const registrationTrend = [
-            { date: "2024-01-21", count: 5 },
-            { date: "2024-01-22", count: 12 }
-        ];
+        // Registration trend (last 7 days)
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        const registrationTrend = await User.aggregate([
+            { $match: { _id: { $in: contest.participants }, createdAt: { $gte: sevenDaysAgo } } },
+            {
+                $group: {
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } },
+            { $project: { date: "$_id", count: 1, _id: 0 } }
+        ]);
 
         const response = {
             success: true,
             data: {
                 contestId: contest._id,
                 registrationCount,
-                completedParticipants,
-                averageScore: 78.5, // Placeholder - implement based on actual scores
-                highestScore: 95, // Placeholder
-                lowestScore: 45, // Placeholder
+                completedParticipants: result.completedParticipants,
+                averageScore: Math.round((result.averageScore || 0) * 100) / 100,
+                highestScore: result.highestScore || 0,
+                lowestScore: result.lowestScore || 0,
                 totalRevenue,
                 participantsByCountry,
                 registrationTrend
@@ -841,6 +887,7 @@ const getContestStatus = (contest) => {
     const now = new Date();
     if (contest.status === 'draft') return 'draft';
     if (contest.status === 'cancelled') return 'cancelled';
+    if (contest.status === 'completed') return 'completed';
     if (contest.startTime > now) return 'upcoming';
     if (contest.deadline > now) return 'ongoing';
     return 'completed';
@@ -848,9 +895,8 @@ const getContestStatus = (contest) => {
 
 const clearContestsListCache = async () => {
     try {
-        const keys = await redisClient.keys('contests:*');
-        if (keys.length > 0) {
-            await redisClient.del(...keys);
+        for await (const key of redisClient.scanIterator({ MATCH: 'contests:*' })) {
+            await redisClient.del(key);
         }
     } catch (error) {
         console.warn('Error clearing contests list cache:', error);

@@ -1,30 +1,31 @@
 import { createClient } from "redis";
 
- const redisClient = createClient({ 
+const redisClient = createClient({
     url: process.env.REDIS_URL,
-    connectTimeout: 10000,
-    commandTimeout: 5000,
-    retryDelayOnFailover: 100,
-    maxRetriesPerRequest: 3,
-    lazyConnect: true,
-    enableReadyCheck: true,
-    // Connection pool settings
-    family: 5,
-    keepAlive: true,
-    // Retry strategy
-    retryStrategy: (times) => {
-        const delay = Math.min(times * 50, 2000);
-        console.log(`Redis retry attempt ${times}, delay: ${delay}ms`);
-        return delay;
+    socket: {
+        reconnectStrategy: (retries) => {
+            if (retries > 10) {
+                console.error("Redis max retries exceeded");
+                return new Error("Max retries exceeded");
+            }
+            return Math.min(retries * 50, 2000);
+        },
+        connectTimeout: 10000,
+        keepAlive: 1000
     },
-    // Reconnect on error
-    reconnectOnError: (err) => {
-        const targetError = 'READONLY';
-        return err.message.includes(targetError);
-    }
+    pingInterval: 1000,
 });
 
-redisClient.on("error", (err) => console.error("❌ Redis Client Error", err));
-await redisClient.connect();
+redisClient.on("error", (err) => console.error("❌ Redis Client Error:", err.message));
+redisClient.on("connect", () => console.log("✅ Redis Client Connecting..."));
+redisClient.on("ready", () => console.log("🚀 Redis Client Ready"));
+redisClient.on("reconnecting", () => console.log("🔄 Redis Client Reconnecting..."));
+redisClient.on("end", () => console.log("🔌 Redis Client Connection Ended"));
+
+try {
+    await redisClient.connect();
+} catch (err) {
+    console.error("❌ Redis Initial Connection Failed:", err.message);
+}
 
 export default redisClient;

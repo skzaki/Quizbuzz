@@ -17,8 +17,8 @@ export const rateLimitMiddleware = (options = {}) => {
         standardHeaders: true, // for 'RateLimit-*' headers
         legacyHeaders: false,  // disable 'X-RateLimit-*' headers
         
-        KeyGenerator: (req) => {
-            return req.user?.id || req.ip;
+        keyGenerator: (req) => {
+            return req.user?.userId || req.ip;
         },
 
         handler: (req, res) => {

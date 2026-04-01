@@ -18,6 +18,11 @@ const config = {
   requireBlink: true          
 };
 
+// Pre-load the model
+export async function preloadModel() {
+  await loadModel();
+}
+
 // Start monitoring a video feed for a single, real face
 export async function startFaceMonitor({ videoEl, onWarning, onClear }) {
   video = videoEl;

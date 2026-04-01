@@ -1,7 +1,7 @@
 // controller/admin/contestParticipantsController.js
 import { Parser } from 'json2csv';
-import { Certificate, Contest, User } from "../../Models/DB.js";
-import { exportParticipantsSchema, issueCertificateSchema } from "../../Models/zodParticipantsSchemee.js";
+import { Certificate, Contest, Submission, User } from "../../Models/DB.js";
+import { exportParticipantsSchema, issueCertificateSchema } from "../../Models/zodParticipantsSchema.js";
 import redisClient from '../../redis.js';
 
 // Redis cache keys
@@ -69,18 +69,21 @@ export const getContestParticipants = async (req, res) => {
             ];
         }
 
-        // Status filter (this would depend on your user schema and contest participation tracking)
+        // Status filter
         if (status !== 'all') {
-            switch (status) {
-                case 'registered':
-                    participantQuery.contestStatus = 'registered';
-                    break;
-                case 'completed':
-                    participantQuery.contestStatus = 'completed';
-                    break;
-                case 'withdrawn':
-                    participantQuery.contestStatus = 'withdrawn';
-                    break;
+            const submissions = await Submission.find({
+                contestId: contest._id,
+                status: status === 'completed' ? 'evaluated' : { $ne: 'evaluated' }
+            }).select('userId').lean();
+            
+            const userIdsWithSubmissions = submissions.map(s => s.userId.toString());
+            
+            if (status === 'completed') {
+                participantQuery._id = { $in: userIdsWithSubmissions.filter(id => contest.participants.map(p => p.toString()).includes(id)) };
+            } else if (status === 'registered') {
+                participantQuery._id = { 
+                    $in: contest.participants.filter(p => !userIdsWithSubmissions.includes(p.toString())) 
+                };
             }
         }
 
@@ -111,14 +114,14 @@ export const getContestParticipants = async (req, res) => {
         // Get additional contest-specific data (scores, certificates, etc.)
         const participantIds = participants.map(p => p._id);
         const certificates = await Certificate.find({
-            contestId,
-            participantId: { $in: participantIds }
+            contestRef: contestId,
+            userRef: { $in: participantIds }
         }).lean();
 
         // Create certificates lookup
         const certificatesMap = {};
         certificates.forEach(cert => {
-            certificatesMap[cert.participantId.toString()] = cert;
+            certificatesMap[cert.userRef.toString()] = cert;
         });
 
         // Transform participant data
@@ -134,7 +137,7 @@ export const getContestParticipants = async (req, res) => {
                 country: participant.country,
                 registeredAt: participant.createdAt,
                 score: participant.contestScore || 0,
-                status: getParticipantStatus(participant, contest),
+                status: certificatesMap[participant._id.toString()] ? 'completed' : 'registered',
                 certificate: certificate ? {
                     id: certificate._id,
                     issued: true,
@@ -188,7 +191,7 @@ export const getContestParticipants = async (req, res) => {
 
         // Cache the response
         try {
-            await redisClient.setex(cacheKey, CACHE_TTL.PARTICIPANTS, JSON.stringify(response));
+            await redisClient.setEx(cacheKey, CACHE_TTL.PARTICIPANTS, JSON.stringify(response));
         } catch (redisError) {
             console.warn('Redis cache write error:', redisError);
         }
@@ -284,13 +287,13 @@ export const issueCertificates = async (req, res) => {
 
         // Check which participants already have certificates
         const existingCertificates = await Certificate.find({
-            contestId,
-            participantId: { $in: targetParticipantIds }
+            contestRef: contestId,
+            userRef: { $in: targetParticipantIds }
         }).lean();
 
         const existingCertificateMap = {};
         existingCertificates.forEach(cert => {
-            existingCertificateMap[cert.participantId.toString()] = cert;
+            existingCertificateMap[cert.userRef.toString()] = cert;
         });
 
         // Get participant details
@@ -321,8 +324,8 @@ export const issueCertificates = async (req, res) => {
 
                 // Create certificate
                 const certificateData = {
-                    contestId,
-                    participantId: participant._id,
+                    contestRef: contestId,
+                    userRef: participant._id,
                     participantName: `${participant.firstName || ''} ${participant.lastName || ''}`.trim() || participant.username,
                     contestTitle: contest.title,
                     certificateType,
@@ -360,9 +363,8 @@ export const issueCertificates = async (req, res) => {
         try {
             await redisClient.del(getCertificatesCacheKey(contestId));
             // Also clear participants cache as it includes certificate info
-            const participantsCacheKeys = await redisClient.keys(`contest:${contestId}:participants:*`);
-            if (participantsCacheKeys.length > 0) {
-                await redisClient.del(...participantsCacheKeys);
+            for await (const key of redisClient.scanIterator({ MATCH: `contest:${contestId}:participants:*` })) {
+                await redisClient.del(key);
             }
         } catch (redisError) {
             console.warn('Redis cache clear error:', redisError);
@@ -463,12 +465,12 @@ export const exportContestParticipants = async (req, res) => {
         let certificatesMap = {};
         if (validation.data.includeCertificates) {
             const certificates = await Certificate.find({
-                contestId,
-                participantId: { $in: participants.map(p => p._id) }
+                contestRef: contestId,
+                userRef: { $in: participants.map(p => p._id) }
             }).lean();
 
             certificates.forEach(cert => {
-                certificatesMap[cert.participantId.toString()] = cert;
+                certificatesMap[cert.userRef.toString()] = cert;
             });
         }
 

@@ -1,1724 +1,2568 @@
-# Quiz Platform Project Documentation
+# Quizbuzz — Project Requirements & Fix Plan
+
+**Branch:** `third` (latest) | Compared against: `main`, `second`  
+**Stack:** React 19 · Vite · Node.js / Express 5 · MongoDB · Redis · BullMQ · Socket.io · Docker  
+**Document purpose:** Complete project reference combining architecture, known bugs, and the full ordered fix plan.
+
+---
+
+## Table of Contents
+
+1. [Project Overview](#1-project-overview)
+2. [Tech Stack](#2-tech-stack)
+3. [System Architecture](#3-system-architecture)
+4. [Frontend Architecture](#4-frontend-architecture)
+5. [Backend Architecture](#5-backend-architecture)
+6. [Authentication & Session Design](#6-authentication--session-design)
+7. [Contest APIs](#7-contest-apis)
+8. [Real-Time Communication (Socket.io)](#8-real-time-communication-socketio)
+9. [Database Design](#9-database-design)
+10. [Redis Usage](#10-redis-usage)
+11. [Evaluation Worker](#11-evaluation-worker)
+12. [Payment Integration (Razorpay)](#12-payment-integration-razorpay)
+13. [Admin Dashboard](#13-admin-dashboard)
+14. [DevOps & Deployment](#14-devops--deployment)
+15. [Code Review Findings](#15-code-review-findings)
+16. [Bug Registry](#16-bug-registry)
+17. [Fix Plan — Phase 1: Critical (Deploy Blockers)](#17-fix-plan--phase-1-critical-deploy-blockers)
+18. [Fix Plan — Phase 2: High-Severity Bugs](#18-fix-plan--phase-2-high-severity-bugs)
+19. [Fix Plan — Phase 3: Code Quality & Moderate Fixes](#19-fix-plan--phase-3-code-quality--moderate-fixes)
+20. [Fix Plan — Phase 4: DevOps & Infrastructure](#20-fix-plan--phase-4-devops--infrastructure)
+21. [Fix Plan — Phase 5: Missing Features & Polish](#21-fix-plan--phase-5-missing-features--polish)
+22. [Environment Variables Reference](#22-environment-variables-reference)
+23. [Branch Comparison Summary](#23-branch-comparison-summary)
+24. [Execution Checklist](#24-execution-checklist)
+
+---
 
 ## 1. Project Overview
 
-This project is a full-stack online quiz and contest management platform designed for two main user groups: participants and administrators. It supports contest discovery, secure joining, live quiz participation, automatic answer saving, result evaluation, certificate access, payment handling, and a full-featured admin dashboard for operational control. [file:1]
+Quizbuzz is a full-stack, real-time online quiz and contest management platform. It serves two primary user groups:
 
-The platform combines standard REST APIs for transactional operations with Socket.IO-based real-time communication for waiting room management, live quiz transitions, and progress recovery. This makes the system suitable for scheduled or manually started contests where reliability, fairness, and responsiveness are important. [file:1]
+- **Participants** — discover contests, join securely, wait in a lobby, take a live quiz, and view evaluated results with certificates.
+- **Administrators** — create and manage contests, assign questions, monitor live sessions, view payments, and analyse platform-wide data.
 
----
+The platform combines standard REST APIs for transactional operations with Socket.io-based real-time communication for waiting-room management, live quiz transitions, and progress recovery. It is designed for scheduled or manually started contests where reliability, fairness, and responsiveness are paramount.
 
-## 2. Main Objectives
+### Core goals
 
-The project aims to provide the following capabilities: [file:1]
-
-- Allow participants to browse and join contests.
-- Support secure authentication using JWT and OTP-based flows.
-- Enable a waiting-room-based live contest experience.
-- Save quiz progress continuously during the contest.
-- Evaluate submissions asynchronously using a background worker.
-- Provide result pages and certificate access after contest completion.
-- Offer an admin dashboard for contest, question, payment, and analytics management.
-- Maintain system performance using Redis caching and BullMQ queue processing. [file:1]
+- Secure participant authentication using JWT and OTP-based flows.
+- Waiting-room-based live contest experience with automatic quiz-start signalling.
+- Continuous progress saving so network interruptions do not lose answers.
+- Asynchronous submission evaluation via BullMQ workers.
+- Result pages, leaderboards, and PDF certificate access post-contest.
+- Full admin dashboard for contest, question, payment, and analytics management.
+- Redis-backed performance caching and session management.
 
 ---
 
-## 3. High-Level Architecture
+## 2. Tech Stack
 
-The system is divided into four major layers: [file:1]
+### Frontend
 
-1. Frontend application built with React and Vite.
-2. Backend API built with Node.js and Express.
-3. Real-time communication layer built with Socket.IO.
-4. Data and processing layer using MongoDB, Redis, and BullMQ workers. [file:1]
+| Technology | Purpose |
+|---|---|
+| React 19 + Vite 7 | UI framework and build tool |
+| React Router v7 | Client-side routing and navigation |
+| Tailwind CSS v4 | Utility-first styling |
+| ShadCN UI | Reusable component library |
+| Socket.io-client 4 | Real-time WebSocket communication |
+| TensorFlow.js + MediaPipe | Face landmark detection (proctoring) |
+| CryptoJS | Client-side question encryption |
+| Recharts | Analytics charts |
+| react-hot-toast | Toast notification system |
+| jwt-decode | JWT parsing on the client |
 
-At a high level, the frontend handles user interaction and navigation, the backend manages validation and business logic, Socket.IO handles real-time events, MongoDB stores persistent records, Redis stores fast temporary state, and the worker service evaluates quiz submissions in the background. [file:1]
+### Backend
+
+| Technology | Purpose |
+|---|---|
+| Node.js (ESM) | Runtime |
+| Express 5 | HTTP framework |
+| Socket.io 4 | WebSocket server |
+| Mongoose 8 | MongoDB ODM |
+| Redis (node-redis v5) | Session store, caching, queue backend |
+| BullMQ 5 | Background job queues |
+| Zod 4 | Request validation |
+| JWT (jsonwebtoken) | Stateless authentication tokens |
+| PDFKit | PDF certificate generation |
+| Helmet | Security headers |
+| Morgan | HTTP request logging |
+| Winston | Structured application logging (installed, not yet wired) |
+| Compression | Gzip response compression |
+| express-rate-limit | Rate limiting middleware |
+
+### Infrastructure
+
+| Technology | Purpose |
+|---|---|
+| MongoDB | Primary persistent data store |
+| Redis | Sessions, live quiz state, answer cache, job queue |
+| Docker + Docker Compose | Containerised multi-service deployment |
+| Nginx | Frontend static file serving and reverse proxy |
+| GitHub Actions | CI/CD pipeline |
+
+---
+
+## 3. System Architecture
+
+```
+Browser (React 19 / Vite)
+  │
+  ├── REST  →  Nginx (:3000)  →  /api/*  →  Express Backend (:5000)
+  │                                               │
+  │                                       ┌───────┴────────┐
+  │                                     MongoDB           Redis
+  │                                               │
+  └── WebSocket  →  Socket.io (/ws/)             └── BullMQ Queue
+                                                          │
+                                               Evaluation Worker (separate container)
+```
+
+**Data flow summary:**
+
+1. The browser communicates with the backend over REST for login, fetching questions, submission, and results.
+2. The browser opens a WebSocket to Socket.io for waiting room events, quiz-start signals, and live progress saving.
+3. The backend reads/writes to MongoDB for permanent records and to Redis for fast session and state lookup.
+4. On submission, a BullMQ job is created. The evaluation worker (a separate Docker container) picks it up, scores it, updates MongoDB, and caches the result in Redis.
 
 ---
 
 ## 4. Frontend Architecture
 
-### 4.1 Technology Stack
-
-The frontend stack includes: [file:1]
-
-- React (Vite)
-- Tailwind CSS
-- React Router
-- Socket.IO client [file:1]
-
-### 4.2 Routing Structure
-
-The application has two primary route groups: participant routes and admin routes. [file:1]
+### 4.1 Routing structure
 
 #### Participant routes
 
-- `/` → Landing page showing available contests. [file:1]
-- `/login` → Login page using OTP-based authentication. [file:1]
-- `/contest/join` → Contest join form using registration ID and contest credentials. [file:1]
-- `/contest/waiting-room` → Waiting room where users stay until the quiz begins. [file:1]
-- `/contest/live/:contestId` → Live contest page for answering questions. [file:1]
-- `/contest/result/:submissionId` → Final result page after evaluation. [file:1]
-- `/contest/result/evaluate/:submissionId` → Evaluation/thank-you screen before final result. [file:1]
+| Path | Component | Auth required |
+|---|---|---|
+| `/` | `Landing` | No |
+| `/login` | `Login` | No |
+| `/contest/join` | `ContestJoin` | No |
+| `/contest/waiting-room` | `WaitingRoom` | Yes (contestToken) |
+| `/contest/live/:contestId` | `LiveContest` | Yes (contestToken) |
+| `/contest/result/:submissionId` | `ContestResult` | Yes (contestToken) |
+| `/contest/result/evaluate/:submissionId` | `ThankYouScreen` | Yes (contestToken) |
 
-#### Admin routes
+#### Admin routes (all protected by `AdminRoute`)
 
-These routes are protected by an admin authorization layer. [file:1]
+| Path | Component |
+|---|---|
+| `/admin` | `AdminDashboard` |
+| `/admin/contests` | `ContestManagement` |
+| `/admin/contests/:id` | `AdminContestDetail` |
+| `/admin/questions` | `QuestionBank` |
+| `/admin/payments` | `PaymentManagement` |
+| `/admin/analytics` | `Analytics` |
 
-- `/admin` → Dashboard home. [file:1]
-- `/admin/contests` → Contest management page. [file:1]
-- `/admin/contests/:id` → Contest detail page. [file:1]
-- `/admin/questions` → Question bank management page. [file:1]
-- `/admin/payments` → Payment management page. [file:1]
-- `/admin/analytics` → Analytics and reporting page. [file:1]
+### 4.2 Auth context
 
-### 4.3 Frontend Context System
+There are **two** context directories in the third branch — one of them is stale and must be deleted (see Fix F-24).
 
-The frontend uses shared context for global app state: [file:1]
+| File | Status | localStorage key | Notes |
+|---|---|---|---|
+| `src/context/AuthContext.jsx` | **DELETE** | `qb-token`, `qb-user` | Old implementation — wrong keys |
+| `src/contexts/AuthContext.jsx` | **KEEP** | `authToken` | Current implementation with JWT decode, role enforcement, stale-token cleanup |
 
-- `AuthContext` stores the JWT token and user identity, including whether the user is an admin or a participant. [file:1]
-- `ThemeContext` stores the current theme mode and allows dark/light toggle behavior across the UI. [file:1]
+The active `AuthContext` (in `contexts/`) uses `jwtDecode` to parse the token on mount, enforces that only admin-role tokens are accepted, and discards expired or participant tokens automatically.
 
-### 4.4 Frontend Service Modules
+Participant sessions use a **separate** localStorage key `contestToken` (set by `ContestJoin`) so they never overwrite the admin's `authToken`.
 
-The frontend defines helper service files to isolate specialized logic: [file:1]
+### 4.3 Token storage model
 
-- `contestApi.js` handles API calls related to contest submission and polling evaluation status. [file:1]
-- `paymentService.js` handles Razorpay payment interactions. [file:1]
-- `faceMonitor.js` supports webcam-based monitoring during live contests for exam integrity. [file:1]
+| Key | Set by | Used by | Contains |
+|---|---|---|---|
+| `authToken` | `Login` page after admin login | `AdminRoute`, admin API calls | Admin JWT |
+| `contestToken` | `ContestJoin` after credential validation | `WaitingRoom`, `LiveContest`, `ContestResult` | Participant JWT |
+| `contestInfo` | `ContestJoin` after OTP verified | `WaitingRoom`, `LiveContest` | Contest metadata |
+| `userInfo` | `ContestJoin` after OTP verified | `WaitingRoom`, `LiveContest` | Participant profile |
+| `questions_{slug}` | `LiveContest` after first fetch | `LiveContest` on reload | AES-encrypted question array |
 
----
+### 4.4 Service modules
 
-## 5. Participant Workflow
+| File | Purpose |
+|---|---|
+| `src/services/contestApi.js` | Contest submission and result polling |
+| `src/services/paymentService.js` | Razorpay checkout integration |
+| `src/services/faceMonitor.js` | TensorFlow.js face landmark detection for proctoring |
+| `src/hooks/useExamProtection.js` | Fullscreen enforcement, tab-switch detection, keyboard blocking |
+| `src/hooks/useContestSocket.js` | Socket.io connection lifecycle management |
+| `src/hooks/useTimer.js` | Countdown timer with sync correction |
+| `src/utils/downloadCertificate.js` | Client-side certificate PDF download |
 
-The participant journey follows a structured sequence from contest discovery to result viewing. [file:1]
+### 4.5 Key frontend components
 
-### Step 1: Discover contests
-
-A user lands on the homepage and sees a list of available contests. [file:1]
-
-### Step 2: Join contest
-
-The user navigates to `/contest/join` and enters a registration ID and contest credentials. The backend validates these details and returns a JWT token on success. [file:1]
-
-### Step 3: Enter waiting room
-
-The user enters the waiting room page, where the frontend establishes a Socket.IO connection and joins a waiting room named using a `waiting-{contestId}` convention. [file:1]
-
-### Step 4: Quiz start event
-
-When the contest starts, either by schedule or manual admin action, the server emits a `quiz-started` event. The user is then redirected to the live contest page. [file:1]
-
-### Step 5: Live quiz and progress saving
-
-During the contest, the frontend emits `save-progress` events whenever the current question changes or answers are updated. This ensures progress is preserved even if the user disconnects. [file:1]
-
-### Step 6: Submit answers
-
-Once the user finishes the contest, the frontend makes a REST API call to submit the quiz responses. [file:1]
-
-### Step 7: Evaluation screen
-
-After submission, the user is redirected to an evaluation/thank-you page while the backend processes the submission asynchronously. [file:1]
-
-### Step 8: Result page
-
-After evaluation completes, the user is shown the final result page with score and performance details. [file:1]
+| Component | Purpose |
+|---|---|
+| `AdminRoute` | HOC guarding all `/admin/*` routes |
+| `ErrorBoundary` | React error boundary (defined but not yet used — see Fix F-46) |
+| `OTPModal` | 4-digit OTP entry modal |
+| `LiveContest` | Full quiz UI with proctoring, timer, answer saving |
+| `ThankYouScreen` | Animated evaluation waiting screen |
+| `ContestResult` | Scored result with leaderboard and certificate |
 
 ---
 
-## 6. Backend Architecture
+## 5. Backend Architecture
 
-### 6.1 Technology Stack
+### 5.1 Entry points
 
-The backend stack includes: [file:1]
+| File | Role |
+|---|---|
+| `server.js` | Creates HTTP server, attaches Socket.io, calls `connectDB()`, overrides `console.*` with IST timestamps |
+| `app.js` | Configures Express: helmet, CORS, compression, morgan, rate limiting, all route groups |
+| `socket.js` | Registers all Socket.io event handlers |
+| `worker/evaluationWorker.js` | Standalone BullMQ worker — run as a separate process/container |
 
-- Node.js
-- Express
-- Socket.IO
-- BullMQ
-- JWT
-- Zod validation [file:1]
+### 5.2 Middleware stack (in order)
 
-### 6.2 Entry Point
+```
+Request
+  → helmet()                 — security headers
+  → cors(coresOptions)       — origin whitelist
+  → express.json()           — request body parsing (10 MB limit)
+  → express.urlencoded()     — form body parsing
+  → compression()            — gzip responses
+  → morgan()                 — HTTP request logging
+  → [globalRateLimit]        — ⚠️ currently commented out (see Fix F-07)
+  → route handlers
+```
 
-The backend entry file creates the HTTP server, attaches the Socket.IO server at `/ws/`, connects to MongoDB, and timestamps logs in IST. [file:1]
+### 5.3 Route groups
 
-### 6.3 Middleware Stack
+| Prefix | Router file | Auth |
+|---|---|---|
+| `/api/auth` | `routes/authRoutes.js` | Public (login); authMiddleware for OTP |
+| `/api/contests` | `routes/contestRoutes.js` | Public for `/active`, `/validate-credentials`, `/:id/leaderboard`; authMiddleware for rest |
+| `/api/admin/contests` | `routes/admin/contestRoutes.js` | authMiddleware + adminMiddleware |
+| `/api/admin/questions` | `routes/admin/questionRoutes.js` | authMiddleware + adminMiddleware |
+| `/api/payments` | `routes/admin/paymentRoutes.js` | authMiddleware only ⚠️ (see Fix F-03) |
+| `/health` | inline in `app.js` | Public |
+| `/api/logs` | inline in `app.js` | Unauthenticated ⚠️ (see Fix F-08) |
 
-The Express application uses the following middleware: [file:1]
+### 5.4 Controller map
 
-- `helmet` for security headers. [file:1]
-- `cors` for controlled cross-origin access, including allowed frontend origins. [file:1]
-- `compression` for gzip response compression. [file:1]
-- `morgan` for request logging. [file:1]
-- Rate limiting for abuse prevention. [file:1]
-
-### 6.4 API Route Groups
-
-The backend is divided into four main route groups: [file:1]
-
-- `/api/auth` → Login and OTP operations. [file:1]
-- `/api/contests` → Participant-facing contest operations. [file:1]
-- `/api/admin/contests` → Admin CRUD and contest management operations. [file:1]
-- `/api/payments` → Payment processing and Razorpay webhooks. [file:1]
-
----
-
-## 7. Authentication and Session Design
-
-The authentication layer uses JWT plus Redis-backed session validation for stronger security. [file:1]
-
-### Authentication flow
-
-1. `POST /api/auth/login` validates credentials and returns a JWT. [file:1]
-2. `POST /api/auth/send-otp` sends an OTP to phone or email. [file:1]
-3. `POST /api/auth/verify-otp` verifies the OTP and activates the session. [file:1]
-
-### Session model
-
-Each JWT includes: [file:1]
-
-- `userId`
-- `sessionId` [file:1]
-
-For every protected request, the backend: [file:1]
-
-- Verifies the JWT.
-- Looks up the session in Redis.
-- Checks the request IP address.
-- Checks the request User-Agent.
-- Rejects the request if session or client details do not match. [file:1]
-
-This layered model reduces the chance of unauthorized token reuse. [file:1]
+| Controller | Endpoints |
+|---|---|
+| `authController.js` | `login`, `sendOtp`, `resendOtp`, `verifyOtp` |
+| `contestController.js` | `validateCredentials`, `getContestBySlug`, `getContestQuestions`, `submitContest`, `getSubmissionStatus`, `getSubmissionResult`, `getContestLeaderboard`, `getContestCertificate` |
+| `admin/contestController.js` | `getAllContests`, `getContestById`, `createContest`, `updateContest`, `updateContestStatus`, `deleteContest`, `getContestStatistics`, `bulkUpdateStatus`, `bulkDeleteContests`, `addQuestionsToContest` |
+| `admin/contestParticipantsController.js` | `getContestParticipants`, `exportContestParticipants`, `issueCertificates` |
+| `admin/paymentController.js` | `getAllPayments`, `getSinglePayment`, `updatePaymentStatus`, `exportPayments`, `getPaymentStatistics`, `getContests`, `getPaymentAnalytics`, `handleWebhook` |
 
 ---
 
-## 8. Contest APIs
+## 6. Authentication & Session Design
 
-### Participant contest endpoints
+### 6.1 Authentication flow
 
-The participant-side contest routes include: [file:1]
+```
+POST /api/auth/login
+  → validate email + phone (trim, isDeleted check)
+  → invalidate existing active sessions in DB
+  → create new Session (MongoDB)
+  → save session to Redis (24h TTL)
+  → sign JWT { userId, sessionId, role, email, userName }
+  → return { token, userInfo }
 
-- `POST /validate-credentials` → Validate contest entry credentials. [file:1]
-- `GET /:slug/questions` → Return contest questions without answers. [file:1]
-- `POST /:slug/submit` → Save answers and queue evaluation. [file:1]
-- `GET /:submissionId/status` → Return evaluation status. [file:1]
-- `GET /:submissionId/results` → Return evaluated results. [file:1]
-- `GET /:slug/certificate` → Return certificate URL. [file:1]
+POST /api/auth/send-otp  (requires authMiddleware)
+  → parse phone with libphonenumber-js
+  → generate 4-digit OTP
+  → save OTP to Redis (5 min TTL) under key otp:{phone}
+  → send via WhatsApp + SMS
+  → return success
 
-### Admin contest endpoints
+POST /api/auth/verify-otp  (requires authMiddleware)
+  → validate OTP format
+  → verify against Redis stored OTP → delete on success
+  → check if submission already exists for this user
+  → return success or submissionId if already submitted
+```
 
-The admin contest routes are protected by both authentication and admin authorization middleware. They provide full CRUD, question assignment, bulk operations, and statistics. [file:1]
+> **⚠️ Current state:** `sendOtp`, `resendOtp`, and `verifyOtp` all return hardcoded success responses in the `third` branch. The full OTP implementation exists in the `main` branch and must be restored. See **Fix F-01**.
+
+### 6.2 Auth middleware
+
+Every protected request passes through `authMiddleware`:
+
+1. Extract Bearer token from `Authorization` header.
+2. Verify JWT signature against `JWT_SECRET`.
+3. Look up `session:{sessionId}` in Redis.
+4. If Redis miss, fall back to MongoDB `Session` collection.
+5. Verify `session.isActive === true` and `session.userId === decoded.userId`.
+6. Update `session.lastActivity` in Redis.
+7. Attach `req.user = decoded`, `req.sessionId`, `req.token`.
+
+### 6.3 Admin middleware
+
+`adminMiddleware` runs after `authMiddleware` on admin routes:
+
+- Checks `req.user.role === 'admin'` or `'super_admin'`.
+- Returns `403 FORBIDDEN` for any other role.
+
+### 6.4 JWT payload structure
+
+```json
+{
+  "userId": "<MongoDB ObjectId>",
+  "sessionId": "<UUID>",
+  "role": "admin | user",
+  "email": "user@example.com",
+  "userName": "First Last",
+  "contestId": "<ObjectId>",
+  "iat": 1234567890,
+  "exp": 1234567890
+}
+```
+
+`contestId` is only present in participant tokens issued by `validateCredentials`.
+
+### 6.5 Session storage
+
+Sessions are stored in both Redis (fast path) and MongoDB (fallback and audit):
+
+| Store | Key | TTL | Purpose |
+|---|---|---|---|
+| Redis | `session:{sessionId}` | 24 hours | Fast auth check on every request |
+| MongoDB | `Session` collection | Permanent | Audit trail and Redis recovery |
 
 ---
 
-## 9. Real-Time Architecture with Socket.IO
+## 7. Contest APIs
 
-The project uses Socket.IO for waiting room activity, quiz start signaling, progress persistence, and reconnection handling. [file:1]
+### 7.1 Public participant endpoints
 
-### Supported events
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/contests/active` | Get nearest upcoming or ongoing contest |
+| `POST` | `/api/contests/validate-credentials` | Validate registrationId + phone + slug; returns JWT |
+| `GET` | `/api/contests/:contestId/leaderboard` | Public leaderboard for a contest |
 
-- `join-waiting-room` → Client joins the contest lobby. [file:1]
-- `quiz-started` → Server notifies participants the contest is live. [file:1]
-- `save-progress` → Client sends current answers and question state. [file:1]
-- `heartbeat` → Client updates activity and current question position. [file:1]
-- `resume-quiz` → Server restores saved state after reconnection. [file:1]
-- `leave-waiting-room` → Client exits the waiting room. [file:1]
-- `get-room-status` → Admin requests participant room metrics. [file:1]
-- `disconnect` → System marks disconnect but retains progress in Redis. [file:1]
+### 7.2 Authenticated participant endpoints
 
-### Room model
+All require `authMiddleware`.
 
-The server uses room naming patterns such as: [file:1]
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/contests/:contestSlug/questions` | Fetch questions (no correct answers exposed) |
+| `POST` | `/api/contests/:contestSlug/submit` | Submit quiz; creates BullMQ evaluation job |
+| `GET` | `/api/contests/:submissionId/status` | Poll evaluation status |
+| `GET` | `/api/contests/:submissionId/results` | Get full evaluated result with question breakdown |
+| `GET` | `/api/contests/:contestSlug/certificate` | Stream PDF certificate |
+| `GET` | `/api/contests/:contestSlug` | Get contest by slug |
 
-- `waiting-{contestId}` for users waiting for the contest to begin. [file:1]
-- `quiz-{contestId}` for users actively taking the contest. [file:1]
+### 7.3 Admin contest endpoints
 
-### Scheduled start
+All require `authMiddleware` + `adminMiddleware`.
 
-When users enter a waiting room before the contest starts, the backend can register a `setTimeout` so the server automatically emits `quiz-started` at the scheduled time. Manual override by an admin is also supported. [file:1]
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/admin/contests` | List all contests (paginated, filterable, sortable) |
+| `POST` | `/api/admin/contests` | Create contest |
+| `GET` | `/api/admin/contests/:id` | Get contest detail |
+| `PUT` | `/api/admin/contests/:id` | Update contest |
+| `DELETE` | `/api/admin/contests/:id` | Soft-delete contest |
+| `PATCH` | `/api/admin/contests/:id/status` | Update contest status |
+| `GET` | `/api/admin/contests/:id/statistics` | Contest statistics |
+| `POST` | `/api/admin/contests/:id/questions` | Add questions to contest |
+| `GET` | `/api/admin/contests/:id/participants` | List participants |
+| `GET` | `/api/admin/contests/:id/participants/export` | Export participants (CSV/JSON) |
+| `POST` | `/api/admin/contests/:id/certificates/issue` | Issue certificates in bulk |
+| `PATCH` | `/api/admin/contests/bulk-status` | Bulk status update |
+| `DELETE` | `/api/admin/contests/bulk-delete` | Bulk soft-delete |
+
+### 7.4 Payment endpoints
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/payments` | authMiddleware ⚠️ | Get all payments |
+| `GET` | `/api/payments/:paymentId` | authMiddleware ⚠️ | Get single payment |
+| `PATCH` | `/api/payments/:paymentId/status` | authMiddleware + adminMiddleware | Update payment status |
+| `POST` | `/api/payments/export` | authMiddleware ⚠️ | Export payments |
+| `POST` | `/api/payments/stats` | authMiddleware ⚠️ | Payment statistics |
+| `GET` | `/api/payments/contests` | authMiddleware ⚠️ | Get contests for filter |
+| `GET` | `/api/payments/analytics` | authMiddleware ⚠️ | Payment analytics |
+| `POST` | `/api/payments/webhooks/payments` | None | Razorpay webhook |
+
+> **⚠️** Endpoints marked with ⚠️ are missing `adminMiddleware` — any logged-in participant can access payment data. See **Fix F-03**.
 
 ---
 
-## 10. Database Design
+## 8. Real-Time Communication (Socket.io)
 
-The system uses MongoDB for persistent records and Redis for temporary and performance-critical state. [file:1]
+### 8.1 Server configuration
 
-### 10.1 MongoDB Collections
+Socket.io server is attached at path `/ws/`. CORS currently has a trailing-slash mismatch between `app.js` and `server.js` (see Fix F-11).
+
+```js
+// Correct (no trailing slash):
+origin: ["https://quiz.ysminfosolution.com", "http://localhost:3000"]
+```
+
+### 8.2 Event catalogue
+
+| Event | Direction | Payload | Description |
+|---|---|---|---|
+| `join-waiting-room` | Client → Server | `{ contestId, userId, startTime }` | Join lobby; server checks for saved state and emits `resume-quiz` if found |
+| `quiz-started` | Server → Client | `{ contestId }` | Contest is live; client navigates to `/contest/live/:id` |
+| `save-progress` | Client → Server | `{ contestId, userId, currentQuestion, answers[] }` | Delta or full snapshot of current answers |
+| `heartbeat` | Client → Server | `{ contestId, userId, questionIndex }` | Updates `currentQuestion` in Redis without overwriting answers |
+| `resume-quiz` | Server → Client | `{ currentQuestion, answers[], ... }` | Sent on reconnect if saved state exists |
+| `leave-waiting-room` | Client → Server | `{ contestId, userId }` | Remove from waiting room |
+| `start-quiz` | Client → Server | `{ contestId }` | Admin manual start override |
+| `get-room-status` | Client → Server | `{ contestId, room? }` | Admin queries participant counts |
+| `room-status` | Server → Client | `{ waiting, quiz }` | Response to `get-room-status` |
+| `participant-joined` | Server → Client | `{ userId }` | Broadcast to waiting room |
+| `participant-left` | Server → Client | `{ userId }` | Broadcast to waiting room |
+| `disconnect` | System | — | Server marks user disconnected but preserves progress |
+
+### 8.3 Room naming convention
+
+| Room | Members |
+|---|---|
+| `waiting-{contestSlug}` | Participants waiting for contest to start |
+| `quiz-{contestSlug}` | Participants actively taking the contest |
+
+### 8.4 Scheduled start
+
+When a user joins a waiting room for a future contest, `scheduleQuizStart()` is called if no timeout is already registered for that contest. It:
+
+1. Calculates `delay = startTime - now`.
+2. Sets a `setTimeout` for that delay.
+3. On fire: moves all sockets from `waiting-{slug}` to `quiz-{slug}`, emits `quiz-started`, stores correct answers in Redis.
+
+### 8.5 Progress saving logic
+
+The server merges incoming answers with existing Redis state on every `save-progress` event:
+
+- If a new answer is non-empty → overwrite stored answer for that question.
+- If a new answer is empty but old answer exists → keep old answer.
+- If question never answered → store as unanswered.
+
+This prevents accidental answer erasure on reconnect.
+
+---
+
+## 9. Database Design
+
+### 9.1 MongoDB collections
 
 #### `User`
-Stores participant details such as name, email, phone, college, and registration ID. [file:1]
 
-#### `Admin`
-Stores admin account details including email and password. [file:1]
+```js
+{
+  registrationId: String,        // e.g. "QUIZ-001001"
+  firstName: String,
+  lastName: String,
+  password: String,              // unused field — no bcrypt currently
+  email: String,                 // unique, lowercase, trimmed
+  phone: String,
+  college: String,
+  department: String,
+  isAdmin: Boolean,              // true for admin users
+  isDeleted: Boolean,
+  timestamps: true
+}
+```
+
+Indexes: `email` (unique), add `registrationId` index (see Fix F-48).
 
 #### `Contest`
-Stores contest information such as title, slug, start time, deadline, registration fee, prize details, rules, and topics. [file:1]
+
+```js
+{
+  title: String,
+  slug: String,                  // auto-generated from title via slugify, immutable
+  description: String,
+  details: String,
+  topics: [String],
+  rules: [String],
+  registerFee: Number,
+  duration: Number,              // minutes
+  cutOff: Number,                // minimum score threshold
+  startTime: Date,
+  deadline: Date,
+  status: enum['draft','upcoming','ongoing','completed','cancelled'],
+  participants: [ObjectId → User],
+  QuestionBank: [ObjectId → Question],
+  prizes: [{ rankFrom, rankTo, amount, currency, benefits[] }],
+  isDeleted: Boolean,
+  timestamps: true
+}
+```
+
+Indexes: `status`, `slug` (unique), add `startTime + isDeleted` compound (see Fix F-48).
 
 #### `Question`
-Stores question bank items including question text, options, correct answer data, difficulty, hint, and explanation. [file:1]
 
-#### `Payment`
-Stores Razorpay payment details including order ID, payment ID, status, and amount. [file:1]
+```js
+{
+  questionText: String,
+  options: [String],             // 4 options
+  correctOptionIndex: Number,    // 0-based index
+  correctOptionText: String,     // must match options[correctOptionIndex]
+  difficulty: enum['easy','medium','hard'],
+  hint: String,
+  explanation: String,
+  isDeleted: Boolean,
+  timestamps: true
+}
+```
 
 #### `Submission`
-Stores submitted answers, score, and evaluation status. [file:1]
+
+```js
+{
+  userId: ObjectId → User,
+  contestId: ObjectId → Contest,
+  answers: [{
+    questionId: ObjectId → Question,
+    answer: String,              // selected option text
+    answerIndex: Number,         // selected option index
+    isCorrect: Boolean,
+    correctAnswer: String,
+    submittedAt: Date
+  }],
+  score: Number,
+  totalQuestions: Number,
+  status: enum['submitted','evaluated'],
+  timestamps: true
+}
+```
+
+Indexes: `{ userId, contestId }` unique, add `{ contestId, score: -1 }` (see Fix F-48).
+
+#### `Payment`
+
+```js
+{
+  userRef: ObjectId → User,
+  contestRef: ObjectId → Contest,
+  orderId: String,               // Razorpay order ID
+  paymentId: String,             // Razorpay payment ID
+  amount: Number,                // stored in paise (× 100) — verify unit consistency (see Fix F-17)
+  status: String,                // 'pending' | 'paid' | 'failed' | 'refunded'
+  description: String,
+  adminNote: String,
+  provider: String,              // default 'RazorPay'
+  metadata: { ip, userAgent },
+  isDeleted: Boolean,
+  timestamps: true
+}
+```
+
+Indexes: add `{ contestRef, createdAt: -1 }`, `{ userRef }`, `{ status, createdAt: -1 }` (see Fix F-48).
 
 #### `Session`
-Stores active session metadata such as session ID, user ID, IP, User-Agent, and last activity. [file:1]
+
+```js
+{
+  userId: ObjectId → User,
+  sessionId: String,             // UUID
+  isActive: Boolean,
+  joinedAt: Date,
+  endedAt: Date,
+  device: String,
+  ipAddress: String,
+  userAgent: String,
+  lastActivity: Date,
+  timestamps: true
+}
+```
+
+Indexes: `sessionId` (unique), `{ userId, isActive }` compound.
 
 #### `Certificate`
-Stores certificate URLs linked to user and contest. [file:1]
-
-### 10.2 Relationships
-
-- A `Contest` references many `Question` records through a question bank array. [file:1]
-- A `Contest` references many participants. [file:1]
-- A `Submission` belongs to one user and one contest. [file:1]
-- A `Payment` belongs to one user and one contest. [file:1]
-- A `Certificate` belongs to one user and one contest. [file:1]
-- A `Session` belongs to one user. [file:1]
-
-### 10.3 Slug generation
-
-Contest slugs are generated automatically from the title using a slugify process in a pre-validation hook. [file:1]
-
----
-
-## 11. Redis Usage
-
-Redis is used for fast, temporary, and frequently accessed data. [file:1]
-
-### 11.1 Session store
-
-Key format: `session:{sessionId}` [file:1]
-
-This stores the active session object for fast authentication checks. [file:1]
-
-### 11.2 Live quiz state
-
-Key format: `contest:{slug}:user:{userId}` [file:1]
-
-This stores the participant’s current question index and answers so the session can resume after a disconnect. [file:1]
-
-### 11.3 Correct answers cache
-
-Key format: `contest:{slug}:correct_answers` [file:1]
-
-This stores the answer key for a contest and is cached for 24 hours to reduce repeated database lookups during evaluation. [file:1]
-
-### 11.4 Submission status cache
-
-Key format: `submission:{id}:status` [file:1]
-
-This stores evaluated result data for a short period so frontend polling can read status quickly. The file states this cache is kept for 1 hour after processing. [file:1]
-
----
-
-## 12. Evaluation Worker
-
-The platform uses a separate worker service running as a different Docker container for evaluation processing. This worker is powered by BullMQ and uses Redis as the queue backend. [file:1]
-
-### Evaluation flow
-
-1. A participant submits answers. [file:1]
-2. The backend stores the raw submission in MongoDB. [file:1]
-3. The backend adds a job to the `contest-evaluation` queue. [file:1]
-4. The worker picks up jobs with up to 10 concurrent workers. [file:1]
-5. The worker retrieves the submission from MongoDB. [file:1]
-6. The worker fetches the correct answers from Redis, or MongoDB if needed. [file:1]
-7. The worker evaluates each answer. [file:1]
-8. The worker updates the submission with score and `evaluated` status. [file:1]
-9. The worker caches result status in Redis. [file:1]
-10. The worker removes the user’s temporary in-progress quiz state from Redis. [file:1]
-
-### Scoring logic
-
-The documented scoring logic is: [file:1]
-
-- Correct answer: `+1` [file:1]
-- Wrong answer: `-0.I studied the attached project file and created a **detailed Markdown documentation draft** you can save as something like `PROJECT_DOCUMENTATION.md`. The document below is based on the architecture, workflow, routes, admin design blueprint, backend flow, database flow, and deployment notes contained in your file. [file:1]
-
-# Quiz Platform Project Documentation [file:1]
-
-## Project overview
-
-This project is a full-stack online quiz and contest platform built for two main user groups: participants and administrators. Participants can discover contests, join securely, wait for the live quiz to start, take the quiz in real time, and view evaluated results, while administrators can manage contests, questions, payments, analytics, and live contest operations through a dedicated admin dashboard. [file:1]
-
-The architecture combines a React frontend, a Node.js and Express backend, Socket.IO for real-time communication, MongoDB for persistent storage, Redis for fast temporary state, and BullMQ for background evaluation jobs. This combination allows the platform to support live quiz behavior, secure authentication, scalable evaluation, and recoverable quiz sessions. [file:1]
-
-## Objectives
-
-The main goal of the project is to provide a secure, real-time, manageable online contest and quiz system. The platform is designed to reduce manual work, improve participant experience, support admin control, and maintain system reliability during timed assessments. [file:1]
-
-Core objectives include: [file:1]
-
-- Provide a clean participant journey from contest discovery to result viewing. [file:1]
-- Support admin-controlled contest creation, editing, publishing, and monitoring. [file:1]
-- Enable real-time quiz start and progress saving using sockets. [file:1]
-- Prevent progress loss during connection interruptions through Redis-backed state recovery. [file:1]
-- Process submissions asynchronously through a queue-based evaluation worker. [file:1]
-- Offer payment handling and reporting support through Razorpay integration. [file:1]
-
-## Technology stack
-
-The frontend uses React with Vite, Tailwind CSS, React Router, and the Socket.IO client. The backend uses Node.js, Express, Socket.IO, JWT authentication, Zod validation, and BullMQ. Data is stored using MongoDB and Redis, and the worker runs separately for evaluation processing. [file:1]
-
-### Frontend stack
-
-- React (Vite) for the user interface and app structure. [file:1]
-- Tailwind CSS for styling. [file:1]
-- React Router for navigation and protected routes. [file:1]
-- Socket.IO client for waiting room events, quiz start events, and progress updates. [file:1]
-
-### Backend stack
-
-- Node.js and Express for API handling and server logic. [file:1]
-- Socket.IO for real-time communication. [file:1]
-- BullMQ for background job processing. [file:1]
-- JWT for token-based authentication. [file:1]
-- Zod for request validation. [file:1]
-
-### Data and infrastructure
-
-- MongoDB for users, contests, questions, submissions, sessions, payments, and certificates. [file:1]
-- Redis for session lookup, live quiz state, answer cache, and submission status cache. [file:1]
-- Docker-based deployment with a separate worker service and an Nginx-served frontend build. [file:1]
-
-## System architecture
-
-The project follows a layered architecture where the frontend handles presentation and user interactions, the backend manages business logic and security, Redis handles short-lived fast-access state, MongoDB stores permanent records, and the worker processes evaluations in the background. [file:1]
-
-At a high level, the system contains these major layers: [file:1]
-
-1. Participant frontend flow. [file:1]
-2. Admin dashboard flow. [file:1]
-3. REST API and authentication layer. [file:1]
-4. Real-time communication layer with Socket.IO. [file:1]
-5. Database and caching layer with MongoDB and Redis. [file:1]
-6. Background evaluation worker using BullMQ. [file:1]
-
-## Frontend architecture
-
-The frontend is divided into participant routes and admin routes. Participant routes support the contest lifecycle, while admin routes provide management features protected by an admin guard. [file:1]
-
-### Participant routes
-
-The user-facing route structure includes the following pages: [file:1]
-
-- `/` → Landing page showing available contests. [file:1]
-- `/login` → Login page with OTP-based authentication support. [file:1]
-- `/contest/join` → Page to enter registration ID and contest credentials. [file:1]
-- `/contest/waiting-room` → Lobby page where users wait for the quiz to begin. [file:1]
-- `/contest/live/:contestId` → Live contest page. [file:1]
-- `/contest/result/:submissionId` → Final result page after evaluation. [file:1]
-- `/contest/result/evaluate/:submissionId` → Intermediate evaluation or thank-you page while results are being processed. [file:1]
-
-### Admin routes
-
-The admin section is protected by `AdminRoute` and includes management pages for core operations. These routes include: [file:1]
-
-- `/admin` → Dashboard overview. [file:1]
-- `/admin/contests` → Contest management list page. [file:1]
-- `/admin/contests/:id` → Contest detail page. [file:1]
-- `/admin/questions` → Question bank management. [file:1]
-- `/admin/payments` → Payment management. [file:1]
-- `/admin/analytics` → Analytics and reporting. [file:1]
-
-### Frontend shared contexts
-
-The frontend uses shared context providers to manage app-wide state. `AuthContext` stores JWT tokens and user role information, while `ThemeContext` manages dark and light theme behavior. [file:1]
-
-### Frontend service files
-
-The file describes several service-level modules used by the frontend: [file:1]
-
-- `contestApi.js` handles REST operations such as contest submission and result polling. [file:1]
-- `paymentService.js` manages Razorpay payment integration. [file:1]
-- `faceMonitor.js` supports webcam-based face monitoring during live contests for integrity checks. [file:1]
-
-## Participant workflow
-
-The participant workflow is designed as a guided sequence from discovery to evaluation. The process is real-time where needed and request-response based where appropriate. [file:1]
-
-### Step-by-step participant flow
-
-1. The user opens the landing page and sees available contests. [file:1]
-2. The user navigates to the join page and enters registration ID and contest credentials. [file:1]
-3. The backend validates the participant and returns a JWT token. [file:1]
-4. The user enters the waiting room and connects through Socket.IO to a waiting room channel such as `waiting-{contestId}`. [file:1]
-5. When the contest starts, the server emits a `quiz-started` event and the user is redirected to the live quiz page. [file:1]
-6. As the user moves between questions, the frontend sends `save-progress` events so progress is stored continuously. [file:1]
-7. On completion, the frontend submits answers through a REST API call to `/api/contests/:slug/submit`. [file:1]
-8. The user is redirected to an evaluation screen while the submission is processed. [file:1]
-9. After evaluation completes, the user is redirected to the final result page. [file:1]
-
-### Why REST and sockets are both used
-
-The file clearly distinguishes between one-time operations and live operations. REST API calls are used for tasks like login, fetching questions, final submission, and result retrieval, while Socket.IO is used for real-time waiting room communication, live start events, heartbeat tracking, reconnect handling, and progress preservation. [file:1]
-
-## Backend architecture
-
-The backend acts as the main processing layer of the platform. It starts the HTTP server, attaches Socket.IO, connects to MongoDB, applies middleware, and exposes grouped API routes. [file:1]
-
-### Entry point
-
-The main server entry point performs these functions: [file:1]
-
-- Creates an HTTP server from the Express app. [file:1]
-- Attaches a Socket.IO server at `/ws/`. [file:1]
-- Connects to MongoDB. [file:1]
-- Uses IST timestamped logging. [file:1]
-
-### Middleware stack
-
-The Express application applies a middleware chain for security, compatibility, optimization, and visibility. The file lists the following middleware: [file:1]
-
-- `helmet` for security headers. [file:1]
-- `cors` to allow configured frontend origins such as the production domain and localhost. [file:1]
-- `compression` for gzip-compressed responses. [file:1]
-- `morgan` for HTTP request logging. [file:1]
-- Rate limiting for abuse prevention. [file:1]
-
-### API route groups
-
-The backend is split into four major route groups: [file:1]
-
-- `/api/auth` for login, OTP sending, OTP verification, and resend flow. [file:1]
-- `/api/contests` for participant operations like validation, fetching questions, submission, result polling, and certificates. [file:1]
-- `/api/admin/contests` for admin CRUD operations and contest administration. [file:1]
-- `/api/payments` for payment processing and Razorpay webhook handling. [file:1]
-
-## Authentication and session model
-
-Authentication in this project uses layered verification rather than relying only on a token. JWT identifies the user and session, while Redis-backed session validation enforces stronger control. [file:1]
-
-### Authentication flow
-
-The documented authentication sequence includes: [file:1]
-
-1. `POST /api/auth/login` validates credentials and returns a JWT. [file:1]
-2. `POST /api/auth/send-otp` sends an OTP to the user. [file:1]
-3. `POST /api/auth/verify-otp` verifies the OTP and activates the session. [file:1]
-
-### Session security
-
-Every token includes `userId` and `sessionId`, and `authMiddleware` performs multiple checks before allowing access. The backend verifies the JWT, retrieves the session from Redis, and compares the current IP address and User-Agent against the recorded session data; mismatches result in rejection. [file:1]
-
-This design improves security by making stolen tokens less useful if they are replayed from a different device or location. Redis is used because session lookup must be fast on every authenticated request. [file:1]
-
-## Contest APIs
-
-The participant contest routes are responsible for joining, question retrieval, submission, and result status checks. The file defines these endpoints: [file:1]
-
-- `POST /validate-credentials` → validates contest credentials and registration information. [file:1]
-- `GET /:slug/questions` → returns quiz questions without exposing answers. [file:1]
-- `POST /:slug/submit` → saves a submission and queues evaluation. [file:1]
-- `GET /:submissionId/status` → returns current evaluation status. [file:1]
-- `GET /:submissionId/results` → returns final evaluated results. [file:1]
-- `GET /:slug/certificate` → returns certificate URL where applicable. [file:1]
-
-Admin routes are protected with both authentication and admin authorization middleware, ensuring that only authenticated admins can create, edit, delete, and manage contest resources. [file:1]
-
-## Real-time communication
-
-Socket.IO powers the live behavior of the project. It manages participant waiting rooms, quiz starts, heartbeat tracking, quiz resumption after disconnects, and admin visibility into room activity. [file:1]
-
-### Documented socket events
-
-The architecture file lists these socket events: [file:1]
-
-- `join-waiting-room` → client joins a contest waiting room. [file:1]
-- `quiz-started` → server notifies users that the quiz has started. [file:1]
-- `save-progress` → client sends current answers and question position. [file:1]
-- `heartbeat` → client updates active state. [file:1]
-- `resume-quiz` → server restores quiz state after reconnect. [file:1]
-- `leave-waiting-room` → client exits the lobby before quiz start. [file:1]
-- `get-room-status` → admin checks active participant counts. [file:1]
-- `disconnect` → user disconnects but progress remains preserved. [file:1]
-
-### Waiting room and scheduling logic
-
-Users initially join rooms like `waiting-{contestId}`. When the contest start time arrives, or when the admin starts the contest manually, the server emits the start event and shifts users into a live quiz room such as `quiz-{contestId}`. The file also describes a scheduled start mechanism using `setTimeout` to trigger start events automatically if the contest has not yet begun. [file:1]
-
-## Database design
-
-The project uses MongoDB for permanent records and Redis for fast temporary state and cache management. The documentation in the file clearly separates these responsibilities. [file:1]
-
-### MongoDB collections
-
-The described MongoDB collections are: [file:1]
-
-- `User` for participant profile data such as name, email, phone, college, and registration ID. [file:1]
-- `Admin` for administrator account records. [file:1]
-- `Contest` for contest metadata such as title, slug, time windows, fee, prizes, rules, and topics. [file:1]
-- `Question` for question bank entries with options, answer, difficulty, hint, and explanation. [file:1]
-- `Payment` for Razorpay payment records. [file:1]
-- `Submission` for user answers, score, and evaluation status. [file:1]
-- `Session` for active login sessions and device details. [file:1]
-- `Certificate` for generated certificate URLs mapped to users and contests. [file:1]
-
-### Collection relationships
-
-The project establishes several relationships across entities: [file:1]
-
-- A contest contains many questions through a question bank array of ObjectIds. [file:1]
-- A contest contains many participants. [file:1]
-- A submission belongs to one user and one contest. [file:1]
-- A payment belongs to one user and one contest. [file:1]
-- A certificate belongs to one user and one contest. [file:1]
-- A session belongs to one user. [file:1]
-
-### Slug generation
-
-Contest slugs are automatically generated from the title using `slugify` in a pre-validation hook. This makes URLs more human-readable and avoids requiring manual slug entry. [file:1]
-
-## Redis usage
-
-Redis is used as the fast in-memory layer of the platform. The file identifies four key uses. [file:1]
-
-### 1. Session store
-
-Keys such as `session:{sessionId}` hold session data used for fast authentication checks. This allows each authenticated request to validate the session quickly. [file:1]
-
-### 2. User quiz state
-
-Keys such as `contest:{slug}:user:{userId}` hold in-progress quiz data including current question index and answers. This allows recovery after disconnection or browser interruption. [file:1]
-
-### 3. Correct answers cache
-
-Keys such as `contest:{slug}:correct_answers` cache the answer key for a contest, typically for 24 hours, so the evaluation worker can avoid repeated MongoDB lookups. [file:1]
-
-### 4. Submission status cache
-
-Keys such as `submission:{id}:status` store evaluated submission status and results temporarily so frontend polling can read quickly without heavy database access. [file:1]
-
-## Evaluation worker
-
-The project includes a separate worker service that consumes jobs from a BullMQ queue and evaluates submissions asynchronously. This keeps submission requests fast even under high load. [file:1]
-
-### Worker flow
-
-The documented worker process follows these steps: [file:1]
-
-1. A participant submits answers. [file:1]
-2. The backend stores the raw submission in MongoDB and pushes a job to the `contest-evaluation` queue. [file:1]
-3. The worker picks the job, with support for up to 10 concurrent jobs. [file:1]
-4. The worker fetches the submission from MongoDB. [file:1]
-5. The worker gets correct answers from Redis, or falls back to MongoDB if needed. [file:1]
-6. The worker scores each answer according to the marking rules. [file:1]
-7. The worker updates MongoDB with the final score and status. [file:1]
-8. The worker caches the result in Redis. [file:1]
-9. The worker removes the user’s temporary in-progress state from Redis. [file:1]
-
-### Marking rules
-
-The scoring logic described in the file is: [file:1]
-
-- Correct answer → `+1` point. [file:1]
-- Wrong answer → `-0.25` point. [file:1]
-- Skipped answer → `0` point. [file:1]
-
-## Admin dashboard design blueprint
-
-A major part of the file is a complete admin dashboard blueprint. This section defines the intended UI structure, interaction patterns, and route-based page organization for admin users. [file:1]
-
-### Global admin design decisions
-
-The documented UI decisions are: [file:1]
-
-- Dark and light theme toggle support. [file:1]
-- Sidebar plus top navbar layout. [file:1]
-- Full-page multi-step contest create and edit wizard. [file:1]
-- Contest list page with search, filters, sortable columns, pagination, bulk selection, row actions, and status badges. [file:1]
-- Dashboard home with stats and charts. [file:1]
-- Contest deletion confirmation by typing the contest name. [file:1]
-- Toast notifications for feedback. [file:1]
-- Contest status flow: Draft → Published → Ongoing → Completed. [file:1]
-
-### Admin page map
-
-The design blueprint defines the following admin pages: [file:1]
-
-- `/admin` → Dashboard home with cards, charts, and recent contests. [file:1]
-- `/admin/contests` → Contests list page. [file:1]
-- `/admin/contests/create` → Create contest wizard. [file:1]
-- `/admin/contests/:id` → Contest detail page. [file:1]
-- `/admin/contests/:id/edit` → Edit contest wizard. [file:1]
-- `/admin/questions` → Question bank page. [file:1]
-- `/admin/payments` → Payment page. [file:1]
-- `/admin/analytics` → Analytics page. [file:1]
-
-### Layout shell
-
-The shared admin layout contains a fixed sidebar and top navbar. The sidebar includes Dashboard, Contests, Questions, Payments, Analytics, Settings, Profile, and Logout zones in the design blueprint, while the top navbar includes search, notifications, theme toggle, and admin avatar controls. [file:1]
-
-## Admin contest management
-
-The contests module is one of the most fully specified parts of the project. It includes a list page, create/edit wizard, detail page, bulk operations, and live waiting room monitoring. [file:1]
-
-### Contests list page
-
-The list page is designed with: [file:1]
-
-- Search by title. [file:1]
-- Filter by contest status. [file:1]
-- Sort controls. [file:1]
-- Bulk actions. [file:1]
-- Pagination. [file:1]
-- Row-level actions such as edit, detail view, duplicate, and delete. [file:1]
-- Status badges for Draft, Published, Ongoing, and Completed. [file:1]
-
-### Contest create and edit wizard
-
-The create/edit wizard is defined as a multi-step process with six steps: [file:1]
-
-1. Basic info. [file:1]
-2. Schedule. [file:1]
-3. Rules and topics. [file:1]
-4. Fee and prizes. [file:1]
-5. Question assignment. [file:1]
-6. Review and submit. [file:1]
-
-The wizard includes slug preview, date/time inputs, topic tags, dynamic rules, registration fee settings, prize configuration, question search and bulk selection from the bank, assigned question ordering, and a final review stage before saving or publishing. [file:1]
-
-### Contest detail page
-
-The contest detail page is planned with multiple tabs: [file:1]
-
-- Waiting Room. [file:1]
-- Questions. [file:1]
-- Submissions. [file:1]
-- Leaderboard. [file:1]
-- Logs. [file:1]
-- Export. [file:1]
-
-The waiting room tab is intended to show a real-time participant count using socket-based updates. The page also supports Start Now and Stop controls, question management, leaderboard preview, result export, and activity logs. [file:1]
-
-## Question bank module
-
-The Question Bank admin section is documented as a searchable, filterable question management area. It includes difficulty filtering, topic filtering, bulk selection, row actions, and a form or drawer for adding and editing questions. [file:1]
-
-Each question record includes question text, topic, difficulty, four answer options, correct option, optional hint, and optional explanation. Bulk operations include adding selected questions to contests or deleting them. [file:1]
-
-## Payments module
-
-The payment section is planned to show Razorpay payment records with filtering and summary data. The file references payment stats, filters, payment tables, and export functionality as part of the UI implementation direction. [file:1]
-
-The backend also includes payment-related routes and webhook handling through `/api/payments`, linking the frontend payment management area with actual transaction processing. [file:1]
-
-## Analytics module
-
-The analytics area is intended to present contest-level statistics and performance data. The design notes mention dashboard charts, contest status breakdown, revenue over time, participant trends, difficulty accuracy, topic performance, and performance tables. [file:1]
-
-This suggests the platform is designed not only for quiz delivery but also for operational insights and decision support for admins. [file:1]
-
-## Project folder and component conversion notes
-
-The file includes a later implementation discussion about converting the design blueprint into actual React and Tailwind component files. It notes an existing frontend structure with page files and component folders for admin sections, plus new admin-specific layout files such as sidebar, top navbar, and admin layout wrappers. [file:1]
-
-The implementation notes describe an approach of building new admin components in `src/components/admin/...` and wrapping admin routes with a new `AdminLayout`, while keeping participant routes intact. [file:1]
-
-## Deployment and development workflow
-
-The notes in the file indicate the project is deployed on a VPS, with the frontend served through Docker and Nginx. The recommended workflow for seeing UI changes is to edit code, commit changes, push to the chosen branch, rebuild the frontend container, and then refresh the deployed admin route in the browser. [file:1]
-
-The file specifically describes a workflow using a project path on the VPS, branch-based Git usage, and `docker compose up -d --build frontend` to rebuild the frontend after changes. It also notes that admin pages are protected and may redirect to login first. [file:1]
-
-## Key strengths of the project
-
-Based on the file, the project has several strong architectural qualities: [file:1]
-
-- Clear separation of participant and admin flows. [file:1]
-- Real-time contest start and progress-saving design. [file:1]
-- Resilient quiz-state recovery through Redis. [file:1]
-- Layered security using JWT, Redis session lookup, IP verification, and User-Agent validation. [file:1]
-- Scalable submission evaluation using BullMQ workers. [file:1]
-- Well-defined admin dashboard information architecture. [file:1]
-- Extensible modular frontend component strategy. [file:1]
-
-## Limitations and implementation considerations
-
-The file mostly captures architecture and planning rather than a fully verified code audit, so some elements represent intended design and implementation direction rather than confirmed final production behavior. For example, the admin UI blueprint is described in detail, and later portions discuss converting it into actual component files, indicating that some modules may still be in development or replacement stages. [file:1]
-
-Because of this, any final technical report should distinguish between: implemented features, designed features, and in-progress features. That distinction will make the documentation more accurate for academic, client, or team handoff use. [file:1]
-
-## Suggested document structure for final project report
-
-If you want to turn this into a polished project report, a strong final structure would be: [file:1]
-
-- Introduction. [file:1]
-- Problem statement. [file:1]
-- Objectives. [file:1]
-- Technology stack. [file:1]
-- System architecture. [file:1]
-- Frontend workflow. [file:1]
-- Backend workflow. [file:1]
-- Database design. [file:1]
-- Real-time communication flow. [file:1]
-- Admin dashboard modules. [file:1]
-- Security design. [file:1]
-- Deployment workflow. [file:1]
-- Strengths and future improvements. [file:1]
-
----
-# Authentication and Role-Based Access Flow
-
-## Overview
-
-This project uses a **single login system** for both participants and administrators. Instead of creating two completely separate login pages, the application uses one shared login screen and one shared authentication process, then decides what the logged-in person is allowed to access based on their role.  
-
-This approach keeps the user experience simple, reduces duplicated frontend code, and makes backend authentication easier to manage. At the same time, it still provides strong separation between normal participant access and privileged admin access.
-
----
-
-## Why Use One Login Screen for Both?
-
-Using the same login page for both user types has several advantages:
-
-- It gives the application a cleaner and simpler entry point.
-- It avoids maintaining separate login forms for users and admins.
-- It keeps the authentication logic centralized.
-- It makes role-based routing easier to control from one place.
-- It allows the backend to decide permissions securely instead of relying on frontend assumptions.
-
-In simple words, **everyone enters through the same door**, but once inside, the system checks who they are and sends them only to the rooms they are allowed to enter.
-
----
-
-## Main Idea
-
-The login page is shared, but access is not shared equally.
-
-After login:
-
-- A **participant/user** can access contest-related pages only.
-- An **admin** can access both authenticated areas and protected admin management pages.
-- The system identifies the role from backend data and stores it in the authentication state.
-
-This means the login screen is common, but permissions are role-based.
-
----
-
-## Authentication Flow
-
-## Step 1: User opens the login page
-
-Both participants and admins use the same route, for example:
-
-```txt
-/login
-```
-
-The screen can ask for credentials such as:
-
-- Email or phone number
-- Password, OTP, or both
-- Any required verification details
-
-The UI does not need separate "Admin Login" and "User Login" pages unless you want to add a small label or toggle for clarity.
-
----
-
-## Step 2: Credentials are sent to the backend
-
-When the user submits the login form, the frontend sends the entered credentials to the backend authentication API.
-
-Example flow:
-
-```txt
-POST /api/auth/login
-```
-
-The backend checks:
-
-- Whether the account exists
-- Whether the password or OTP is valid
-- Whether the account belongs to a participant or an admin
-- Whether session creation is allowed
-
-If valid, the backend creates an authenticated session.
-
----
-
-## Step 3: Backend returns token and role information
-
-After successful authentication, the backend returns:
-
-- JWT token
-- Session ID
-- Basic user details
-- Role information
-
-Example response structure:
-
-```json
-{
-  "token": "jwt_token_here",
-  "user": {
-    "id": "123",
-    "name": "Aman",
-    "email": "aman@example.com",
-    "role": "admin"
-  },
-  "sessionId": "session_abc123"
-}
-```
-
-Or for a participant:
-
-```json
-{
-  "token": "jwt_token_here",
-  "user": {
-    "id": "456",
-    "name": "Riya",
-    "email": "riya@example.com",
-    "role": "user"
-  },
-  "sessionId": "session_xyz789"
-}
-```
-
-The key field here is:
-
-```txt
-role
-```
-
-This role decides what the person can access after login.
-
----
-
-## Step 4: Frontend stores authentication state
-
-The frontend stores the authentication data inside a shared authentication context or global state.
-
-Usually it stores:
-
-- JWT token
-- User object
-- Role
-- Login status
-
-Example stored state:
 
 ```js
 {
-  token: "jwt_token_here",
-  user: {
-    id: "123",
-    name: "Aman",
-    role: "admin"
-  },
-  isAuthenticated: true
+  userRef: ObjectId → User,      // ⚠️ controller uses wrong field name — see Fix F-10
+  contestRef: ObjectId → Contest, // ⚠️ controller uses wrong field name — see Fix F-10
+  url: String,
+  isDeleted: Boolean,
+  timestamps: true
 }
 ```
 
-Now the app knows:
+> **⚠️ Note:** The `contestParticipantsController.js` queries using `contestId`/`participantId` instead of `contestRef`/`userRef`. This means certificates are never correctly retrieved or created. See **Fix F-10**.
 
-- Is this person logged in?
-- Are they an admin or normal user?
+#### `Admin` (unused — scheduled for removal)
+
+The `Admin` model is defined but never used. Admin users are regular `User` documents with `isAdmin: true`. This model is dead code. See **Fix F-29**.
+
+### 9.2 Relationships
+
+```
+Contest ──┬── QuestionBank[] → Question[]
+          ├── participants[]  → User[]
+          └── prizes[]        (embedded)
+
+Submission → User, Contest, Question (via answers[].questionId)
+Payment    → User (userRef), Contest (contestRef)
+Certificate → User (userRef), Contest (contestRef)
+Session    → User
+```
+
+### 9.3 Slug generation
+
+Contest slugs are auto-generated from the `title` field using `slugify` in a Mongoose `pre('validate')` hook. Slugs are marked `immutable: true` — they cannot be changed after creation.
 
 ---
 
-## Step 5: Redirect based on role
+## 10. Redis Usage
 
-After login, the frontend checks the returned role and redirects the person to the correct area.
+### 10.1 Key catalogue
 
-### If role is `user`
+| Key pattern | TTL | Set by | Read by | Purpose |
+|---|---|---|---|---|
+| `session:{sessionId}` | 24 hours | `authController`, `authMiddleware` | `authMiddleware` | Fast session validation |
+| `otp:{phone}` | 5 minutes | `authController.sendOtp` | `authController.verifyOtp` | OTP verification |
+| `contest:{slug}:user:{userId}` | 3 hours | Socket `save-progress`, `heartbeat` | Socket `join-waiting-room`, `submitContest` | Live quiz state (answers + question index) |
+| `contest:{slug}:correct_answers` | 24 hours | `socket.scheduleQuizStart`, `evaluationWorker` | `evaluationWorker` | Answer key cache |
+| `submission:{id}:status` | 30s (pending) / 1h (evaluated) | `evaluationWorker` | `getSubmissionStatus`, `getSubmissionResult` | Evaluation result cache |
+| `submission:{id}:results` | 30s (pending) / 1h (evaluated) | `getSubmissionResult` | `getSubmissionResult` | Full result detail cache |
+| `contest:{id}` | 5 minutes | `admin/contestController` | `admin/contestController` | Contest detail cache |
+| `contests:{queryHash}` | 3 minutes | `admin/contestController` | `admin/contestController` | Contest list cache |
+| `contest:stats:{id}` | 10 minutes | `admin/contestController` | `admin/contestController` | Statistics cache |
+| `contest:{id}:participants:{queryHash}` | 5 minutes | `contestParticipantsController` | `contestParticipantsController` | Participants list cache |
+| `payment:{id}` | 1 hour | `paymentController` | `paymentController` | Single payment cache |
+| `payment:list:{base64hash}` | 5 minutes | `paymentController` | `paymentController` | Payments list cache |
+| `payment:stats:{dateRange}_{groupBy}` | 30 minutes | `paymentController` | `paymentController` | Payment stats cache |
+| `analytics:{period}:analytics` | 30 minutes | `paymentController` | `paymentController` | Payment analytics cache |
 
-Redirect to participant area, such as:
+### 10.2 Redis client configuration
 
-```txt
-/
-```
+The current `redis.js` uses several `ioredis` options that are silently ignored by `node-redis` v5. The correct configuration is shown in Fix F-20.
 
-or
-
-```txt
-/contest/join
-```
-
-depending on your desired user experience.
-
-### If role is `admin`
-
-Redirect to:
-
-```txt
-/admin
-```
-
-This gives the admin immediate access to the dashboard.
+> **⚠️ Redis has no persistence.** All data is lost on container restart. See Fix F-36.
 
 ---
 
-## Shared Login Screen Logic
+## 11. Evaluation Worker
 
-A single login page can handle both roles using this simple logic:
+### 11.1 Architecture
+
+The evaluation worker runs as a **separate Docker container** sharing the same image as the backend but started with `node worker/evaluationWorker.js`. It consumes jobs from the `contest-evaluation` BullMQ queue.
+
+### 11.2 Job flow
+
+```
+submitContest API
+  → save Submission to MongoDB (status: 'submitted')
+  → add job to contest-evaluation queue
+  → return { submissionId, jobId }
+
+evaluationWorker
+  1. Fetch Submission from MongoDB
+  2. Get correct answers from Redis (key: contest:{slug}:correct_answers)
+     └── If miss: fetch from MongoDB and re-cache in Redis
+  3. Build userAnswersMap from submission.answers
+  4. For each question in correct answers:
+     → if answered correctly  → +1
+     → if answered wrongly    → -0.25
+     → if skipped / missing   → 0
+  5. Update Submission: { score, answers (with isCorrect), status: 'evaluated' }
+  6. Cache result in Redis (submission:{id}:status)
+  7. Delete quiz state from Redis (contest:{slug}:user:{registrationId})
+```
+
+### 11.3 Scoring rules
+
+| Answer state | Points |
+|---|---|
+| Correct | +1 |
+| Wrong | −0.25 |
+| Skipped / unanswered | 0 |
+
+### 11.4 Worker configuration
+
+| Setting | Value |
+|---|---|
+| Queue name | `contest-evaluation` |
+| Concurrency | 10 |
+| Attempts | 4 |
+| Backoff | Exponential, 2000ms delay |
+| Remove on complete | 50 jobs retained |
+| Remove on fail | 100 jobs retained |
+
+### 11.5 Graceful shutdown
+
+The worker handles `SIGTERM` and `SIGINT` by:
+1. Closing the BullMQ worker.
+2. Closing the BullMQ queue.
+3. Disconnecting the Redis client.
+
+---
+
+## 12. Payment Integration (Razorpay)
+
+### 12.1 Payment flow
+
+```
+Admin creates contest with registerFee > 0
+  ↓
+Participant joins contest → backend validates credentials
+  ↓
+Frontend checks contest.registerFee
+  ↓  (if > 0)
+paymentService.js creates Razorpay order via backend
+  ↓
+Backend creates Payment record (status: 'pending') in MongoDB
+  ↓
+Razorpay checkout popup opens
+  ↓
+On success: frontend sends { razorpay_payment_id, razorpay_order_id, razorpay_signature }
+  ↓
+Backend verifies HMAC signature using WEBHOOK_SECRET
+  ↓  (if valid)
+Payment record updated to status: 'paid'
+  ↓
+Participant is allowed into waiting room
+  ↓
+Razorpay webhook → POST /api/payments/webhooks/payments → secondary confirmation
+  ↓
+Admin views transaction in /admin/payments dashboard
+```
+
+### 12.2 Payment statuses
+
+| Status | Meaning |
+|---|---|
+| `pending` | Order created; checkout not completed |
+| `paid` | Payment verified successfully |
+| `failed` | Payment attempt failed or verification failed |
+| `refunded` | Payment refunded |
+
+### 12.3 Webhook security
+
+> **⚠️ Current state:** The webhook handler only checks for the presence of the signature header — it does not verify the HMAC value. Anyone can forge a `payment.completed` webhook. See **Fix F-45**.
+
+Correct implementation:
 
 ```js
-async function handleLogin(formData) {
-  const response = await loginApi(formData);
+const crypto = await import('crypto');
+const expected = crypto
+  .createHmac('sha256', process.env.WEBHOOK_SECRET)
+  .update(req.body) // must use express.raw() body
+  .digest('hex');
+if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+  return res.status(401).json({ error: 'Invalid signature' });
+}
+```
 
-  saveAuth(response.token, response.user);
+---
 
-  if (response.user.role === "admin") {
-    navigate("/admin");
-  } else {
-    navigate("/");
+## 13. Admin Dashboard
+
+### 13.1 Layout shell
+
+The admin layout (`AdminLayout.jsx`) consists of:
+
+- **Fixed sidebar** — navigation links: Dashboard, Contests, Questions, Payments, Analytics, Settings, Profile, Logout.
+- **Top navbar** — search, notifications panel, theme toggle, admin avatar with dropdown.
+
+Both dark and light theme modes are supported via `ThemeContext`.
+
+### 13.2 Contest management page
+
+- Search by title.
+- Filter by contest status (draft, upcoming, ongoing, completed, cancelled, all).
+- Sort by createdAt, startTime, title, registrationCount.
+- Pagination (configurable limit, default 10).
+- Bulk selection with bulk-status and bulk-delete operations.
+- Row-level actions: view detail, edit, duplicate, delete.
+- Status badges with colour coding.
+
+### 13.3 Contest create / edit wizard (multi-step)
+
+| Step | Fields |
+|---|---|
+| 1 Basic info | Title, description, details, topics, rules |
+| 2 Schedule | Start date, start time, duration (minutes) |
+| 3 Fee & prizes | Registration fee, prize pool with rank ranges and benefits |
+| 4 Questions | Search and assign from question bank |
+| 5 Review | Full summary before save or publish |
+
+Zod validation is applied on each step. Slug is auto-generated from title and shown as a preview.
+
+### 13.4 Contest detail page tabs
+
+| Tab | Content |
+|---|---|
+| Overview | Contest metadata, participant count, revenue |
+| Participants | Paginated list with search, status filter, scores, certificates |
+| Questions | Assigned questions with add/remove controls |
+| Analytics | Score distribution, topic breakdown, difficulty accuracy |
+
+### 13.5 Question bank page
+
+- Search by question text.
+- Filter by difficulty (easy, medium, hard) and topic.
+- Bulk selection → assign to contest or delete.
+- Inline add question form / modal.
+- Bulk import via JSON or CSV.
+
+### 13.6 Payment management page
+
+- Stats cards: total revenue, success rate, pending count, failed count.
+- Revenue bar chart per contest.
+- Filterable payment table (by contest, status, date range).
+- Export to CSV.
+- Status update per payment (admin override).
+
+### 13.7 Analytics page
+
+- User growth chart.
+- Revenue over time chart.
+- Contest engagement chart.
+- Topic popularity chart.
+- Top performers table.
+- Performance analysis by difficulty.
+
+---
+
+## 14. DevOps & Deployment
+
+### 14.1 Docker Compose services
+
+| Service | Image | Port | Notes |
+|---|---|---|---|
+| `mongo` | `mongo` | 27017 | Persistent volume for data and config |
+| `redis` | `redis:alpine` | 6379 | ⚠️ No persistence volume currently (see Fix F-36) |
+| `backend` | Built from `./Backend` | 5000 | Runs `node server.js` |
+| `worker` | Built from `./Backend` | — | Runs `node worker/evaluationWorker.js` |
+| `frontend` | Built from `./Frontend` | 3000→80 | Multi-stage: Node build → Nginx serve |
+
+### 14.2 Nginx configuration
+
+The frontend Nginx config (`nginx.conf`) proxies `/api/*` requests to the backend container at `quizbuzz-backend:5000`. Static assets are served with 1-year cache headers. SPA fallback (`try_files $uri /index.html`) handles React Router deep links.
+
+> **⚠️ Missing security headers.** See Fix F-49.
+
+### 14.3 CI/CD pipeline
+
+The GitHub Actions workflow (`deploy.yml`) triggers on pushes to `main`, `second`, or `third`.
+
+```
+test → build → deploy (SSH to VPS)
+```
+
+> **⚠️ Critical bug:** The deploy script runs `git pull origin main` regardless of which branch was pushed. Pushing to `third` deploys `main`. See **Fix F-12**.  
+> **⚠️ Tests are fake:** The test job only runs `echo "Test passed"`. See **Fix F-39**.
+
+### 14.4 Dockerfiles
+
+| Service | Base image | Notable issues |
+|---|---|---|
+| Backend | `node:18-alpine` | Runs as root user — add non-root user (Fix F-41) |
+| Frontend (build) | `node:22-alpine` | Version mismatch with backend (Fix F-41) |
+| Frontend (serve) | `nginx:alpine` | Correct multi-stage setup |
+
+---
+
+## 15. Code Review Findings
+
+### 15.1 Architecture-level issues
+
+| Finding | Severity | Fix |
+|---|---|---|
+| OTP fully bypassed — hardcoded success in all 3 functions | Critical | F-01 |
+| Payment routes missing adminMiddleware | Critical | F-03 |
+| Hardcoded seed credentials in connectDB() | Critical | F-06 |
+| Global rate limiter commented out | Critical | F-07 |
+| CI/CD always deploys main regardless of branch | Critical | F-12 |
+| CORS trailing-slash mismatch breaks Socket.io | Critical | F-11 |
+| Redis has no persistence — all state lost on restart | High | F-36 |
+| No Docker healthchecks — race conditions on startup | High | F-37 |
+
+### 15.2 Backend code-level issues
+
+| Finding | Severity | Fix |
+|---|---|---|
+| `areAllJobsCompleted()` called without `await` — always truthy | Critical | F-04 |
+| `redisClient.setex` (lowercase) throws at runtime | Critical | F-09 |
+| Certificate schema field mismatch (`contestId` vs `contestRef`) | Critical | F-10 |
+| Login does not check `isDeleted` | High | F-02 |
+| Hardcoded slug default `'quizbuzz-3'` | High | F-05 |
+| `getContestStatus` ignores DB status field | High | F-13 |
+| `updateContest` null crash on missing contest | High | F-14 |
+| `createdBy` stores wrong ID (`req.user.id` vs `req.user.userId`) | High | F-15 |
+| Statistics endpoint returns hardcoded placeholder values | High | F-16 |
+| Payment amount * 0.01 inconsistency | High | F-17 |
+| Export payments returns fake CDN URL | High | F-18 |
+| `KeyGenerator` (capital K) silently ignored | High | F-19 |
+| ioredis options passed to node-redis (all silently ignored) | High | F-20 |
+| `redisClient.keys()` O(N) blocks Redis | Moderate | F-30 |
+| Leaderboard score threshold hardcoded to 50 | Moderate | F-34 |
+| Participant status filter uses non-existent `contestStatus` field | Moderate | F-27 |
+| Inline route handlers in questionRoutes.js | Moderate | F-28 |
+| Unused Admin model | Moderate | F-29 |
+| No global Express error handler or 404 middleware | Moderate | F-35 |
+| Winston installed but never used | Moderate | F-31 |
+| `/api/logs` endpoint unauthenticated | High | F-08 |
+
+### 15.3 Frontend code-level issues
+
+| Finding | Severity | Fix |
+|---|---|---|
+| Duplicate AuthContext directories — stale one must be deleted | High | F-24 |
+| WaitingRoom shows infinite loading if navigated to directly | High | F-21 |
+| Submission retry loop retries on "already submitted" 400 | High | F-22 |
+| Auto-save interval is 5 minutes — too long | High | F-23 |
+| Option shuffling breaks answer-index server mapping | Moderate | F-33 |
+| No centralized API client — raw fetch duplicated 20+ times | Moderate | F-32 |
+| ErrorBoundary defined but not used anywhere | Moderate | F-46 |
+| Stale localStorage not cleared after submission | Moderate | F-47 |
+| TF.js / MediaPipe models loaded at contest start (3-10s lag) | Low | F-50 |
+
+### 15.4 Schema / naming inconsistencies
+
+| Finding | Severity | Fix |
+|---|---|---|
+| `cutOff` vs `cutoff` mismatch across schema and Zod | High | F-25 |
+| `zodSchmea.js` filename typo | Moderate | F-26 |
+| `zodParticipantsSchemee.js` filename typo | Moderate | F-26 |
+| `optSms.js` filename typo | Moderate | F-26 |
+| Multiple typos in error message strings | Low | F-51 |
+
+### 15.5 Security findings
+
+| Issue | Severity |
+|---|---|
+| OTP verification bypassed | Critical |
+| No password hashing (bcrypt) for any user | Critical |
+| Payment endpoints accessible to participants | Critical |
+| Hardcoded credentials seeded into production DB | Critical |
+| Global rate limiter disabled | Critical |
+| Webhook signature not verified | High |
+| `VITE_SECRET_KEY` baked into frontend bundle | High |
+| `/api/logs` unauthenticated | High |
+| Deleted users can log in | High |
+| `authToken` in localStorage (XSS risk) | Moderate |
+| No HTTPS enforcement at Nginx level | Moderate |
+| Backend container runs as root | Moderate |
+
+---
+
+## 16. Bug Registry
+
+| ID | Component | Description | Severity | Fix |
+|---|---|---|---|---|
+| BUG-01 | `authController.js` | OTP completely bypassed (hardcoded success) | Critical | F-01 |
+| BUG-02 | `authController.js` | Login allows deleted users | High | F-02 |
+| BUG-03 | `paymentRoutes.js` | Admin middleware missing on most payment endpoints | Critical | F-03 |
+| BUG-04 | `contestController.js` | `areAllJobsCompleted()` missing `await` | Critical | F-04 |
+| BUG-05 | `contestController.js` | Slug hardcoded as `'quizbuzz-3'` default | High | F-05 |
+| BUG-06 | `DB.js` | Hardcoded credentials seeded on every restart | Critical | F-06 |
+| BUG-07 | `app.js` | Global rate limiter commented out | Critical | F-07 |
+| BUG-08 | `app.js` | `/api/logs` has no auth | High | F-08 |
+| BUG-09 | `contestParticipantsController.js` | `setex` lowercase throws runtime error | Critical | F-09 |
+| BUG-10 | `contestParticipantsController.js` | Certificate field names don't match schema | Critical | F-10 |
+| BUG-11 | `server.js` | CORS origin trailing slash mismatch with `app.js` | Critical | F-11 |
+| BUG-12 | `deploy.yml` | CI/CD always pulls main branch | Critical | F-12 |
+| BUG-13 | `admin/contestController.js` | `getContestStatus` ignores DB status field | High | F-13 |
+| BUG-14 | `admin/contestController.js` | Null crash in `updateContest` date logic | High | F-14 |
+| BUG-15 | `admin/contestController.js` | `createdBy` stores wrong user ID | High | F-15 |
+| BUG-16 | `admin/contestController.js` | Statistics endpoint has hardcoded placeholder values | High | F-16 |
+| BUG-17 | `admin/paymentController.js` | Payment amount unit inconsistency (`* 0.01`) | High | F-17 |
+| BUG-18 | `admin/paymentController.js` | Export payments returns fake CDN URL | High | F-18 |
+| BUG-19 | `rateLimit.js` | `KeyGenerator` capital K silently ignored | High | F-19 |
+| BUG-20 | `redis.js` | ioredis options silently ignored by node-redis | High | F-20 |
+| BUG-21 | `WaitingRoom.jsx` | No redirect guard when `contestInfo` is null | High | F-21 |
+| BUG-22 | `LiveContest.jsx` | Submission retry loop retries on 400 "already submitted" | High | F-22 |
+| BUG-23 | `LiveContest.jsx` | Auto-save interval is 5 minutes | High | F-23 |
+| BUG-24 | `src/context/` | Old `AuthContext` directory still present | High | F-24 |
+| BUG-25 | `zodSchmea.js` | `cutoff` vs `cutOff` field name mismatch | High | F-25 |
+| BUG-26 | Multiple files | Three filename typos | Moderate | F-26 |
+| BUG-27 | `contestParticipantsController.js` | Status filter uses non-existent `contestStatus` | Moderate | F-27 |
+| BUG-28 | `questionRoutes.js` | All CRUD logic inline in route file | Moderate | F-28 |
+| BUG-29 | `DB.js` | Unused `Admin` model | Moderate | F-29 |
+| BUG-30 | Multiple cache helpers | `redisClient.keys()` O(N) blocks Redis | Moderate | F-30 |
+| BUG-31 | All controllers | Winston installed but unused | Moderate | F-31 |
+| BUG-32 | All frontend pages | Raw `fetch` duplicated everywhere | Moderate | F-32 |
+| BUG-33 | `LiveContest.jsx` | Option shuffling breaks server-side index mapping | Moderate | F-33 |
+| BUG-34 | `contestController.js` | Leaderboard score threshold hardcoded to 50 | Moderate | F-34 |
+| BUG-35 | `app.js` | No global error handler or 404 middleware | Moderate | F-35 |
+| BUG-36 | `docker-compose.yml` | Redis has no persistence volume | High | F-36 |
+| BUG-37 | `docker-compose.yml` | No Docker healthchecks | High | F-37 |
+| BUG-38 | No `.env.example` files | New developers have no env template | High | F-38 |
+| BUG-39 | `deploy.yml` | Test job runs `echo` not real tests | Moderate | F-39 |
+| BUG-40 | `deploy.yml` | No rollback mechanism on failed deploy | Moderate | F-40 |
+| BUG-41 | `Dockerfile` (Backend) | Runs as root user; Node version mismatch | Moderate | F-41 |
+| BUG-42 | `server.js` | Socket.io uses in-memory Map — breaks horizontal scaling | Moderate | F-42 |
+
+---
+
+## 17. Fix Plan — Phase 1: Critical (Deploy Blockers)
+
+These must be fixed before any production deployment.
+
+---
+
+### F-01 — Re-enable real OTP (sendOtp, resendOtp, verifyOtp)
+
+**File:** `Backend/controller/authController.js`  
+**Severity:** Critical  
+**Problem:** All three OTP functions return hardcoded success. Anyone can bypass authentication.
+
+**Fix — restore real `sendOtp`:**
+
+```js
+export const sendOtp = async (req, res) => {
+  const { phone } = req.body;
+  const userName = req.user.userName;
+  try {
+    const phoneNumber = parsePhoneNumberFromString(phone, "IN");
+    if (!phoneNumber?.isValid())
+      return res.status(400).json({ message: "Enter a valid phone number (without '+91')" });
+    const OTP = generateOtp();
+    const saved = await saveOtp(phoneNumber.number, OTP);
+    if (!saved) return res.status(500).json({ message: "Could not save OTP, please try again" });
+    await sendOtpWhatsApp(phoneNumber.number, userName, OTP);
+    await sendOtpSms(phoneNumber.number, OTP);
+    return res.json({ message: "OTP sent successfully" });
+  } catch (error) {
+    console.error(`sendOtp error: ${error.message}`);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
-}
-```
-
-This is the core reason one login screen works well: the backend returns the role, and the frontend redirects accordingly.
-
----
-
-## How Access Is Controlled
-
-Sharing one login screen does **not** mean sharing all access.
-
-The project must use **role-based access control** at two levels:
-
-1. Frontend route protection
-2. Backend API protection
-
-Both are necessary.
-
----
-
-## Frontend Route Protection
-
-The frontend should protect pages using route guards.
-
-### Public routes
-
-Anyone can access:
-
-- `/`
-- `/login`
-- `/contest/join` if public joining is allowed
-
-### Authenticated user routes
-
-Only logged-in users can access:
-
-- `/contest/waiting-room`
-- `/contest/live/:contestId`
-- `/contest/result/:submissionId`
-
-### Admin-only routes
-
-Only admins can access:
-
-- `/admin`
-- `/admin/contests`
-- `/admin/questions`
-- `/admin/payments`
-- `/admin/analytics`
-
-This is usually done using a protected component such as:
-
-```jsx
-const AdminRoute = ({ children }) => {
-  if (!user) return <Navigate to="/login" replace />;
-  if (!user.isAdmin) return <Navigate to="/login" replace />;
-  return children;
 };
 ```
 
-This means:
-
-- Logged-out users cannot enter admin pages.
-- Logged-in normal users still cannot enter admin pages.
-- Only admin role users are allowed.
-
----
-
-## Backend API Protection
-
-Frontend route protection improves the user experience, but true security must be enforced in the backend.
-
-Even if a participant manually types:
-
-```txt
-/admin
-```
-
-or tries to call an admin API directly, the backend must block access.
-
-### Example backend protection layers
-
-For admin routes:
-
-```txt
-Request
-→ authMiddleware
-→ adminMiddleware
-→ actual admin controller
-```
-
-### `authMiddleware` checks
-
-- Is the JWT valid?
-- Is the session still active?
-- Does the session match the request metadata?
-
-### `adminMiddleware` checks
-
-- Does this authenticated account have admin role?
-- If not, reject the request
-
-This prevents privilege abuse even if someone tries to bypass the frontend.
-
----
-
-## How the Same Login Works Internally
-
-Even though the screen is the same, the backend determines the identity category.
-
-There are two common approaches.
-
-## Approach 1: Single auth collection with role field
-
-One user collection stores everyone:
-
-```json
-{
-  "name": "Aman",
-  "email": "aman@example.com",
-  "password": "hashed_password",
-  "role": "admin"
-}
-```
-
-and
-
-```json
-{
-  "name": "Riya",
-  "email": "riya@example.com",
-  "password": "hashed_password",
-  "role": "user"
-}
-```
-
-### Advantages
-
-- Easier login logic
-- Easier token generation
-- Easier role checks
-- Cleaner authentication architecture
-
----
-
-## Approach 2: Separate `User` and `Admin` collections
-
-The project file suggests separate `User` and `Admin` records exist. In that case, the same login screen can still work.
-
-Backend logic would do something like this:
-
-1. Check admin collection first, or check both collections.
-2. If found in admin collection and credentials match, return role `admin`.
-3. Otherwise check user collection.
-4. If found and valid, return role `user`.
-
-Example backend pseudocode:
+**Fix — restore real `verifyOtp`:**
 
 ```js
-async function login(email, password) {
-  const admin = await Admin.findOne({ email });
-  if (admin && comparePassword(password, admin.password)) {
-    return buildLoginResponse(admin, "admin");
+export const verifyOtp = async (req, res) => {
+  const { phone, otp } = req.body;
+  const slug = req.body.slug || 'quizbuzz-3'; // read from body
+  try {
+    const phoneNumber = parsePhoneNumberFromString(phone, "IN");
+    if (!phoneNumber?.isValid())
+      return res.status(400).json({ message: "Enter a valid phone number" });
+    if (!/^\d{4}$/.test(otp))
+      return res.status(400).json({ message: "Invalid OTP format" });
+    const result = await verifyAndDeleteOtp(phoneNumber.number, otp);
+    if (!result.success)
+      return res.status(401).json({ message: result.message });
+    const contest = await Contest.findOne({ slug, isDeleted: false });
+    if (!contest)
+      return res.status(404).json({ message: "Contest not found" });
+    const userId = req.user.userId;
+    const existingSubmission = await Submission.findOne({ userId });
+    if (existingSubmission)
+      return res.json({ submissionId: existingSubmission._id, message: result.message });
+    const now = new Date();
+    const contestEndTime = new Date(contest.startTime.getTime() + parseInt(contest.duration) * 60000);
+    if (now > contestEndTime)
+      return res.status(400).json({ message: "Contest has ended. You can no longer join." });
+    return res.json({ message: result.message });
+  } catch (error) {
+    console.error(`verifyOtp error: ${error.message}`);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+```
+
+**Fix — restore real `resendOtp`:**
+
+```js
+export const resendOtp = async (req, res) => {
+  // Call same logic as sendOtp
+  return sendOtp(req, res);
+};
+```
+
+---
+
+### F-02 — Check isDeleted on login
+
+**File:** `Backend/controller/authController.js`  
+**Severity:** Critical
+
+```js
+// Before:
+const user = await User.findOne({ email: cleanEmail });
+
+// After:
+const user = await User.findOne({ email: cleanEmail, isDeleted: false });
+```
+
+---
+
+### F-03 — Add adminMiddleware to all payment routes
+
+**File:** `Backend/routes/admin/paymentRoutes.js`  
+**Severity:** Critical
+
+```js
+import { adminMiddleware } from '../../middleware/admin.js';
+import { authMiddleware } from '../../middleware/auth.js';
+
+const router = express.Router();
+
+router.use(authMiddleware);
+router.use(adminMiddleware); // ADD THIS — protects all routes below
+
+router.post('/', getAllPayments);
+router.post('/export', exportPayments);
+router.post('/stats', getPaymentStatistics);
+router.get('/contests', getContests);
+router.get('/analytics', getPaymentAnalytics);
+
+// Webhook — no auth (must be before router.use middleware)
+// Move webhook to a separate un-protected router or use express.Router() without the middleware
+
+router.get('/:paymentId', getSinglePayment);
+router.patch('/:paymentId/status', updatePaymentStatus); // adminMiddleware already applied at router level
+```
+
+> **Note:** The Razorpay webhook endpoint (`/webhooks/payments`) must remain unauthenticated. Move it to a separate router defined before the `router.use(adminMiddleware)` line, or register it directly in `app.js`.
+
+---
+
+### F-04 — Add await to areAllJobsCompleted
+
+**File:** `Backend/controller/contestController.js`  
+**Severity:** Critical
+
+```js
+// Before:
+const allDone = areAllJobsCompleted();
+
+// After:
+const allDone = await areAllJobsCompleted();
+```
+
+---
+
+### F-05 — Remove hardcoded slug default
+
+**File:** `Backend/controller/contestController.js`  
+**Severity:** High
+
+```js
+// Before:
+const { registrationId, phone, slug = 'quizbuzz-3' } = parsed.data;
+
+// After:
+const { registrationId, phone, slug } = parsed.data;
+if (!slug) {
+  return res.status(400).json({ message: "Contest slug is required" });
+}
+```
+
+Also update the Zod schema in `zodSchmea.js` to make `slug` required (remove the default value from `validateCredentialsSchema`).
+
+---
+
+### F-06 — Remove hardcoded seed credentials from connectDB
+
+**File:** `Backend/Models/DB.js`  
+**Severity:** Critical
+
+Remove the entire auto-seed block from `connectDB()`. Create a separate seed script:
+
+```js
+// Backend/scripts/seed.js
+import dotenv from 'dotenv';
+dotenv.config();
+import { connectDB, User } from '../Models/DB.js';
+
+await connectDB();
+
+const existing = await User.findOne({ email: 'quiz@gmail.com' });
+if (!existing) {
+  await User.create({
+    registrationId: 'quiz001',
+    firstName: 'Quiz',
+    lastName: 'Admin',
+    email: 'quiz@gmail.com',
+    phone: '9876543210',
+    isAdmin: true,
+    isDeleted: false,
+  });
+  console.log('Admin seeded.');
+}
+process.exit(0);
+```
+
+Run once manually: `node scripts/seed.js`
+
+---
+
+### F-07 — Enable global rate limiter
+
+**File:** `Backend/app.js`  
+**Severity:** Critical
+
+```js
+// Uncomment this line:
+app.use(globalRateLimit);
+
+// Also add auth-specific rate limit to login:
+// In Backend/routes/authRoutes.js:
+import { authRateLimit } from '../middleware/rateLimit.js';
+router.post("/login", authRateLimit, login);
+```
+
+---
+
+### F-08 — Protect /api/logs endpoint
+
+**File:** `Backend/app.js`  
+**Severity:** High
+
+```js
+// Before:
+app.post("/api/logs", (req, res) => { ... });
+
+// After:
+app.post("/api/logs", authMiddleware, (req, res) => { ... });
+```
+
+---
+
+### F-09 — Fix redisClient.setex casing
+
+**File:** `Backend/controller/admin/contestParticipantsController.js`  
+**Severity:** Critical
+
+```js
+// Before (line 191):
+await redisClient.setex(cacheKey, CACHE_TTL.PARTICIPANTS, JSON.stringify(response));
+
+// After:
+await redisClient.setEx(cacheKey, CACHE_TTL.PARTICIPANTS, JSON.stringify(response));
+```
+
+---
+
+### F-10 — Fix Certificate schema field names
+
+**File:** `Backend/controller/admin/contestParticipantsController.js`  
+**Severity:** Critical
+
+The `Certificate` model uses `userRef` and `contestRef`. The controller incorrectly uses `contestId` and `participantId`.
+
+**In `getContestParticipants`:**
+
+```js
+// Before:
+const certificates = await Certificate.find({
+  contestId,
+  participantId: { $in: participantIds }
+});
+certificatesMap[cert.participantId.toString()] = cert;
+
+// After:
+const certificates = await Certificate.find({
+  contestRef: contestId,
+  userRef: { $in: participantIds }
+});
+certificatesMap[cert.userRef.toString()] = cert;
+```
+
+**In `issueCertificates`:**
+
+```js
+// Before:
+const certificate = await Certificate.create({
+  contestId,
+  participantId: participant._id,
+  participantName: ...,
+  contestTitle: ...,
+  certificateType: ...,
+  score: ...,
+  issueDate: ...,
+  issuedBy: ...,
+  // ... other non-schema fields
+});
+
+// After (only schema fields):
+const certificate = await Certificate.create({
+  userRef: participant._id,
+  contestRef: contestId,
+  url: '', // generate or leave blank until URL generation is implemented
+  isDeleted: false,
+});
+```
+
+---
+
+### F-11 — Fix CORS trailing slash mismatch
+
+**File:** `Backend/server.js`  
+**Severity:** Critical
+
+```js
+// Before:
+origin: ["https://quiz.ysminfosolution.com/", "http://localhost:3000"]
+
+// After (remove trailing slash — must exactly match app.js):
+origin: ["https://quiz.ysminfosolution.com", "http://localhost:3000"]
+```
+
+---
+
+### F-12 — Fix CI/CD branch deployment
+
+**File:** `.github/workflows/deploy.yml`  
+**Severity:** Critical
+
+```yaml
+- name: Deploy via SSH
+  uses: appleboy/ssh-action@v1.0.3
+  with:
+    host: ${{ secrets.VPS_HOST }}
+    username: ${{ secrets.VPS_USER }}
+    key: ${{ secrets.SSH_PRIVATE_KEY }}
+    port: 2222
+    script: |
+      cd /var/www/quizbuzz
+      git fetch origin
+      git checkout ${{ github.ref_name }}
+      git pull origin ${{ github.ref_name }}
+      docker compose up -d --build
+      docker compose ps
+```
+
+---
+
+## 18. Fix Plan — Phase 2: High-Severity Bugs
+
+Fix within the first week.
+
+---
+
+### F-13 — Fix getContestStatus ignoring DB status field
+
+**File:** `Backend/controller/admin/contestController.js`
+
+```js
+const getContestStatus = (contest) => {
+  // Respect explicit DB status for terminal states
+  if (contest.status === 'draft')      return 'draft';
+  if (contest.status === 'cancelled')  return 'cancelled';
+  if (contest.status === 'completed')  return 'completed';
+  // Use date logic for non-terminal states
+  const now = new Date();
+  if (contest.startTime > now)         return 'upcoming';
+  if (contest.deadline > now)          return 'ongoing';
+  return 'completed';
+};
+```
+
+---
+
+### F-14 — Fix null crash in updateContest
+
+**File:** `Backend/controller/admin/contestController.js`
+
+```js
+// Add null check before accessing existingContest:
+if (validation.data.startDate || validation.data.startTime) {
+  const existingContest = await Contest.findById(id);
+  if (!existingContest) {
+    return res.status(404).json({
+      success: false,
+      error: { code: "NOT_FOUND", message: "Contest not found" }
+    });
+  }
+  // ... rest of date logic
+}
+```
+
+---
+
+### F-15 — Fix createdBy using wrong field name
+
+**File:** `Backend/controller/admin/contestController.js`
+
+```js
+// Before:
+createdBy: req.user?.id || 'admin_user_id'
+
+// After:
+createdBy: req.user?.userId || null
+```
+
+---
+
+### F-16 — Replace hardcoded stats with real aggregation
+
+**File:** `Backend/controller/admin/contestController.js`
+
+```js
+// In getContestStatistics, replace hardcoded values:
+const stats = await Submission.aggregate([
+  { $match: { contestId: contest._id, status: 'evaluated' } },
+  {
+    $group: {
+      _id: null,
+      averageScore: { $avg: '$score' },
+      highestScore: { $max: '$score' },
+      lowestScore: { $min: '$score' },
+      completedParticipants: { $sum: 1 }
+    }
+  }
+]);
+const s = stats[0] || {
+  averageScore: 0, highestScore: 0,
+  lowestScore: 0, completedParticipants: 0
+};
+
+// Real registration trend (last 7 days):
+const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+const registrationTrend = await Payment.aggregate([
+  { $match: { contestRef: contest._id, createdAt: { $gte: sevenDaysAgo } } },
+  { $group: {
+    _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+    count: { $sum: 1 }
+  }},
+  { $sort: { _id: 1 } },
+  { $project: { date: '$_id', count: 1 } }
+]);
+```
+
+---
+
+### F-17 — Fix payment amount unit consistency
+
+**File:** `Backend/controller/admin/paymentController.js`
+
+Decide on one unit (rupees or paise) and apply consistently across ALL format operations:
+
+```js
+// If amounts are stored in paise (× 100 of rupees):
+amount: payment.amount / 100  // in ALL formatPayment calls, including getAllPayments and getSinglePayment
+
+// If amounts are stored in rupees already:
+amount: payment.amount  // remove the * 0.01 from getAllPayments
+```
+
+---
+
+### F-18 — Implement real payment CSV export
+
+**File:** `Backend/controller/admin/paymentController.js`
+
+```js
+import { Parser } from 'json2csv';
+
+export const exportPayments = async (req, res) => {
+  // ... existing query logic to get payments ...
+
+  const formattedData = payments.map(p => ({
+    id: p._id,
+    userName: `${p.userRef.firstName} ${p.userRef.lastName}`,
+    email: p.userRef.email,
+    contest: p.contestRef.title,
+    amount: p.amount / 100,
+    status: p.status,
+    transactionId: p.paymentId,
+    date: p.createdAt
+  }));
+
+  if (format === 'csv') {
+    const parser = new Parser();
+    const csv = parser.parse(formattedData);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition',
+      `attachment; filename="payments-${Date.now()}.csv"`);
+    return res.send(csv);
   }
 
-  const user = await User.findOne({ email });
-  if (user && comparePassword(password, user.password)) {
-    return buildLoginResponse(user, "user");
+  if (format === 'json') {
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition',
+      `attachment; filename="payments-${Date.now()}.json"`);
+    return res.json({ payments: formattedData, exportedAt: new Date() });
   }
+};
+```
 
-  throw new Error("Invalid credentials");
+---
+
+### F-19 — Fix KeyGenerator casing
+
+**File:** `Backend/middleware/rateLimit.js`
+
+```js
+// Before:
+KeyGenerator: (req) => {
+  return req.user?.id || req.ip;
+},
+
+// After:
+keyGenerator: (req) => {
+  return req.user?.userId || req.ip;
+},
+```
+
+---
+
+### F-20 — Fix Redis config (remove ioredis options)
+
+**File:** `Backend/redis.js`
+
+```js
+import { createClient } from "redis";
+
+const redisClient = createClient({
+  url: process.env.REDIS_URL,
+  socket: {
+    connectTimeout: 10000,
+    reconnectStrategy: (retries) => {
+      if (retries > 10) return new Error('Max Redis reconnect retries reached');
+      return Math.min(retries * 50, 2000);
+    }
+  }
+});
+
+redisClient.on("error", (err) => console.error("Redis Client Error", err));
+redisClient.on("ready", () => console.log("Redis connected"));
+
+await redisClient.connect();
+
+export default redisClient;
+```
+
+---
+
+### F-21 — Add WaitingRoom null guard
+
+**File:** `Frontend/src/pages/WaitingRoom.jsx`
+
+```js
+// Add this useEffect after the initialization useEffect:
+useEffect(() => {
+  if (isInitialized && !contestInfo) {
+    toast.error("No contest session found. Please join a contest first.");
+    navigate('/contest/join');
+  }
+}, [isInitialized, contestInfo, navigate]);
+```
+
+---
+
+### F-22 — Fix submission retry on "already submitted"
+
+**File:** `Frontend/src/pages/LiveContest.jsx`
+
+```js
+// In handleSubmitContest, inside the try block:
+if (!response.ok) {
+  // A 400 with submissionId means "already submitted" — treat as success
+  if (response.status === 400) {
+    const errData = await response.json();
+    if (errData.submissionId) {
+      finalSubmissionId = errData.submissionId;
+      submissionSuccessful = true;
+      break;
+    }
+  }
+  throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 }
 ```
 
-This still allows a shared login page because the role resolution happens in the backend.
+---
+
+### F-23 — Reduce auto-save interval
+
+**File:** `Frontend/src/pages/LiveContest.jsx`
+
+```js
+// Before:
+const autoSave = setInterval(() => { ... }, 5 * 60000); // 5 minutes
+
+// After:
+const autoSave = setInterval(() => { ... }, 60 * 1000); // 1 minute
+```
 
 ---
 
-## Recommended Login UX
+### F-24 — Delete old AuthContext directory
 
-For the best user experience, the shared login page can be designed like this:
+**File:** `Frontend/src/context/` (entire directory)
 
-### Common fields
+```bash
+# From the Frontend/ directory:
+rm -rf src/context/
 
-- Email / phone / registration identifier
-- Password or OTP
-- Login button
-
-### Optional helper text
-
-You may show text such as:
-
-```txt
-Use your registered participant or admin credentials to sign in.
+# Verify all imports point to src/contexts/:
+grep -r "from.*'../context/" src/ --include="*.jsx" --include="*.js"
+grep -r "from.*'./context/" src/ --include="*.jsx" --include="*.js"
+# Both grep commands should return zero results
 ```
-
-This keeps the screen clear without making two separate forms.
-
-### Optional subtle role hint
-
-You can add a small note:
-
-```txt
-Admins and participants both use this login.
-```
-
-This reduces confusion without changing the core flow.
 
 ---
 
-## Role Information in Token
+### F-25 — Fix cutOff / cutoff naming inconsistency
 
-Once login succeeds, the JWT should contain enough information for authorization.
+**File:** `Backend/Models/zodSchmea.js`
 
-Typical token payload:
+```js
+// In contestSchema, rename 'cutoff' to 'cutOff':
+cutOff: z.number().min(0, "Cut off must be non-negative").optional(),
 
-```json
-{
-  "userId": "123",
-  "sessionId": "abc456",
-  "role": "admin"
+// In admin/contestController.js createContest, ensure mapping:
+const contestData = {
+  ...validation.data,
+  cutOff: validation.data.cutOff, // explicitly map
+  registerFee: validation.data.registrationFee,
+  startTime: new Date(`${validation.data.startDate} ${validation.data.startTime}`),
+  deadline: new Date(...),
+};
+```
+
+---
+
+## 19. Fix Plan — Phase 3: Code Quality & Moderate Fixes
+
+Complete within two weeks of Phase 1 & 2.
+
+---
+
+### F-26 — Rename typo'd files
+
+```bash
+# From Backend/ directory:
+mv Models/zodSchmea.js Models/zodSchema.js
+mv Models/zodParticipantsSchemee.js Models/zodParticipantsSchema.js
+mv service/optSms.js service/otpSms.js
+
+# Update all import paths in:
+# - controller/authController.js
+# - controller/contestController.js
+# - controller/admin/contestController.js
+# - controller/admin/contestParticipantsController.js
+# - middleware/validation.js
+# - routes/admin/contestRoutes.js
+# - routes/admin/paymentRoutes.js
+
+# Search for old import paths:
+grep -r "zodSchmea\|zodParticipantsSchemee\|optSms" . --include="*.js"
+```
+
+---
+
+### F-27 — Fix participant status filter
+
+**File:** `Backend/controller/admin/contestParticipantsController.js`
+
+```js
+// Replace the invalid contestStatus field filter:
+if (status !== 'all') {
+  if (status === 'completed') {
+    const completedUserIds = await Submission.find({
+      contestId,
+      status: 'evaluated'
+    }).distinct('userId');
+    participantQuery._id = {
+      $in: completedUserIds.filter(id =>
+        contest.participants.map(p => p.toString()).includes(id.toString())
+      )
+    };
+  } else if (status === 'registered') {
+    const submittedUserIds = await Submission.find({ contestId })
+      .distinct('userId');
+    participantQuery._id = {
+      $in: contest.participants.filter(p =>
+        !submittedUserIds.map(id => id.toString()).includes(p.toString())
+      )
+    };
+  }
 }
 ```
 
-or
+---
 
-```json
-{
-  "userId": "789",
-  "sessionId": "def999",
-  "role": "user"
+### F-28 — Extract inline handlers into questionController
+
+Create `Backend/controller/admin/questionController.js`:
+
+```js
+import { Contest, Question } from '../../Models/DB.js';
+import redisClient from '../../redis.js';
+
+export const getAllQuestions = async (req, res) => {
+  const { page = 1, limit = 10, search, difficulty } = req.query;
+  const query = { isDeleted: false };
+  if (search) query.questionText = { $regex: search, $options: 'i' };
+  if (difficulty && difficulty !== 'all') query.difficulty = difficulty;
+  const total = await Question.countDocuments(query);
+  const questions = await Question.find(query)
+    .skip((parseInt(page) - 1) * parseInt(limit))
+    .limit(parseInt(limit))
+    .sort({ createdAt: -1 });
+  res.json({ success: true, data: { questions,
+    pagination: { totalItems: total, totalPages: Math.ceil(total / parseInt(limit)),
+      currentPage: parseInt(page) }
+  }});
+};
+
+export const createQuestion = async (req, res) => { ... };
+export const updateQuestion = async (req, res) => { ... };
+export const deleteQuestion = async (req, res) => { ... };
+export const assignToContest = async (req, res) => { ... };
+```
+
+Update `questionRoutes.js` to import from this controller.
+
+---
+
+### F-29 — Remove unused Admin model
+
+**File:** `Backend/Models/DB.js`
+
+```js
+// Remove these lines:
+const adminSchema = new mongoose.Schema({
+  password: { type: String },
+  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  isDeleted: { type: Boolean, default: false },
+}, { timestamps: true });
+
+export const Admin = mongoose.models.Admin || mongoose.model('Admin', adminSchema);
+```
+
+---
+
+### F-30 — Replace redisClient.keys() with SCAN
+
+**File:** `Backend/controller/admin/contestController.js` and `Backend/store/paymentStore.js`
+
+```js
+// Create a shared utility:
+// Backend/utils/redisUtils.js
+export async function scanDel(client, pattern) {
+  for await (const keys of client.scanIterator({ MATCH: pattern, COUNT: 100 })) {
+    if (keys.length > 0) {
+      await client.del(keys);
+    }
+  }
+}
+
+// Replace in clearContestsListCache:
+import { scanDel } from '../utils/redisUtils.js';
+const clearContestsListCache = async () => {
+  try {
+    await scanDel(redisClient, 'contests:*');
+  } catch (error) {
+    console.warn('Error clearing contests cache:', error);
+  }
+};
+
+// Replace in paymentStore.clearListCaches:
+async clearListCaches() {
+  await scanDel(redisClient, `${this.listKeyPrefix}*`);
 }
 ```
 
-Why include role in the token?
-
-- It helps the backend quickly identify access level
-- It supports route and API authorization
-- It reduces repeated database lookups for role checks
-
-However, sensitive authorization should still be validated with session or database checks when necessary.
-
 ---
 
-## Session Handling
-
-The project uses JWT with session validation. This means login is not based only on token existence.
-
-After login:
-
-- A session is created
-- Session ID is stored in Redis
-- Token contains session ID
-- Every authenticated request is checked against the session store
-
-This improves security because:
-
-- Expired or deleted sessions can be invalidated
-- Stolen tokens become harder to reuse
-- Device/IP/User-Agent mismatch checks can reject suspicious requests
-
-This is especially important for admin accounts because they have elevated privileges.
-
----
-
-## Participant Experience After Login
-
-Once logged in as a normal participant, the person mainly uses the platform for contest participation.
-
-### Typical participant journey
-
-1. Login from shared login page
-2. Redirect to contest area
-3. Join a contest
-4. Enter waiting room
-5. Take quiz
-6. Submit answers
-7. View result
-8. Download certificate if available
-
-The participant does not see admin dashboard links, contest management controls, payment reports, or analytics panels.
-
----
-
-## Admin Experience After Login
-
-Once logged in as an admin, the person is redirected to the management dashboard.
-
-### Typical admin journey
-
-1. Login from shared login page
-2. Redirect to `/admin`
-3. View dashboard summary
-4. Create or edit contests
-5. Assign questions
-6. Monitor waiting room activity
-7. Start contests manually if needed
-8. Check submissions and leaderboard
-9. View payments
-10. Review analytics
-
-The admin has broader access because the role permits it.
-
----
-
-## UI Difference After Login
-
-Even though login is shared, the interface after login should change based on role.
-
-### For users
-
-Show:
-
-- Contest list
-- Join button
-- Waiting room
-- Live contest
-- Results
-- Certificates
-
-Hide:
-
-- Admin sidebar
-- Question management
-- Payment management
-- Analytics
-- Contest CRUD tools
-
-### For admins
-
-Show:
-
-- Dashboard sidebar
-- Contests management
-- Question bank
-- Payments
-- Analytics
-- Start/stop contest controls
-- Export tools
-
-This creates a clean role-specific experience.
-
----
-
-## Example End-to-End Scenario
-
-### Participant example
-
-Riya opens `/login`, enters her registered credentials, and logs in. The backend identifies her as a normal participant, returns role `user`, and the frontend redirects her to the participant-facing pages. She can join a contest and view results, but if she tries to open `/admin`, she is blocked.
-
-### Admin example
-
-Aman opens the same `/login` page, enters admin credentials, and logs in. The backend identifies him as an admin, returns role `admin`, and the frontend redirects him to `/admin`. He can manage contests and analytics, but regular participants cannot access those pages.
-
-This proves that one login page can still support two very different experiences.
-
----
-
-## Security Rules
-
-To make this design safe, the system should enforce these rules:
-
-- Never trust frontend role checks alone.
-- Always verify JWT and active session in the backend.
-- Protect admin APIs with admin-specific middleware.
-- Do not expose admin navigation to normal users.
-- Redirect unauthorized access attempts away from protected pages.
-- Log important authentication and admin actions.
-
----
-
-## Best Architecture Recommendation
-
-For this project, the best practical model is:
-
-- One shared login page
-- One authentication service
-- One auth context in frontend
-- Role returned from backend
-- Route guards in frontend
-- Role-based middleware in backend
-- Shared token/session management
-- Separate dashboards and permissions after login
-
-This gives the simplicity of one login system with the safety of role-based separation.
-
----
-
-## Conclusion
-
-The user and admin can use the **same login screen** because authentication and authorization are two different things. Authentication checks **who the person is**, while authorization decides **what that person is allowed to access**.
-
-In this project, both user and admin log in from the same page, but once authenticated, the backend returns their role, the frontend stores it, and the system gives each one a different experience. Participants get contest access, while admins get management access. This makes the platform easier to maintain, cleaner to use, and more secure when implemented with proper route guards and backend role checks.
----
-# Razorpay Payment Integration
-
-## Overview
-
-This project supports paid contest registration using **Razorpay** as the payment gateway. The payment system is designed so that a participant can pay the contest registration fee before being allowed to complete contest enrollment, while administrators can monitor all payment activity from the admin dashboard. [file:1]
-
-The architecture notes describe a dedicated frontend service named `paymentService.js` for Razorpay integration, a backend route group `/api/payments` for payment management and Razorpay webhooks, and a `Payment` collection in MongoDB that stores payment details such as `orderId`, `paymentId`, `status`, and `amount`. This means payment is treated as a first-class module in the system, not as an afterthought. [file:1]
-
----
-
-## Why Razorpay is used
-
-Razorpay is suitable for this platform because it provides a fast hosted checkout flow, server-side payment verification support, webhook events, and a clean way to track paid, pending, failed, and refunded payment states. The project’s admin dashboard also includes a Payments section specifically intended to display Razorpay payment records and payment status by user and contest. [file:1]
-
-For this quiz platform, Razorpay is useful because some contests can have a registration fee stored in the `Contest` model, and the participant should only be treated as fully enrolled after payment succeeds for paid contests. The architecture file explicitly includes `registerFee` or registration fee details in contest data and payment management as a core admin feature. [file:1]
-
----
-
-## Payment module role in the system
-
-The payment module connects three major parts of the platform: participant registration, backend verification, and admin monitoring. On the frontend, `paymentService.js` handles opening the Razorpay checkout and reporting success or failure; on the backend, `/api/payments` manages payment records and webhook processing; in the database, the `Payment` collection stores the permanent transaction record. [file:1]
-
-In simple words, the flow is:
-
-1. Admin creates a contest with a fee. [file:1]
-2. User tries to join that contest. [file:1]
-3. The app checks whether the contest is free or paid. [file:1]
-4. If paid, Razorpay checkout opens through the frontend payment service. [file:1]
-5. Backend records and verifies the payment. [file:1]
-6. If successful, the user is allowed into the contest flow. [file:1]
-7. Admin can later view the transaction in the payment dashboard. [file:1]
-
----
-
-## Where payment fits in the user flow
-
-The user flow in the architecture starts with landing on the homepage, going to `/contest/join`, entering registration credentials, receiving a JWT, then entering the waiting room and eventually taking the quiz. The frontend notes also mention `paymentService.js` for Razorpay integration, which means the payment step fits into the **contest joining stage** whenever the selected contest is not free. [file:1]
-
-A practical paid contest flow would work like this: [file:1]
-
-1. User selects a contest from the landing page. [file:1]
-2. User opens `/contest/join` and enters registration ID plus contest credentials. [file:1]
-3. Backend validates the participant and contest credentials. [file:1]
-4. Backend checks the contest’s registration fee from the contest data. [file:1]
-5. If the contest is free, the user can continue directly. [file:1]
-6. If the contest is paid, the frontend calls `paymentService.js` to start Razorpay checkout. [file:1]
-7. After successful payment verification, the user is marked as eligible to continue to the waiting room. [file:1]
-8. Then the normal live contest flow continues. [file:1]
-
-This design keeps payment tightly linked to enrollment rather than treating it as a completely separate feature. [file:1]
-
----
-
-## Admin use of the payment module
-
-The admin side includes a dedicated route `/admin/payments`, and the design notes describe this page as a management area where admins can view Razorpay payment records and see payment status per user or contest. The later UI blueprint expands this into a full Payments page with stats, filters, status breakdown, revenue views, and export support. [file:1]
-
-According to the project notes, the admin payments area is intended to show: [file:1]
-
-- Total revenue. [file:1]
-- Successful payment count and success rate. [file:1]
-- Pending payments. [file:1]
-- Failed and refunded payments. [file:1]
-- Payment table with participant name, contest, Razorpay order ID, amount, status, and date. [file:1]
-- Filters by contest and payment status. [file:1]
-- Export options such as CSV. [file:1]
-
-So from the admin perspective, Razorpay integration is not just about collecting money; it is also about financial visibility, reconciliation, and contest-level payment tracking. [file:1]
-
----
-
-## Frontend integration design
-
-The frontend notes explicitly mention `paymentService.js` as the module responsible for Razorpay integration. This service is the correct place to isolate all payment-specific logic so that contest pages stay clean and focused on flow handling rather than gateway details. [file:1]
-
-### Responsibilities of `paymentService.js`
-
-A well-structured `paymentService.js` in this project should handle the following: [file:1]
-
-- Loading or using the Razorpay checkout SDK. [file:1]
-- Calling the backend to create a payment order. [file:1]
-- Opening the Razorpay checkout popup with the correct amount, currency, and user details. [file:1]
-- Receiving Razorpay success callback data such as payment ID, order ID, and signature. [file:1]
-- Sending the payment response to the backend for verification. [file:1]
-- Returning final success or failure information back to the contest join UI. [file:1]
-
-### Example frontend responsibility split
-
-The contest join page should decide **when** payment is needed, while `paymentService.js` should decide **how** the Razorpay process runs. This separation matches the architecture style used elsewhere in the project, where service files handle specialized logic and components stay cleaner. [file:1]
-
-### Example frontend flow
-
-```txt
-Contest Join Page
-→ validate participant credentials
-→ check if contest fee > 0
-→ call paymentService.startPayment(...)
-→ Razorpay popup opens
-→ paymentService sends success data to backend verification API
-→ if verified, continue to contest waiting room
+### F-31 — Wire Winston logger
+
+Create `Backend/utils/logger.js`:
+
+```js
+import { createLogger, format, transports } from 'winston';
+
+export const logger = createLogger({
+  level: process.env.NODE_ENV === 'production' ? 'warn' : 'debug',
+  format: format.combine(
+    format.timestamp({ format: 'DD-MM-YYYY HH:mm:ss' }),
+    format.errors({ stack: true }),
+    format.json()
+  ),
+  transports: [
+    new transports.Console({
+      format: format.combine(format.colorize(), format.simple())
+    })
+  ]
+});
 ```
 
-This approach matches the project’s frontend pattern of using dedicated service files such as `contestApi.js`, `paymentService.js`, and `faceMonitor.js`. [file:1]
+Replace `console.log`/`console.error` calls in controllers with `logger.info`/`logger.error`/`logger.warn`/`logger.debug`.
 
 ---
 
-## Backend payment architecture
+### F-32 — Create centralized API client
 
-The backend notes list `/api/payments` as one of the four main route groups, and its purpose is described as payment management plus Razorpay webhooks. This means payment processing is designed as an official backend subsystem, not just a frontend popup integration. [file:1]
+Create `Frontend/src/services/api.js`:
 
-### What `/api/payments` should handle
+```js
+const BASE = import.meta.env.VITE_URL;
 
-A typical backend payment module for this project should support: [file:1]
+export const apiCall = async (path, opts = {}, tokenKey = 'contestToken') => {
+  const token = localStorage.getItem(tokenKey);
+  const res = await fetch(`${BASE}${path}`, {
+    ...opts,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(opts.headers || {}),
+    },
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ message: 'Request failed' }));
+    throw error;
+  }
+  return res.json();
+};
 
-- Creating Razorpay orders before checkout. [file:1]
-- Verifying payment signatures after checkout success. [file:1]
-- Recording payment status in MongoDB. [file:1]
-- Handling Razorpay webhook events for reliable asynchronous confirmation. [file:1]
-- Returning payment data to admin dashboards. [file:1]
-- Optionally supporting refund operations or refund status syncing. [file:1]
+// Helpers:
+export const adminApiCall = (path, opts = {}) =>
+  apiCall(path, opts, 'authToken');
 
-### Example backend endpoint design
+export const participantApiCall = (path, opts = {}) =>
+  apiCall(path, opts, 'contestToken');
+```
 
-Even though the notes do not list every payment endpoint explicitly, the architecture strongly supports a structure like this under `/api/payments`: [file:1]
-
-- `POST /api/payments/create-order` → Create a Razorpay order for a contest fee.  
-- `POST /api/payments/verify` → Verify Razorpay payment signature after frontend checkout.  
-- `POST /api/payments/webhook` → Accept webhook events from Razorpay.  
-- `GET /api/payments` → Admin fetches payment records.  
-- `GET /api/payments/:id` → Admin fetches a specific payment record.  
-
-These fit naturally into the described payment management and webhook architecture. [file:1]
+Refactor all raw `fetch` calls in pages and components to use this client.
 
 ---
 
-## MongoDB payment model
+### F-33 — Fix option shuffling + index mapping
 
-The database notes explicitly define a `Payment` collection used for Razorpay payment records, with fields such as `orderId`, `paymentId`, `status`, and `amount`, and a relationship from `Payment` to both `User` and `Contest`. This gives the payment system persistent storage and traceability. [file:1]
+**File:** `Frontend/src/pages/LiveContest.jsx`
 
-### Suggested `Payment` document meaning
+Instead of storing shuffled options and losing the original index mapping, store the original index alongside each option:
 
-The payment record should represent one financial transaction attempt tied to one participant and one contest. The record should answer questions such as: [file:1]
+```js
+// New shuffle function that tracks original indices:
+const shuffleOptionsWithMapping = (options) => {
+  const indexed = options.map((text, origIdx) => ({ text, origIdx }));
+  for (let i = indexed.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indexed[i], indexed[j]] = [indexed[j], indexed[i]];
+  }
+  return indexed; // [{ text: "Option B", origIdx: 1 }, ...]
+};
 
-- Which contest was this payment for? [file:1]
-- Which participant made the payment? [file:1]
-- What amount was charged? [file:1]
-- What Razorpay order and payment IDs were used? [file:1]
-- Was the payment successful, pending, failed, or refunded? [file:1]
+// When building the answer to save:
+const structuredAnswer = {
+  questionId: questions[currentQuestion]._id,
+  answer: questions[currentQuestion].options[selectedAnswer].text, // display text
+  answerIndex: questions[currentQuestion].options[selectedAnswer].origIdx, // ORIGINAL index
+  submittedAt: new Date()
+};
+```
 
-### Core fields from the project notes
+Update all option rendering to use `.text` property.
 
-The file explicitly mentions these fields in the `Payment` collection: [file:1]
+---
 
-- `orderId` [file:1]
-- `paymentId` [file:1]
-- `status` [file:1]
-- `amount` [file:1]
+### F-34 — Fix leaderboard score threshold
 
-The same notes also say `Payment` is linked to `User` and `Contest`, which means the payment record should also reference both entities. [file:1]
+**File:** `Backend/controller/contestController.js`
 
-### Example logical shape
+```js
+// Before:
+const submissions = await Submission.find({
+  contestId,
+  score: { $gte: 50 }
+})
 
-```json
-{
-  "_id": "payment_record_id",
-  "userId": "user_object_id",
-  "contestId": "contest_object_id",
-  "orderId": "order_RZP123",
-  "paymentId": "pay_RZP456",
-  "status": "paid",
-  "amount": 99,
-  "currency": "INR",
-  "gateway": "razorpay",
-  "createdAt": "2026-03-20T10:00:00Z"
+// After:
+const contest = await Contest.findById(contestId).select('cutOff');
+const scoreThreshold = (contest?.cutOff ?? 0);
+const submissions = await Submission.find({
+  contestId,
+  score: { $gte: scoreThreshold }
+})
+```
+
+---
+
+### F-35 — Add global Express error handler
+
+**File:** `Backend/app.js` (add after all route registrations)
+
+```js
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: { code: "NOT_FOUND", message: `Route ${req.method} ${req.path} not found` }
+  });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err.message, err.stack);
+  res.status(err.status || 500).json({
+    success: false,
+    error: {
+      code: "INTERNAL_SERVER_ERROR",
+      message: process.env.NODE_ENV === 'development'
+        ? err.message
+        : "An unexpected error occurred"
+    }
+  });
+});
+```
+
+---
+
+## 20. Fix Plan — Phase 4: DevOps & Infrastructure
+
+Complete alongside Phase 3.
+
+---
+
+### F-36 — Add Redis persistence volume
+
+**File:** `docker-compose.yml`
+
+```yaml
+redis:
+  image: redis:alpine
+  container_name: quizbuzz-redis
+  command: redis-server --appendonly yes --appendfsync everysec
+  ports:
+    - "6379:6379"
+  volumes:
+    - quizbuzz-redis-data:/data
+  restart: unless-stopped
+
+volumes:
+  quizbuzz-mongo-data:
+  quizbuzz-mongo-config:
+  quizbuzz-redis-data:   # ADD THIS
+```
+
+---
+
+### F-37 — Add Docker healthchecks
+
+**File:** `docker-compose.yml`
+
+```yaml
+mongo:
+  healthcheck:
+    test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+    start_period: 20s
+
+redis:
+  healthcheck:
+    test: ["CMD", "redis-cli", "ping"]
+    interval: 5s
+    timeout: 3s
+    retries: 5
+
+backend:
+  depends_on:
+    mongo:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+worker:
+  depends_on:
+    mongo:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+```
+
+---
+
+### F-38 — Create .env.example files
+
+**File:** `Backend/.env.example`
+
+```env
+# Server
+PORT=5000
+NODE_ENV=development
+API_VERSION=1.0.0
+
+# Database
+MONGODB_URL=mongodb://mongo:27017/quizbuzz
+
+# Redis
+REDIS_URL=redis://redis:6379
+
+# Authentication
+JWT_SECRET=your-super-secret-jwt-key-min-32-chars
+
+# SMS OTP (SH Tech / Bulk SMS)
+SMS_OTP_USER_NAME=your_sms_username
+SMS_OTP_PASSWORD=your_sms_password
+SMS_OTP_SENDER_ID=QUIZBZ
+SMS_OTP_PE_ID=your_pe_id
+SMS_OTP_SHTECH_URL=https://your-sms-provider-url
+SMS_OTP_USER_AGENT=YourApp/1.0
+SMS_OTP_QUIZBUZZ_TEMPLATE_ID=your_template_id
+
+# WhatsApp OTP
+WHATSAPP_OTP_API_KEY=your_whatsapp_api_key
+WHATSAPP_OTP_API_URL=https://your-whatsapp-provider-url
+
+# Razorpay
+RAZORPAY_KEY_ID=rzp_test_xxxxx
+RAZORPAY_KEY_SECRET=your_razorpay_secret
+WEBHOOK_SECRET=your_webhook_hmac_secret
+```
+
+**File:** `Frontend/.env.example`
+
+```env
+# API base URL (no trailing slash)
+VITE_URL=http://localhost:5000/api
+
+# WebSocket URL (no trailing slash, no /ws/ path)
+VITE_WEBSOCKET_URL=http://localhost:5000
+
+# Question encryption key (AES-256)
+# Note: this key is visible in the browser bundle — treat as obfuscation only
+VITE_SECRET_KEY=your-question-encryption-key-here
+```
+
+---
+
+### F-39 — Add real CI/CD test step
+
+**File:** `.github/workflows/deploy.yml`
+
+```yaml
+test:
+  name: Test
+  runs-on: ubuntu-latest
+  services:
+    redis:
+      image: redis:alpine
+      ports: ['6379:6379']
+      options: --health-cmd "redis-cli ping" --health-interval 5s
+    mongo:
+      image: mongo:7
+      ports: ['27017:27017']
+      options: --health-cmd "mongosh --eval \"db.adminCommand('ping')\"" --health-interval 10s
+  steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: Backend/package-lock.json
+    - name: Install dependencies
+      run: cd Backend && npm ci
+    - name: Run tests
+      run: cd Backend && npm test
+      env:
+        NODE_ENV: test
+        JWT_SECRET: test-secret-key
+        MONGODB_URL: mongodb://localhost:27017/quizbuzz-test
+        REDIS_URL: redis://localhost:6379
+```
+
+---
+
+### F-40 — Add deployment rollback
+
+**File:** `.github/workflows/deploy.yml`
+
+```yaml
+- name: Deploy via SSH
+  uses: appleboy/ssh-action@v1.0.3
+  with:
+    host: ${{ secrets.VPS_HOST }}
+    username: ${{ secrets.VPS_USER }}
+    key: ${{ secrets.SSH_PRIVATE_KEY }}
+    port: 2222
+    script: |
+      set -e
+      cd /var/www/quizbuzz
+
+      # Store current git hash for rollback reference
+      PREV_HASH=$(git rev-parse HEAD)
+      echo "Previous commit: $PREV_HASH"
+
+      git fetch origin
+      git checkout ${{ github.ref_name }}
+      git pull origin ${{ github.ref_name }}
+
+      # Deploy with rollback on failure
+      if docker compose up -d --build; then
+        echo "Deploy successful"
+        docker compose ps
+      else
+        echo "Deploy failed — rolling back to $PREV_HASH"
+        git checkout $PREV_HASH
+        docker compose up -d --build
+        exit 1
+      fi
+```
+
+---
+
+### F-41 — Fix Dockerfile non-root user and Node version
+
+**File:** `Backend/Dockerfile`
+
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+
+# Create non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+COPY package*.json ./
+RUN npm install --omit=dev
+
+COPY . .
+
+# Set ownership
+RUN chown -R appuser:appgroup /app
+
+USER appuser
+
+EXPOSE 5000
+CMD ["node", "server.js"]
+```
+
+**File:** `Frontend/Dockerfile`
+
+```dockerfile
+# Build stage — align to node:20
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# Serve stage
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+---
+
+### F-42 — Add Redis adapter for Socket.io
+
+**File:** `Backend/server.js`
+
+```bash
+npm install @socket.io/redis-adapter
+```
+
+```js
+import { createAdapter } from '@socket.io/redis-adapter';
+import { createClient } from 'redis';
+
+// Create dedicated pub/sub clients for Socket.io adapter
+const pubClient = createClient({ url: process.env.REDIS_URL });
+const subClient = pubClient.duplicate();
+
+await Promise.all([pubClient.connect(), subClient.connect()]);
+
+const io = new Server(server, {
+  path: "/ws/",
+  cors: {
+    origin: ["https://quiz.ysminfosolution.com", "http://localhost:3000"],
+    methods: ["GET", "POST"]
+  }
+});
+
+// Attach Redis adapter for horizontal scaling support
+io.adapter(createAdapter(pubClient, subClient));
+```
+
+---
+
+## 21. Fix Plan — Phase 5: Missing Features & Polish
+
+Complete after Phases 1–4 are stable.
+
+---
+
+### F-43 — Write minimum test suite
+
+Priority test files to create in `Backend/tests/`:
+
+```
+tests/
+  auth.test.js         → login (valid, invalid, deleted user)
+  validateCreds.test.js → wrong slug, wrong phone, duplicate submission
+  submit.test.js        → happy path, double submission = 400
+  evaluation.test.js    → correct scoring, negative marking, skipped questions
+  adminMiddleware.test.js → blocked for role=user, allowed for role=admin
+```
+
+Use `mongodb-memory-server` and `redis-memory-server` for isolated test environments.
+
+---
+
+### F-44 — Add token refresh endpoint
+
+**File:** `Backend/routes/authRoutes.js`
+
+```js
+router.post("/refresh", authMiddleware, async (req, res) => {
+  try {
+    const newToken = jwt.sign(
+      {
+        userId: req.user.userId,
+        sessionId: req.sessionId,
+        role: req.user.role,
+        email: req.user.email,
+        userName: req.user.userName,
+        ...(req.user.contestId ? { contestId: req.user.contestId } : {})
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+    res.json({ token: newToken });
+  } catch (error) {
+    res.status(500).json({ message: "Token refresh failed" });
+  }
+});
+```
+
+In the frontend, check token expiry 30 minutes before expiry and call the refresh endpoint automatically.
+
+---
+
+### F-45 — Implement real webhook HMAC verification
+
+**File:** `Backend/controller/admin/paymentController.js`
+
+```js
+export const handleWebhook = async (req, res) => {
+  try {
+    const sig = req.headers['x-webhook-signature'];
+    if (!sig) {
+      return res.status(401).json({
+        success: false,
+        error: { code: 'MISSING_SIGNATURE', message: 'Webhook signature is required' }
+      });
+    }
+
+    // Verify HMAC signature
+    const crypto = await import('crypto');
+    const body = req.body; // must be raw Buffer — express.raw() is already applied
+    const expected = crypto
+      .createHmac('sha256', process.env.WEBHOOK_SECRET)
+      .update(body)
+      .digest('hex');
+
+    if (!crypto.timingSafeEqual(
+      Buffer.from(sig, 'hex'),
+      Buffer.from(expected, 'hex')
+    )) {
+      return res.status(401).json({
+        success: false,
+        error: { code: 'INVALID_SIGNATURE', message: 'Webhook signature verification failed' }
+      });
+    }
+
+    // Parse body after verification
+    const validatedData = webhookPaymentSchema.parse(JSON.parse(body));
+    // ... rest of webhook handling
+  }
+};
+```
+
+---
+
+### F-46 — Wrap LiveContest in ErrorBoundary
+
+**File:** `Frontend/src/App.jsx`
+
+```jsx
+import ErrorBoundary from './components/ErrorBoundary';
+
+// Wrap the LiveContest route:
+<Route
+  path="/contest/live/:contestId"
+  element={
+    <ErrorBoundary
+      onReset={() => {
+        // Clear stale state before retry
+        localStorage.removeItem('contestInfo');
+        localStorage.removeItem('userInfo');
+        window.location.href = '/contest/join';
+      }}
+    >
+      <LiveContest />
+    </ErrorBoundary>
+  }
+/>
+```
+
+---
+
+### F-47 — Clear stale localStorage on submission
+
+**File:** `Frontend/src/pages/LiveContest.jsx`
+
+```js
+// In handleSubmitContest, after successful navigation:
+if (submissionSuccessful) {
+  // Clean up proctoring resources
+  try { stopFaceMonitor(); } catch (e) {}
+  if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+
+  // Clear stale session data
+  const slug = contestInfo.current?.slug;
+  if (slug) localStorage.removeItem(`questions_${slug}`);
+  localStorage.removeItem('contestInfo');
+  localStorage.removeItem('userInfo');
+  // Keep contestToken briefly for the result page, clear after
+
+  navigate(`/contest/result/evaluate/${finalSubmissionId}`);
 }
 ```
 
-This example is consistent with the project’s described payment fields and entity relationships. [file:1]
+---
+
+### F-48 — Add missing MongoDB indexes
+
+**File:** `Backend/Models/DB.js`
+
+```js
+// After model definitions:
+
+// User — for validateCredentials lookup
+userSchema.index({ registrationId: 1 });
+
+// Contest — for landing page active contest query
+contestSchema.index({ startTime: 1, isDeleted: 1 });
+
+// Submission — for leaderboard sorting
+submissionSchema.index({ contestId: 1, score: -1 });
+
+// Payment — for admin payment management
+paymentsSchema.index({ contestRef: 1, createdAt: -1 });
+paymentsSchema.index({ userRef: 1 });
+paymentsSchema.index({ status: 1, createdAt: -1 });
+```
 
 ---
 
-## Detailed payment flow
+### F-49 — Add security headers to Nginx
 
-Below is a project-specific payment flow that fits the architecture described in your file. [file:1]
+**File:** `Frontend/nginx.conf`
 
-### Step 1: Admin creates a paid contest
+```nginx
+server {
+  listen 80;
+  server_name localhost;
 
-In the admin contest wizard, the fee and prize details step includes registration fee configuration with Free or Paid options. This means the admin can define whether a contest requires payment and what amount must be charged. [file:1]
+  # Security headers
+  add_header X-Frame-Options "SAMEORIGIN" always;
+  add_header X-Content-Type-Options "nosniff" always;
+  add_header X-XSS-Protection "1; mode=block" always;
+  add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+  add_header Content-Security-Policy
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss: https:;" always;
 
-### Step 2: User begins contest join process
+  root /usr/share/nginx/html;
+  index index.html;
 
-The user goes to `/contest/join` and submits registration details and contest credentials. The contest route layer already includes credential validation as part of the participant flow. [file:1]
-
-### Step 3: Backend checks contest fee
-
-After validating credentials, the backend checks the contest’s registration fee from the `Contest` record. If the fee is zero, the user continues directly; if the fee is greater than zero, the payment flow starts. The contest data in the database design explicitly includes registration fee information. [file:1]
-
-### Step 4: Backend creates Razorpay order
-
-The frontend asks the backend payment API to create a Razorpay order for the required amount. The backend then stores an initial payment record with a pending status and returns order details to the frontend. This fits the existence of `/api/payments` and the `Payment` collection. [file:1]
-
-### Step 5: Frontend opens Razorpay checkout
-
-`paymentService.js` opens the Razorpay checkout popup using the returned order data, amount, and participant information. The project file directly states that `paymentService.js` is used for Razorpay integration. [file:1]
-
-### Step 6: User completes payment
-
-If the user pays successfully in Razorpay, Razorpay returns identifiers such as order ID, payment ID, and a signature to the frontend callback. The frontend should not trust this alone; it should send these values to the backend for verification. This is the safest way to align payment flow with the project’s broader security-first architecture. [file:1]
-
-### Step 7: Backend verifies signature
-
-The backend verifies the Razorpay signature using the secret key. If verification succeeds, the backend updates the payment record to a success state and can mark the user as eligible for the contest. Since payment records are stored in MongoDB and admin payment management exists, this verification result should be persisted in the `Payment` collection. [file:1]
-
-### Step 8: User continues into contest
-
-After verification succeeds, the frontend proceeds with the participant contest flow, which in the architecture continues into the waiting room and eventually the live contest. This cleanly connects payment completion with contest access. [file:1]
-
-### Step 9: Webhook confirms final state
-
-Razorpay webhooks sent to `/api/payments` provide an additional layer of confirmation for payment events. The backend payment route group explicitly includes Razorpay webhooks, which is important because webhook confirmation is more reliable than trusting only the frontend callback. [file:1]
-
-### Step 10: Admin monitors transaction
-
-The admin later opens `/admin/payments` to inspect payment records, status, and revenue data. The project’s admin blueprint clearly includes payment monitoring as a key operational feature. [file:1]
+  # ... rest of existing config
+}
+```
 
 ---
 
-## Free vs paid contest behavior
+### F-50 — Pre-load TensorFlow model during WaitingRoom
 
-The contest model includes registration fee data, and the admin contest wizard includes a Free/Paid toggle. That means the platform should support two clean enrollment modes. [file:1]
+**File:** `Frontend/src/services/faceMonitor.js`
 
-### Free contest
+```js
+// Add a preload export:
+export async function preloadModel() {
+  if (!detector) {
+    await loadModel();
+    console.log('Face detection model pre-loaded');
+  }
+}
+```
 
-For a free contest: [file:1]
+**File:** `Frontend/src/pages/WaitingRoom.jsx`
 
-- No Razorpay checkout is needed. [file:1]
-- User goes from credential validation to contest access. [file:1]
-- No payment record may be required unless you want to log a zero-value entry. [file:1]
-
-### Paid contest
-
-For a paid contest: [file:1]
-
-- A payment order is created. [file:1]
-- Razorpay checkout opens. [file:1]
-- Backend verifies the payment. [file:1]
-- User gets contest access only after success. [file:1]
-- Admin sees the transaction in the Payments dashboard. [file:1]
-
-This conditional behavior makes the platform flexible for both promotional free events and revenue-generating contests. [file:1]
-
----
-
-## Recommended status flow
-
-The Payments admin UI notes mention status filtering by paid, pending, failed, and refunded states. The payment system should therefore use a clear status lifecycle. [file:1]
-
-### Recommended statuses
-
-- `created` → Order created but checkout not completed yet.  
-- `pending` → Payment in progress or awaiting confirmation.  
-- `paid` or `successful` → Payment verified successfully.  
-- `failed` → Payment attempt failed or verification failed.  
-- `refunded` → Payment refunded later.  
-
-These statuses fit the project’s admin payments view, which includes successful, pending, failed, and refunded categories. [file:1]
+```js
+// Add after camera permission is granted:
+useEffect(() => {
+  if (cameraPermission === 'granted') {
+    import('../services/faceMonitor.js')
+      .then(m => m.preloadModel?.())
+      .catch(err => console.warn('Model pre-load failed:', err));
+  }
+}, [cameraPermission]);
+```
 
 ---
 
-## Webhook importance
+### F-51 — Fix typos in error messages
 
-The backend route description explicitly includes Razorpay webhooks under `/api/payments`, which is a strong architectural choice. Webhooks are important because they let the backend receive trusted event notifications directly from Razorpay even if the frontend closes early, loses internet, or fails to send confirmation after checkout. [file:1]
+**File:** `Backend/Models/zodSchmea.js`
 
-### Why webhook support matters
+```js
+// Before → After:
+"Title must be less than 200 charactoe"
+  → "Title must be less than 200 characters"
 
-Without webhooks: [file:1]
+"Description must be less than 1000 charactors"
+  → "Description must be less than 1000 characters"
 
-- A successful payment might not be recorded if the client disconnects. [file:1]
-- Admin payment data could become inconsistent. [file:1]
-- Contest access logic could be harder to trust. [file:1]
+"Rank <to> must be greater than or equal ro rank <from>"
+  → "Rank <to> must be greater than or equal to rank <from>"
 
-With webhooks: [file:1]
+"cannot be in the past fro published contetss"
+  → "cannot be in the past for published contests"
+```
 
-- The backend can independently confirm final payment state. [file:1]
-- Payment records can be corrected or updated reliably. [file:1]
-- Admin reporting becomes more accurate. [file:1]
+**File:** `Backend/controller/contestController.js`
 
-Because the project already includes webhook handling in the architecture, this is a major strength of the payment design. [file:1]
+```js
+// submitContest error response:
+"Internal serverS ERRROR"  →  "Internal Server Error"
+"EEROR:"                   →  "ERROR:"
+console.log("New Submisssion")  →  console.log("New Submission")
+```
 
----
+**File:** `Backend/socket.js`
 
-## Security considerations
-
-The project already uses layered security patterns in authentication, including JWT, Redis-backed sessions, IP checks, and User-Agent validation. The payment system should follow the same security mindset. [file:1]
-
-### Key payment security rules
-
-- Do not trust the frontend payment success callback alone.  
-- Always verify Razorpay signatures on the backend.  
-- Store all important transaction data in the `Payment` collection.  
-- Use webhook events as a second source of truth.  
-- Link each payment to both `User` and `Contest` so admin audit and contest access logic remain traceable. [file:1]
-
-### Access control
-
-Payment admin pages should remain protected by the same admin access pattern used elsewhere in the application, where admin routes are protected on the frontend by `AdminRoute` and on the backend by authentication plus admin authorization middleware. The architecture already defines this separation for admin functionality. [file:1]
+```js
+console.log("Initial websockets")  →  console.log("Initializing WebSockets")
+```
 
 ---
 
-## Admin dashboard payment reporting
+## 22. Environment Variables Reference
 
-The later admin UI blueprint describes a full Payments page with statistics, charts, filters, a payment table, and export functionality. This makes payment integration operationally useful, not just technically complete. [file:1]
+### Backend (complete list)
 
-### Information shown to admins
+| Variable | Required | Description |
+|---|---|---|
+| `PORT` | No | Server port (default: 5000) |
+| `NODE_ENV` | No | `development` or `production` |
+| `API_VERSION` | No | Reported in `/health` response |
+| `MONGODB_URL` | **Yes** | MongoDB connection string |
+| `REDIS_URL` | **Yes** | Redis connection string |
+| `JWT_SECRET` | **Yes** | Secret for JWT signing (min 32 chars) |
+| `SMS_OTP_USER_NAME` | Yes (prod) | SMS provider username |
+| `SMS_OTP_PASSWORD` | Yes (prod) | SMS provider password |
+| `SMS_OTP_SENDER_ID` | Yes (prod) | SMS sender ID |
+| `SMS_OTP_PE_ID` | Yes (prod) | SMS PE ID (DLT compliance) |
+| `SMS_OTP_SHTECH_URL` | Yes (prod) | SMS provider API URL |
+| `SMS_OTP_USER_AGENT` | Yes (prod) | HTTP User-Agent for SMS requests |
+| `SMS_OTP_QUIZBUZZ_TEMPLATE_ID` | Yes (prod) | DLT approved template ID |
+| `WHATSAPP_OTP_API_KEY` | Yes (prod) | WhatsApp API key |
+| `WHATSAPP_OTP_API_URL` | Yes (prod) | WhatsApp API endpoint |
+| `RAZORPAY_KEY_ID` | Yes (prod) | Razorpay public key |
+| `RAZORPAY_KEY_SECRET` | Yes (prod) | Razorpay private key |
+| `WEBHOOK_SECRET` | Yes (prod) | HMAC secret for webhook verification |
 
-According to the design notes, the Payments page can display: [file:1]
+### Frontend (complete list)
 
-- Total revenue. [file:1]
-- Successful payment count and success rate. [file:1]
-- Pending count. [file:1]
-- Failed and refunded totals. [file:1]
-- Revenue bar chart per contest. [file:1]
-- Payment status breakdown chart. [file:1]
-- Search by participant name or order ID. [file:1]
-- Filter by contest and payment status. [file:1]
-- Payment table with participant, contest, order ID, amount, status, and date. [file:1]
-- Export CSV. [file:1]
-
-This means Razorpay data is intended to support both daily admin operations and financial reporting. [file:1]
-
----
-
-## Recommended integration sequence
-
-A clean implementation sequence for this project would be: [file:1]
-
-1. Add contest fee support in the contest creation/edit flow, which the blueprint already includes. [file:1]
-2. Build backend order creation under `/api/payments`. [file:1]
-3. Build `paymentService.js` to open Razorpay checkout. [file:1]
-4. Build backend signature verification endpoint. [file:1]
-5. Save records into the `Payment` collection. [file:1]
-6. Add webhook handling for reliable status updates. [file:1]
-7. Connect payment success to contest enrollment logic. [file:1]
-8. Populate `/admin/payments` with live payment data. [file:1]
-
-This implementation order matches the architecture and prevents UI-only payment features without backend reliability. [file:1]
+| Variable | Required | Description |
+|---|---|---|
+| `VITE_URL` | **Yes** | Backend API base URL (e.g. `https://quiz.ysminfosolution.com/api`) |
+| `VITE_WEBSOCKET_URL` | **Yes** | WebSocket server URL (e.g. `https://quiz.ysminfosolution.com`) |
+| `VITE_SECRET_KEY` | **Yes** | AES encryption key for question caching |
 
 ---
 
-## Example end-to-end scenario
+## 23. Branch Comparison Summary
 
-A participant chooses a paid contest with a registration fee configured by the admin. The participant enters registration details on the join page, the backend validates the contest entry, and because the contest is paid, the frontend calls `paymentService.js` to open a Razorpay checkout. After the participant pays, the frontend sends the Razorpay response to the backend, which verifies the signature, updates the `Payment` record in MongoDB, and then allows the participant to enter the waiting room. Later, the admin opens `/admin/payments` and sees that transaction listed with amount, order ID, contest, and payment status. [file:1]
+| Feature / Change | `main` | `second` | `third` |
+|---|---|---|---|
+| Real OTP implementation | ✅ Full | ✅ Full | ❌ Bypassed (dev mode) |
+| Admin layout (Sidebar/Navbar) | ❌ | Partial | ✅ Complete |
+| ShadCN UI components | ❌ | Partial | ✅ |
+| `AdminRoute` guard | Basic | Improved | ✅ JWT decode, role check |
+| Duplicate `context/` directory | ❌ | Present | ⚠️ Both present (stale not deleted) |
+| Question bank route | ❌ | ❌ | ✅ Added |
+| Participant routes behind auth | ❌ Questions were public | Partial | ✅ All protected |
+| `GET /contests/active` endpoint | ❌ | ❌ | ✅ Added |
+| Bulk route ordering (before /:id) | ❌ | Partial | ✅ Fixed |
+| CI/CD pipeline | GitLab CI | GitHub Actions (broken) | GitHub Actions (broken, same bug) |
+| Docker MongoDB config volume | ❌ | ❌ | ✅ Added |
+| Redis persistence | ❌ | ❌ | ❌ Still missing |
+| Login response includes userInfo | ❌ | Partial | ✅ firstName, lastName, role |
 
 ---
 
-## Summary
+## 24. Execution Checklist
 
-Razorpay integration in this project is designed as a complete payment subsystem tied directly to paid contest registration. The frontend uses `paymentService.js`, the backend exposes `/api/payments` for payment management and webhooks, MongoDB stores transaction data in the `Payment` collection, and the admin dashboard includes a dedic
+Use this checklist during implementation. Complete phases in order.
+
+### Phase 1 — Critical (do before merging to production)
+
+- [ ] F-01 — Restore real OTP implementation (sendOtp, resendOtp, verifyOtp)
+- [ ] F-02 — Add `isDeleted: false` to login query
+- [ ] F-03 — Add `adminMiddleware` to payment routes
+- [ ] F-04 — Add `await` to `areAllJobsCompleted()` in leaderboard
+- [ ] F-05 — Remove hardcoded `slug = 'quizbuzz-3'` default
+- [ ] F-06 — Remove seed credentials from `connectDB()` → move to `scripts/seed.js`
+- [ ] F-07 — Uncomment `app.use(globalRateLimit)` and add `authRateLimit` to login
+- [ ] F-08 — Add `authMiddleware` to `/api/logs`
+- [ ] F-09 — Fix `setex` → `setEx` in `contestParticipantsController.js`
+- [ ] F-10 — Fix Certificate field names (`contestId` → `contestRef`, `participantId` → `userRef`)
+- [ ] F-11 — Remove trailing slash from Socket.io CORS origin in `server.js`
+- [ ] F-12 — Fix CI/CD to deploy the pushed branch, not always `main`
+
+### Phase 2 — High severity (within first week)
+
+- [ ] F-13 — Fix `getContestStatus` to respect DB status field
+- [ ] F-14 — Add null check in `updateContest` before accessing `existingContest.startTime`
+- [ ] F-15 — Change `createdBy: req.user?.id` → `req.user?.userId`
+- [ ] F-16 — Replace hardcoded stats with real MongoDB aggregation
+- [ ] F-17 — Standardise payment amount unit across all controllers
+- [ ] F-18 — Implement real CSV export (replace fake CDN URL)
+- [ ] F-19 — Fix `KeyGenerator` → `keyGenerator` in rate limit middleware
+- [ ] F-20 — Clean up Redis config (remove ioredis options)
+- [ ] F-21 — Add null guard redirect in `WaitingRoom.jsx`
+- [ ] F-22 — Handle 400 "already submitted" as success in retry loop
+- [ ] F-23 — Reduce auto-save interval from 5 min to 60 seconds
+- [ ] F-24 — Delete `src/context/` directory (old AuthContext)
+- [ ] F-25 — Fix `cutoff` → `cutOff` in Zod schema to match DB field
+
+### Phase 3 — Code quality (within two weeks)
+
+- [ ] F-26 — Rename `zodSchmea.js`, `zodParticipantsSchemee.js`, `optSms.js` + update imports
+- [ ] F-27 — Fix participant status filter to query Submissions not User.contestStatus
+- [ ] F-28 — Extract `questionRoutes.js` inline handlers into `questionController.js`
+- [ ] F-29 — Remove unused `Admin` model from `DB.js`
+- [ ] F-30 — Replace `redisClient.keys()` with `scanIterator` everywhere
+- [ ] F-31 — Wire Winston logger; replace debug `console.log` in controllers
+- [ ] F-32 — Create `api.js` centralised fetch wrapper; refactor all raw fetch calls
+- [ ] F-33 — Fix option shuffling to preserve original index for server-side evaluation
+- [ ] F-34 — Use `contest.cutOff` for leaderboard threshold instead of hardcoded 50
+- [ ] F-35 — Add global Express error handler and 404 middleware to `app.js`
+
+### Phase 4 — DevOps & infrastructure (alongside Phase 3)
+
+- [ ] F-36 — Add Redis persistence volume to `docker-compose.yml`
+- [ ] F-37 — Add Docker healthchecks for all services
+- [ ] F-38 — Create `Backend/.env.example` and `Frontend/.env.example`
+- [ ] F-39 — Replace fake test step with real Jest test run in CI pipeline
+- [ ] F-40 — Add deployment rollback mechanism to CI/CD script
+- [ ] F-41 — Align Node.js version across Dockerfiles; add non-root user to backend
+- [ ] F-42 — Add `@socket.io/redis-adapter` for multi-instance readiness
+
+### Phase 5 — Missing features & polish (after Phases 1–4 stable)
+
+- [ ] F-43 — Write minimum Jest test suite (auth, validation, submit, evaluation, middleware)
+- [ ] F-44 — Add `POST /api/auth/refresh` token refresh endpoint
+- [ ] F-45 — Implement real HMAC signature verification in webhook handler
+- [ ] F-46 — Wrap `LiveContest` in `ErrorBoundary` in `App.jsx`
+- [ ] F-47 — Clear stale localStorage (questions, contestInfo, userInfo) after submission
+- [ ] F-48 — Add missing MongoDB indexes (User.registrationId, Contest, Submission, Payment)
+- [ ] F-49 — Add security headers to `nginx.conf`
+- [ ] F-50 — Pre-load TensorFlow/MediaPipe model during `WaitingRoom` stage
+- [ ] F-51 — Fix all typos in Zod error messages and controller response strings
+
+---
+
+*Total fixes: 51 across 5 phases. A full-time developer can complete Phases 1–3 in approximately 3–4 days and all 5 phases in under two weeks.*

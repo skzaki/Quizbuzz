@@ -1,5 +1,5 @@
-// controllers/paymentController.js
 import mongoose from 'mongoose';
+import { Parser } from 'json2csv';
 import { Contest, Payment } from '../../Models/DB.js';
 import { paymentStore } from '../../store/paymentStore.js';
 import {
@@ -74,7 +74,7 @@ import {
                 userEmail: payment.userRef.email,
                 contestId: payment.contestRef._id.toString(),
                 contestTitle: payment.contestRef.title,
-                amount: payment.amount * 0.01,
+                amount: payment.amount / 100,
                 status: payment.status,
                 transactionId: payment.paymentId,
                 paymentMethod: payment.paymentMethod || 'UPI',
@@ -170,7 +170,7 @@ import {
                 userEmail: payment.userRef.email,
                 contestId: payment.contestRef._id.toString(),
                 contestTitle: payment.contestRef.title,
-                amount: payment.amount,
+                amount: payment.amount / 100,
                 status: payment.status,
                 transactionId: payment.paymentId,
                 paymentMethod: payment.paymentMethod || 'Credit Card',
@@ -311,16 +311,31 @@ import {
                 .populate('contestRef', 'title slug registerFee')
                 .lean();
 
-            // For demo purposes, return a mock export URL
-            const filename = `payments-${new Date().toISOString().split('T')[0]}.${format}`;
-            const exportUrl = `https://cdn.example.com/exports/${filename}`;
+            const formattedPayments = payments.map(p => ({
+                Date: p.createdAt.toISOString().split('T')[0],
+                User: `${p.userRef.firstName} ${p.userRef.lastName}`,
+                Email: p.userRef.email,
+                Contest: p.contestRef.title,
+                Amount: p.amount / 100,
+                Status: p.status,
+                TransactionId: p.paymentId
+            }));
+
+            if (format === 'csv') {
+                const fields = columns || ['Date', 'User', 'Email', 'Contest', 'Amount', 'Status', 'TransactionId'];
+                const opts = { fields };
+                const parser = new Parser(opts);
+                const csv = parser.parse(formattedPayments);
+
+                res.setHeader('Content-Type', 'text/csv');
+                res.setHeader('Content-Disposition', `attachment; filename=payments-${new Date().toISOString().split('T')[0]}.csv`);
+                return res.status(200).send(csv);
+            }
 
             res.json({
                 success: true,
                 data: {
-                    exportUrl,
-                    filename,
-                    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+                    payments: formattedPayments,
                     recordCount: payments.length
                 }
             });
@@ -1011,16 +1026,30 @@ import {
     // 8. Webhook Handler
     export const handleWebhook = async (req, res) => {
         try {
-            const signature = req.headers['x-webhook-signature'];
-            const source = req.headers['x-webhook-source'];
+            const signature = req.headers['x-razorpay-signature'];
+            const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-            // Validate webhook signature (implementation depends on provider)
-            if (!signature) {
+            if (!signature || !secret) {
                 return res.status(401).json({
                     success: false,
                     error: {
-                        code: 'MISSING_SIGNATURE',
-                        message: 'Webhook signature is required'
+                        code: 'UNAUTHORIZED_WEBHOOK',
+                        message: 'Webhook signature verification failed'
+                    }
+                });
+            }
+
+            // Verify HMAC signature
+            const shasum = crypto.createHmac('sha256', secret);
+            shasum.update(req.rawBody); // Use req.rawBody for signature verification
+            const digest = shasum.digest('hex');
+
+            if (digest !== signature) {
+                return res.status(401).json({
+                    success: false,
+                    error: {
+                        code: 'INVALID_SIGNATURE',
+                        message: 'Webhook signature did not match'
                     }
                 });
             }

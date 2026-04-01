@@ -99,9 +99,8 @@ class PaymentStore {
     // Clear all payment list caches (call when payments are modified)
     async clearListCaches() {
         try {
-            const keys = await redisClient.keys(`${this.listKeyPrefix}*`);
-            if (keys.length > 0) {
-                await redisClient.del(keys);
+            for await (const key of redisClient.scanIterator({ MATCH: `${this.listKeyPrefix}*` })) {
+                await redisClient.del(key);
             }
         } catch (error) {
             console.error('Redis clear list caches error:', error);
@@ -111,9 +110,8 @@ class PaymentStore {
     // Clear stats caches
     async clearStatsCaches() {
         try {
-            const keys = await redisClient.keys(`${this.statsKeyPrefix}*`);
-            if (keys.length > 0) {
-                await redisClient.del(keys);
+            for await (const key of redisClient.scanIterator({ MATCH: `${this.statsKeyPrefix}*` })) {
+                await redisClient.del(key);
             }
         } catch (error) {
             console.error('Redis clear stats caches error:', error);

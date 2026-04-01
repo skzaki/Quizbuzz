@@ -1,55 +1,58 @@
-// components/ErrorBoundary.jsx
-
-import React from "react";
+import React from 'react';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null, errorInfo: null };
+    this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error) {
-    return { hasError: true };
+    // Update state so the next render will show the fallback UI.
+    return { hasError: true, error };
   }
 
   componentDidCatch(error, errorInfo) {
-    this.setState({
-      error: error,
-      errorInfo: errorInfo
-    });
-    if (this.props.onError) {
-      this.props.onError(error, errorInfo);
-    }
+    // You can also log the error to an error reporting service
+    console.error("Uncaught error:", error, errorInfo);
   }
 
-  handleReset = () => {
-    this.setState({ hasError: false, error: null, errorInfo: null });
-    if (this.props.onReset) {
-      this.props.onReset();
-    }
+  handleReload = () => {
+    window.location.reload();
   };
 
   render() {
     if (this.state.hasError) {
+      // You can render any custom fallback UI
       return (
-        <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-6 border border-red-200 dark:border-red-700">
-          <h2 className="text-lg font-semibold text-red-800 dark:text-red-200 mb-2">
-            {this.props.fallbackTitle || "Something went wrong"}
-          </h2>
-          <p className="text-red-600 dark:text-red-300 mb-4">
-            {this.props.fallbackMessage ||
-              "An unexpected error occurred. Please try again."}
-          </p>
-          <button
-            onClick={this.handleReset}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
-          >
-            {this.props.retryText || "Try Again"}
-          </button>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+          <div className="max-w-md w-full space-y-8 text-center">
+            <div>
+              <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+                Oops! Something went wrong
+              </h2>
+              <p className="mt-2 text-sm text-gray-600">
+                We encountered an unexpected error. Don't worry, your progress might still be saved.
+              </p>
+            </div>
+            <div className="mt-8">
+              <button
+                onClick={this.handleReload}
+                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+              >
+                Reload Page
+              </button>
+            </div>
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mt-4 p-4 bg-red-50 text-red-700 text-left text-xs overflow-auto max-h-48 rounded border border-red-200">
+                {this.state.error && this.state.error.toString()}
+              </div>
+            )}
+          </div>
         </div>
       );
     }
-    return this.props.children;
+
+    return this.props.children; 
   }
 }
 

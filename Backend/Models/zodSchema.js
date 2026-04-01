@@ -19,21 +19,21 @@ const prizeSchema = z.object({
         ctx.addIssue({
             path: ['rankTo'],
             code: z.ZodIssueCode.custom,
-            message: "Rank <to> must be greater than or equal ro rank <from>"
+            message: "Rank <to> must be greater than or equal to rank <from>"
         });
     }
 });
 
 // Contest creation schema
 export const contestSchema = z.object({
-    title: z.string().min(1, "Title is required").max(200, "Title must be less than 200 charactoe"),
-    description: z.string().min(1, "Description is required").max(1000, "Description must be less than 1000 charactors"),
+    title: z.string().min(1, "Title is required").max(200, "Title must be less than 200 characters"),
+    description: z.string().min(1, "Description is required").max(1000, "Description must be less than 1000 characters"),
     details: z.string().optional(),
     topics: z.array(z.string().min(1, "Topic cannot be empty")).min(1, "At least one topic is required"),
     rules: z.array(z.string().min(1, "Rule cannot be empty")).min(1, "At least one rule is required"),
     registrationFee: z.number().min(0, "Registration fee must be non-negative"),
     duration: z.number().int().positive("Duration must be a positive integer (in minutes)"),
-    cutoff: z.number().min(0, "Cut off must be non-negative").optional(),
+    cutOff: z.number().min(0, "Cut off must be non-negative").optional(),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Start date must be in YYYY-MM-DD format"),
     startTime: z.string().regex(/^\d{2}:\d{2}$/, "Start time must be in HH:MM format"),
     maxParticipants: z.number().int().positive("Max participants must be positive integer"),
@@ -48,7 +48,7 @@ export const contestSchema = z.object({
             ctx.addIssue({
                 path:["startDate"],
                 code: z.ZodIssueCode.custom,
-                message: "Start date and time cannot be in the past fro published contetss"
+                message: "Start date and time cannot be in the past for published contests"
             });
         }
     }

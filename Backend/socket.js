@@ -6,8 +6,21 @@ import {
     saveUserState,
     storeCorrectAnswers
 } from "./store/contestStateService.js";
+import { createAdapter } from "@socket.io/redis-adapter";
+import redisClient from "./redis.js";
 
 export default function initSocket(io) {
+    // F-42: Add Redis Adapter for horizontal scaling
+    const pubClient = redisClient.duplicate();
+    const subClient = redisClient.duplicate();
+
+    Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
+        io.adapter(createAdapter(pubClient, subClient));
+        console.log("✅ Socket.io Redis adapter initialized");
+    }).catch(err => {
+        console.error("❌ Socket.io Redis adapter connection error:", err);
+    });
+
     console.log("Initial websockets");
     const scheduledStarts = new Map();
 

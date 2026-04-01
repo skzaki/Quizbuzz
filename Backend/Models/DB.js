@@ -11,13 +11,13 @@ const userSchema = new mongoose.Schema({
     college: { type: String },
     department: { type: String },
     isAdmin: { type: Boolean, default: false },
-    isDeleted: { type: Boolean, default: false },
+    isDeleted: { type: Boolean, default: false, index: true },
 }, { timestamps: true });
 
-const adminSchema = new mongoose.Schema({
-    password: { type: String },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    isDeleted: { type: Boolean, default: false },
+userSchema.index({ email: 1, isDeleted: 1 });
+userSchema.index({ registrationId: 1 }, { sparse: true });
+userSchema.index({ phone: 1 }, { sparse: true });
+
 }, { timestamps: true });
 
 const QuestionSchema = new mongoose.Schema({
@@ -28,7 +28,7 @@ const QuestionSchema = new mongoose.Schema({
     difficulty: { type: String, enum: ['easy', 'medium', 'hard'], required: true, index: true },
     hint: { type: String },
     explanation: { type: String },
-    isDeleted: { type: Boolean, default: false },
+    isDeleted: { type: Boolean, default: false, index: true },
 }, { timestamps: true });
 
 const contestSchema = new mongoose.Schema({
@@ -59,8 +59,12 @@ const contestSchema = new mongoose.Schema({
         currency: { type: String, default: 'INR' },
         benefits: [{ type: String }]
     }],
-    isDeleted: { type: Boolean, default: false },
+    isDeleted: { type: Boolean, default: false, index: true },
 }, { timestamps: true });
+
+contestSchema.index({ slug: 1, isDeleted: 1 });
+contestSchema.index({ startTime: 1, isDeleted: 1 });
+contestSchema.index({ status: 1, isDeleted: 1 });
 
 contestSchema.pre("validate", function (next) {
     if (this.title && !this.slug) {
@@ -73,8 +77,10 @@ const certificatesSchema = new mongoose.Schema({
     userRef: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     contestRef: { type: mongoose.Schema.Types.ObjectId, ref: "Contest" },
     url: { type: String },
-    isDeleted: { type: Boolean, default: false },
+    isDeleted: { type: Boolean, default: false, index: true },
 }, { timestamps: true });
+
+certificatesSchema.index({ userRef: 1, contestRef: 1 });
 
 const paymentsSchema = new mongoose.Schema({
     userRef: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -90,8 +96,13 @@ const paymentsSchema = new mongoose.Schema({
         ip: { type: String },
         userAgent: { type: String }
     },
-    isDeleted: { type: Boolean, default: false },
+    isDeleted: { type: Boolean, default: false, index: true },
 }, { timestamps: true });
+
+paymentsSchema.index({ orderId: 1 });
+paymentsSchema.index({ paymentId: 1 }, { sparse: true });
+paymentsSchema.index({ userRef: 1, isDeleted: 1 });
+paymentsSchema.index({ contestRef: 1, status: 1, isDeleted: 1 });
 
 const sessionSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -124,8 +135,8 @@ const submissionSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 submissionSchema.index({ userId: 1, contestId: 1 }, { unique: true });
+submissionSchema.index({ contestId: 1, score: -1, createdAt: 1 });
 
-export const Admin = mongoose.models.Admin || mongoose.model('Admin', adminSchema);
 export const User = mongoose.models.User || mongoose.model("User", userSchema);
 export const Contest = mongoose.models.Contest || mongoose.model("Contest", contestSchema);
 export const Payment = mongoose.models.Payment || mongoose.model("Payment", paymentsSchema);
@@ -138,37 +149,6 @@ export const connectDB = async () => {
     try {
         await mongoose.connect(process.env.MONGODB_URL);
         console.log('MongoDB connected');
-        // Small delay to ensure models are ready
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Auto-seed admin user if not exists
-        const existing = await User.findOne({ email: 'quiz@gmail.com' });
-        if (!existing) {
-            await User.create({
-                registrationId: 'quiz001',
-                firstName: 'quiz',
-                lastName: 'buzz',
-                email: 'quiz@gmail.com',
-                phone: '9876543210',
-                isAdmin: true,
-                isDeleted: false,
-            });
-            console.log('Admin user seeded.');
-        }
-        // Seed test participant
-        const testUser = await User.findOne({ registrationId: 'QUIZ-001001' });
-        if (!testUser) {
-            await User.create({
-                registrationId: 'QUIZ-001001',
-                firstName: 'Test',
-                lastName: 'User',
-                email: 'quizbuzz@gmail.com',
-                phone: '7248988485',
-                isAdmin: false,
-                isDeleted: false,
-            });
-            console.log('Test participant seeded.');
-        }
     } catch (error) {
         console.error('MongoDB connection failed', error);
         process.exit(1);

@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
+import { preloadModel } from '../services/faceMonitor.js';
 
 // Custom Toast Component for Camera Permission
 const showCameraPermissionToast = (requestCameraPermission, cameraPermission) => {
@@ -178,9 +179,18 @@ const WaitingRoom = () => {
 //      toast.error(msg);
 //  });
 
- useEffect(() => {
+  useEffect(() => {
     showCameraPermissionToast(requestCameraPermission, cameraPermission);
- },[]);
+    
+    // F-50: Pre-load face detection models
+    preloadModel()
+      .then(() => {
+        console.log("🧠 Face detection models pre-loaded");
+      })
+      .catch((err) => {
+        console.error("❌ Failed to pre-load face detection models:", err);
+      });
+  }, []);
 
   // Enhanced camera permission check for mobile compatibility
   const checkCameraPermission = useCallback(async () => {
@@ -235,6 +245,14 @@ const WaitingRoom = () => {
       setIsInitialized(true);
     }
   }, []);
+
+  // F-21: Null guard for contestInfo to prevent infinite loading
+  useEffect(() => {
+    if (isInitialized && !contestInfo) {
+      toast.error('Contest information not found. Please join again.');
+      navigate('/contest/join');
+    }
+  }, [isInitialized, contestInfo, navigate]);
 
   // Socket connection effect
   useEffect(() => {

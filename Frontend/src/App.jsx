@@ -1,6 +1,7 @@
 import { Toaster } from 'react-hot-toast';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import AdminRoute from "./components/AdminRoute";
+import ErrorBoundary from './components/ErrorBoundary';
 import AdminLayout from "./components/admin/layout/AdminLayout";
 import ThankYouScreen from './components/LiveContest/ThankYouScreen';
 import { AuthProvider } from './contexts/AuthContext';
@@ -48,7 +49,14 @@ function App() {
             {/* Participant Routes */}
             <Route path="/contest/join" element={<ContestJoin />} />
             <Route path="/contest/waiting-room" element={<WaitingRoom />} />
-            <Route path="/contest/live/:contestId" element={<LiveContest />} />
+            <Route 
+              path="/contest/live/:contestId" 
+              element={
+                <ErrorBoundary>
+                  <LiveContest />
+                </ErrorBoundary>
+              } 
+            />
             <Route path="/contest/result/:submissionId" element={<ContestResult />} />
             <Route path="/contest/result/evaluate/:submissionId" element={<ThankYouScreen />} />
           </Routes>

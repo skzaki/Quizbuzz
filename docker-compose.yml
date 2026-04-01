@@ -7,13 +7,26 @@ services:
     volumes:
       - quizbuzz-mongo-data:/data/db
       - quizbuzz-mongo-config:/data/configdb
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   redis:
     image: redis:alpine
     container_name: quizbuzz-redis
+    command: redis-server --appendonly yes
     ports:
       - "6379:6379"
+    volumes:
+      - quizbuzz-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   backend:
@@ -24,8 +37,15 @@ services:
     env_file:
       - ./Backend/.env
     depends_on:
-      - mongo
-      - redis
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     restart: unless-stopped
 
   worker:
@@ -35,8 +55,10 @@ services:
     env_file:
       - ./Backend/.env
     depends_on:
-      - mongo
-      - redis
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -53,3 +75,4 @@ services:
 volumes:
   quizbuzz-mongo-data:
   quizbuzz-mongo-config:
+  quizbuzz-redis-data:

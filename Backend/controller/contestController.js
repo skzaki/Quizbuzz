@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import mongoose from 'mongoose';
 import PDFDocument from "pdfkit";
 import { Contest, Session, Submission, User } from '../Models/DB.js';
-import { validateCredentialsSchema } from '../Models/zodSchmea.js';
+import { validateCredentialsSchema } from '../Models/zodSchema.js';
 import { areAllJobsCompleted, evaluationQueue } from '../queue/submissionQueues.js';
 import redisClient from "../redis.js";
 import { getUserState } from "../store/contestStateService.js";
@@ -22,7 +22,11 @@ export const validateCredentials = async (req, res) => {
         errors: parsed.error.format() 
       });
     }
-    const { registrationId, phone, slug = 'quizbuzz-3' } = parsed.data;
+    // F-05: Removed hardcoded slug default 'quizbuzz-3' — slug is now required
+    const { registrationId, phone, slug } = parsed.data;
+    if (!slug) {
+      return res.status(400).json({ message: "Contest slug is required" });
+    }
     const { device, userAgent } = extractDeviceInfo(req);
     const ipAddress = req.ip;
 
@@ -218,7 +222,8 @@ export const submitContest = async (req, res) => {
         //     return res.status(400).json({ error: 'Please answer all questions before submitting.' });
         // }
 
-        console.log('New Submisssion');
+        // F-51: Fixed typo in log message
+        console.log('New Submission');
         const submission = new Submission({
             userId: user._id,
             contestId: contest._id,
@@ -262,10 +267,11 @@ export const submitContest = async (req, res) => {
         });
 
     } catch (error) {
-        console.log(`EEROR: ${error.message}`);
+        // F-51: Fixed typos in error messages
+        console.error(`ERROR: ${error.message}`);
         
         return res.status(500).json({
-            message:" Internal serverS ERRROR"
+            message: "Internal Server Error"
         });
 
     }
@@ -527,7 +533,8 @@ export const getContestLeaderboard = async (req, res) => {
         console.log('In getContestLeaderboard');
         console.log(`BE: ${contestId}`);
         
-        const allDone = areAllJobsCompleted();
+        // F-04: Added await — was missing and always returned truthy Promise
+        const allDone = await areAllJobsCompleted();
 
         if(!allDone) {
             return res.json({ 
@@ -543,9 +550,12 @@ export const getContestLeaderboard = async (req, res) => {
             });
         }
 
+        // F-34: Use contest's cutOff instead of hardcoded 50
+        const leaderboardContest = await Contest.findById(contestId).select('cutOff');
+        const scoreThreshold = leaderboardContest?.cutOff ?? 0;
         const submissions = await Submission.find({ 
             contestId, 
-            score: { $gte: 50 }
+            score: { $gte: scoreThreshold }
         })
         .select('_id userId score totalQuestions createdAt updatedAt')
         .populate('userId', 'registrationId firstName lastName college')

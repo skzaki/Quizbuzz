@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import express from "express";
 import helmet from 'helmet';
 import morgan from 'morgan';
+import logger from './utils/logger.js';
 import { rateLimitMiddleware } from './middleware/rateLimit.js';
 import redisClient from './redis.js';
 import adminContestRoutes from "./routes/admin/contestRoutes.js";
@@ -11,6 +12,7 @@ import paymentRoutes from './routes/admin/paymentRoutes.js';
 import authRoutes from "./routes/authRoutes.js";
 import contestRoutes from "./routes/contestRoutes.js";
 import questionRoutes from "./routes/admin/questionRoutes.js";
+import { authMiddleware } from './middleware/auth.js';
 
 dotenv.config();
 
@@ -30,7 +32,10 @@ app.use(cors(coresOptions));
 // Request parsing middleware
 app.use(express.json({ 
     limit: '10mb',
-    type: ['application/json', 'text/plain']
+    type: ['application/json', 'text/plain'],
+    verify: (req, res, buf) => {
+        req.rawBody = buf;
+    }
 }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Compression middleware
@@ -52,7 +57,7 @@ const globalRateLimit = rateLimitMiddleware({
     standardHeaders: true,
     legacyHeaders: false,
 });
-// app.use(globalRateLimit);
+app.use(globalRateLimit);
 
 
 // Health check endpoint (before other middleware)
@@ -89,7 +94,8 @@ app.use("/api/contests", contestRoutes);
 app.use("/api/admin/questions", questionRoutes);
 app.use("/api/payments", paymentRoutes);
 
-app.post("/api/logs", (req, res) => {
+// F-08: Protected logs endpoint with authMiddleware
+app.post("/api/logs", authMiddleware, (req, res) => {
   const { level, message } = req.body;
   if (["log", "warn", "error"].includes(level)) {
     console[level](`CLIENT ${level.toUpperCase()}:`, message);
@@ -97,6 +103,36 @@ app.post("/api/logs", (req, res) => {
     console.log("CLIENT LOG:", message);
   }
   res.sendStatus(200);
+});
+
+// F-35: 404 Handler
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        error: {
+            code: "NOT_FOUND",
+            message: `Route ${req.originalUrl} not found`
+        }
+    });
+});
+
+// F-35: Global Error Handler
+app.use((err, req, res, next) => {
+    // Log the error using Winston
+    logger.error(`${err.message} - ${req.originalUrl} - ${req.method} - ${req.ip}`, { stack: err.stack });
+
+    const status = err.status || 500;
+    const message = err.message || 'An unexpected error occurred';
+
+    res.status(status).json({
+        success: false,
+        error: {
+            code: err.code || "INTERNAL_SERVER_ERROR",
+            message: process.env.NODE_ENV === 'production' ? message : err.stack,
+            details: err.details || null,
+            timestamp: new Date().toISOString()
+        }
+    });
 });
 
 
