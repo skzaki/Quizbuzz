@@ -24,7 +24,8 @@ const Login = () => {
     setError("");
 
     try {
-      const loginRes = await fetch(`${import.meta.env.VITE_URL}/auth/login`, {
+      const baseUrl = import.meta.env.VITE_URL || '/api';
+      const loginRes = await fetch(`${baseUrl}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, phone }),

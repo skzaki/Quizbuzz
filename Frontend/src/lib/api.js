@@ -3,7 +3,7 @@
  * Handles base URL, auth tokens, and response formatting.
  */
 
-const BASE_URL = import.meta.env.VITE_URL;
+const BASE_URL = import.meta.env.VITE_URL || '/api';
 
 const getHeaders = (options = {}) => {
   const headers = {

@@ -62,7 +62,12 @@ services:
     restart: unless-stopped
 
   frontend:
-    build: ./Frontend
+    build:
+      context: ./Frontend
+      args:
+        - VITE_URL=${VITE_URL:-/api}
+        - VITE_WEBSOCKET_URL=${VITE_WEBSOCKET_URL}
+        - VITE_SECRET_KEY=${VITE_SECRET_KEY}
     container_name: quizbuzz-frontend
     ports:
       - "3000:80"
