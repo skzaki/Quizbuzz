@@ -18,8 +18,6 @@ userSchema.index({ email: 1, isDeleted: 1 });
 userSchema.index({ registrationId: 1 }, { sparse: true });
 userSchema.index({ phone: 1 }, { sparse: true });
 
-}, { timestamps: true });
-
 const QuestionSchema = new mongoose.Schema({
     questionText: { type: String, required: true },
     options: { type: [String], required: true },
