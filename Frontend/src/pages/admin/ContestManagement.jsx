@@ -1,5 +1,6 @@
 import { Calendar, Plus } from 'lucide-react';
 import { Suspense, lazy, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 
@@ -22,12 +23,23 @@ const ContestManagement = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalContests, setTotalContests] = useState(0);
   const [itemsPerPage] = useState(10);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const token = localStorage.getItem("authToken");
 
   useEffect(() => {
     fetchContests();
   }, [currentPage, searchTerm, statusFilter]);
+
+  useEffect(() => {
+    if (searchParams.get('openCreate') === 'true') {
+      setShowCreateForm(true);
+      // Clean up the URL to prevent reopening on refresh
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('openCreate');
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const fetchContests = async () => {
     setLoading(true);

@@ -73,7 +73,7 @@ const AdminDashboard = () => {
                     <p className="text-sm text-slate-500 mt-0.5">Manage and monitor your quiz platform</p>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={() => navigate('/admin/contests')}
+                    <button onClick={() => navigate('/admin/contests?openCreate=true')}
                         className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg">
                         <Plus className="w-4 h-4" /> Add Contest
                     </button>
@@ -102,7 +102,7 @@ const AdminDashboard = () => {
             {/* Quick Actions */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
-                    { label: 'Schedule Contest', icon: Calendar, path: '/admin/contests' },
+                    { label: 'Schedule Contest', icon: Calendar, path: '/admin/contests?openCreate=true' },
                     { label: 'Add Questions', icon: Trophy, path: '/admin/questions' },
                     { label: 'View Analytics', icon: Award, path: '/admin/analytics' },
                     { label: 'Manage Payments', icon: DollarSign, path: '/admin/payments' },
