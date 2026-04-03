@@ -174,25 +174,19 @@ const ContestManagement = () => {
 
   return (
     <ErrorBoundary>
-      <div className="space-y-6">
+      <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="bg-purple-100 dark:bg-purple-900/20 p-3 rounded-lg">
-                <Calendar className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Contest Management</h1>
-                <p className="text-gray-600 dark:text-gray-400">Create and manage quiz contests</p>
-              </div>
-            </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Contest Management</h1>
+            <p className="text-sm text-slate-500 mt-0.5">Create and manage quiz contests</p>
+          </div>
+          <div className="flex gap-2">
             <button
               onClick={() => { setCreateError(''); setShowCreateForm(true); }}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
+              className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg"
             >
-              <Plus className="h-4 w-4" />
-              <span>Create Contest</span>
+              <Plus className="w-4 h-4" /> <span>Create Contest</span>
             </button>
           </div>
         </div>
