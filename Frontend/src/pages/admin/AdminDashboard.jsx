@@ -69,7 +69,7 @@ const AdminDashboard = () => {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-xl font-semibold text-slate-100">Admin Dashboard</h1>
+                    <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Admin Dashboard</h1>
                     <p className="text-sm text-slate-500 mt-0.5">Manage and monitor your quiz platform</p>
                 </div>
                 <div className="flex gap-2">
@@ -87,14 +87,14 @@ const AdminDashboard = () => {
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {statCards.map((card) => (
-                    <div key={card.title} className="bg-slate-800/50 border border-white/[0.06] rounded-xl p-4">
+                    <div key={card.title} className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-white/[0.06] rounded-xl p-4 shadow-sm">
                         <div className="flex items-center justify-between mb-3">
                             <p className="text-sm text-slate-400">{card.title}</p>
                             <div className={`w-8 h-8 rounded-lg ${card.bg} flex items-center justify-center`}>
                                 <card.icon className={`w-4 h-4 ${card.color}`} />
                             </div>
                         </div>
-                        <p className="text-2xl font-bold text-slate-100">{loading ? '—' : card.value}</p>
+                        <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{loading ? '—' : card.value}</p>
                     </div>
                 ))}
             </div>
@@ -108,17 +108,17 @@ const AdminDashboard = () => {
                     { label: 'Manage Payments', icon: DollarSign, path: '/admin/payments' },
                 ].map((action) => (
                     <button key={action.label} onClick={() => navigate(action.path)}
-                        className="flex items-center gap-2 p-3 bg-slate-800/50 border border-white/[0.06] rounded-xl text-sm text-slate-300 hover:bg-slate-700/50 transition-colors">
-                        <action.icon className="w-4 h-4 text-indigo-400 shrink-0" />
+                        className="flex items-center gap-2 p-3 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-white/[0.06] rounded-xl text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors shadow-sm">
+                        <action.icon className="w-4 h-4 text-indigo-500 dark:text-indigo-400 shrink-0" />
                         {action.label}
                     </button>
                 ))}
             </div>
 
             {/* Recent Contests */}
-            <div className="bg-slate-800/50 border border-white/[0.06] rounded-xl">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
-                    <h2 className="text-sm font-semibold text-slate-100">Recent Contests</h2>
+            <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-white/[0.06] rounded-xl shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-white/[0.06]">
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Recent Contests</h2>
                     <button onClick={() => navigate('/admin/contests')} className="text-xs text-indigo-400 hover:text-indigo-300">
                         View all →
                     </button>
@@ -135,19 +135,19 @@ const AdminDashboard = () => {
                 ) : (
                     <table className="w-full">
                         <thead>
-                            <tr className="border-b border-white/[0.06]">
+                            <tr className="border-b border-slate-200 dark:border-white/[0.06] bg-slate-50/50 dark:bg-transparent">
                                 {['Title', 'Start Date', 'Participants', 'Fee', 'Status'].map(h => (
-                                    <th key={h} className="text-left text-[11px] font-medium text-slate-500 uppercase tracking-wider px-5 py-3">{h}</th>
+                                    <th key={h} className="text-left text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-5 py-3">{h}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
                             {contests.map((contest) => (
                                 <tr key={contest.id} onClick={() => navigate(`/admin/contests/${contest.id}`)}
-                                    className="border-b border-white/[0.04] hover:bg-white/[0.03] cursor-pointer transition-colors">
-                                    <td className="px-5 py-3 text-sm text-slate-200 font-medium">{contest.title}</td>
-                                    <td className="px-5 py-3 text-sm text-slate-400">{formatDate(contest.startDate, contest.startTime)}</td>
-                                    <td className="px-5 py-3 text-sm text-slate-400">{contest.registrationCount || 0}</td>
+                                    className="border-b border-slate-100 dark:border-white/[0.04] hover:bg-slate-50 dark:hover:bg-white/[0.03] cursor-pointer transition-colors group">
+                                    <td className="px-5 py-3 text-sm text-slate-700 dark:text-slate-200 font-medium group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{contest.title}</td>
+                                    <td className="px-5 py-3 text-sm text-slate-500 dark:text-slate-400">{formatDate(contest.startDate, contest.startTime)}</td>
+                                    <td className="px-5 py-3 text-sm text-slate-500 dark:text-slate-400">{contest.registrationCount || 0}</td>
                                     <td className="px-5 py-3 text-sm text-slate-400">
                                         {contest.registrationFee === 0 ? 'Free' : `₹${contest.registrationFee}`}
                                     </td>
