@@ -149,21 +149,30 @@ export const getContestBySlug = async (req, res) => {
 };
 
 export const getContestQuestions = async (req, res) => {
-    
     const { contestSlug } = req.params;
     
     if(!contestSlug) return res.status(400).json({ message: "provide the contest slug"});
 
     try {
-        const Ques = await Contest.find(
-            {slug: contestSlug },
-            { QuestionBank: 1, _id:0 }
-        ).populate("QuestionBank", "questionText options");
+        const contest = await Contest.findOne({ slug: contestSlug, isDeleted: false });
+        if (!contest) return res.status(404).json({ message: "Contest not found" });
+
+        // Fetch random questions from selected domains (topics)
+        const questions = await Question.aggregate([
+            { 
+              $match: { 
+                domain: { $in: contest.topics }, 
+                isDeleted: false 
+              } 
+            },
+            { $sample: { size: contest.QuestionBank?.length || 20 } },
+            { $project: { questionText: 1, options: 1, _id: 1 } }
+        ]);
         
         return res.json({
             message: "Fetch Ques success",
-            questions: Ques[0].QuestionBank,
-            quesCount: Ques[0].QuestionBank.length
+            questions: questions,
+            quesCount: questions.length
         })
 
     } catch(error) {
@@ -173,7 +182,6 @@ export const getContestQuestions = async (req, res) => {
             error: error.message
         })
     }
-  
 };
 
 export const submitContest = async (req, res) => {

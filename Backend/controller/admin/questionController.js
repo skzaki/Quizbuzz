@@ -9,8 +9,12 @@ import redisClient from '../../redis.js';
  */
 export const getAllQuestions = async (req, res) => {
     try {
-        const { page = 1, limit = 10, search, difficulty, topic } = req.query;
+        const { page = 1, limit = 10, search, difficulty, topic, domain } = req.query;
         let query = { isDeleted: false };
+        
+        if (domain && domain !== 'all') {
+            query.domain = domain;
+        }
         
         if (search) {
             query.questionText = { $regex: search, $options: 'i' };
@@ -73,6 +77,7 @@ export const createQuestion = async (req, res) => {
             options, 
             correctOptionIndex, 
             correctOptionText, 
+            domain,
             difficulty, 
             hint, 
             explanation 
@@ -83,6 +88,7 @@ export const createQuestion = async (req, res) => {
             options, 
             correctOptionIndex, 
             correctOptionText, 
+            domain,
             difficulty, 
             hint, 
             explanation

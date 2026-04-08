@@ -1,6 +1,6 @@
-// components/CreateContestModal.jsx
 import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import MultiSelectDropdown from '../common/MultiSelectDropdown';
 import ErrorBoundary from '../ErrorBoundary';
 
 const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
@@ -12,7 +12,7 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
     startTime: '',
     registrationFee: '',
     prizePool: '',
-    topics: '',
+    topics: [],
     maxParticipants: '',
     rules: ''
   });
@@ -31,7 +31,7 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
         startTime: editData.time || '',
         registrationFee: editData.registrationFee || '',
         prizePool: editData.prizePool || '',
-        topics: Array.isArray(editData.topics) ? editData.topics.join(', ') : '',
+        topics: Array.isArray(editData.topics) ? editData.topics : [],
         maxParticipants: editData.maxParticipants || '',
         rules: editData.rules || ''
       });
@@ -101,6 +101,10 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
       newErrors.maxParticipants = 'Max participants must be between 1 and 10000';
     }
 
+    if (!formData.topics || formData.topics.length === 0) {
+      newErrors.topics = 'At least one domain must be selected';
+    }
+
     return newErrors;
   };
 
@@ -160,7 +164,7 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
       startTime: '',
       registrationFee: '',
       prizePool: '',
-      topics: '',
+      topics: [],
       maxParticipants: '',
       rules: ''
     });
@@ -344,17 +348,13 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Topics (comma separated)
+                Topics (Domains) *
               </label>
-              <input
-                type="text"
-                name="topics"
-                value={formData.topics}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder="e.g. JavaScript, SQL, Networking"
-                disabled={loading}
+              <MultiSelectDropdown
+                selectedOptions={formData.topics}
+                onChange={(selected) => setFormData(prev => ({ ...prev, topics: selected }))}
               />
+              {errors.topics && <p className="text-red-500 text-xs mt-1">{errors.topics}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

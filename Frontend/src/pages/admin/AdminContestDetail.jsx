@@ -346,17 +346,26 @@ const AdminContestDetail = () => {
                         ) : (
                             contest.QuestionBank.map((q, i) => (
                                 <div key={q._id || i} className="bg-slate-50 dark:bg-slate-700/30 rounded-lg p-3 flex items-start justify-between gap-2 border border-slate-100 dark:border-transparent">
-                                    <p className="text-sm text-slate-800 dark:text-slate-200">
-                                        <span className="text-slate-400 dark:text-slate-500 mr-2">{i + 1}.</span>
-                                        {q.questionText || q}
-                                    </p>
-                                    {q.difficulty && (
-                                        <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
-                                            q.difficulty === 'easy' ? 'bg-green-500/20 text-green-400' :
-                                            q.difficulty === 'hard' ? 'bg-red-500/20 text-red-400' :
-                                            'bg-yellow-500/20 text-yellow-400'
-                                        }`}>{q.difficulty}</span>
-                                    )}
+                                    <div className="flex-1">
+                                        <p className="text-sm text-slate-800 dark:text-slate-200">
+                                            <span className="text-slate-400 dark:text-slate-500 mr-2">{i + 1}.</span>
+                                            {q.questionText || q}
+                                        </p>
+                                        {q.domain && (
+                                            <span className="mt-1 inline-block text-[10px] font-semibold bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                                {q.domain}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col items-end gap-1 shrink-0">
+                                        {q.difficulty && (
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                                                q.difficulty === 'easy' ? 'bg-green-500/20 text-green-400' :
+                                                q.difficulty === 'hard' ? 'bg-red-500/20 text-red-400' :
+                                                'bg-yellow-500/20 text-yellow-400'
+                                            }`}>{q.difficulty}</span>
+                                        )}
+                                    </div>
                                 </div>
                             ))
                         )}

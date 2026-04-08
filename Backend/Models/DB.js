@@ -23,6 +23,7 @@ const QuestionSchema = new mongoose.Schema({
     options: { type: [String], required: true },
     correctOptionIndex: { type: Number, required: true },
     correctOptionText: { type: String, required: true },
+    domain: { type: String, required: true, index: true },
     difficulty: { type: String, enum: ['easy', 'medium', 'hard'], required: true, index: true },
     hint: { type: String },
     explanation: { type: String },

@@ -134,6 +134,7 @@ export const questionsSchema = z.object({
     options: z.array(z.string().min(1, "Option cannot be empty")).min(1, "At least one option is required"),
     correctOptionIndex: z.number().int().nonnegative("Must be 0 or a positive integer"),
     correctOptionText: z.string().min(1, "Correct option text is required"),
+    domain: z.string().min(1, "Domain is required"),
     difficulty: z.enum(["easy", "medium", "hard"]), 
     hint: z.string().optional(),
     explanation: z.string().optional(),
