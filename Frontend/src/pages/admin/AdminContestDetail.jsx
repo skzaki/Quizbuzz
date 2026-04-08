@@ -12,11 +12,11 @@ const WS_URL = import.meta.env.VITE_WEBSOCKET_URL;
 
 const StatusBadge = ({ status }) => {
     const styles = {
-        draft: 'bg-slate-500/20 text-slate-400',
-        upcoming: 'bg-blue-500/20 text-blue-400',
-        ongoing: 'bg-green-500/20 text-green-400',
-        completed: 'bg-purple-500/20 text-purple-400',
-        cancelled: 'bg-red-500/20 text-red-400',
+        draft: 'bg-slate-200 dark:bg-slate-500/20 text-slate-600 dark:text-slate-400',
+        upcoming: 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400',
+        ongoing: 'bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400',
+        completed: 'bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400',
+        cancelled: 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400',
     };
     return (
         <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${styles[status] || styles.draft}`}>
@@ -164,7 +164,7 @@ const AdminContestDetail = () => {
     return (
         <div className="p-6 space-y-6">
             {/* Header */}
-            <div className="bg-slate-800/50 border border-white/[0.06] rounded-xl p-5">
+            <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-white/[0.06] rounded-xl p-5 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <Link to="/admin/contests" className="text-slate-400 hover:text-slate-200">
@@ -172,13 +172,13 @@ const AdminContestDetail = () => {
                         </Link>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h1 className="text-xl font-semibold text-slate-100">{contest.title}</h1>
+                                <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{contest.title}</h1>
                                 <StatusBadge status={contest.status} />
                             </div>
-                            <p className="text-sm text-slate-500 mt-0.5">
-                                {contest.startDate} {contest.startTime} •
-                                {contest.duration} mins •
-                                {contest.registrationFee === 0 ? ' Free' : ` ₹${contest.registrationFee}`} •
+                            <p className="text-sm text-slate-600 dark:text-slate-500 mt-0.5">
+                                {contest.startDate} {contest.startTime} • 
+                                {contest.duration} mins • 
+                                {contest.registrationFee === 0 ? ' Free' : ` ₹${contest.registrationFee}`} • 
                                 {contest.QuestionBank?.length || 0} questions
                             </p>
                         </div>
@@ -211,13 +211,13 @@ const AdminContestDetail = () => {
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-1 bg-slate-800/50 border border-white/[0.06] rounded-xl p-1 overflow-x-auto">
+            <div className="flex gap-1 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-white/[0.06] rounded-xl p-1 overflow-x-auto shadow-sm">
                 {tabs.map(tab => (
                     <button key={tab.key} onClick={() => setActiveTab(tab.key)}
                         className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                             activeTab === tab.key
                                 ? 'bg-indigo-600 text-white'
-                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.05]'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.05]'
                         }`}>
                         <tab.icon className="w-3.5 h-3.5" />
                         {tab.label}
@@ -226,12 +226,12 @@ const AdminContestDetail = () => {
             </div>
 
             {/* Tab Content */}
-            <div className="bg-slate-800/50 border border-white/[0.06] rounded-xl p-5">
+            <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-white/[0.06] rounded-xl p-5 shadow-sm">
 
                 {/* OVERVIEW */}
                 {activeTab === 'overview' && (
                     <div className="space-y-4">
-                        <h2 className="text-sm font-semibold text-slate-300">Contest Details</h2>
+                        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-300">Contest Details</h2>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                             {[
                                 { label: 'Status', value: <StatusBadge status={contest.status} /> },
@@ -243,16 +243,16 @@ const AdminContestDetail = () => {
                                 { label: 'Questions', value: contest.QuestionBank?.length || 0 },
                                 { label: 'Prize Pool', value: `₹${contest.prizePool || 0}` },
                             ].map(item => (
-                                <div key={item.label} className="bg-slate-700/30 rounded-lg p-3">
-                                    <p className="text-xs text-slate-500 mb-1">{item.label}</p>
-                                    <p className="text-sm text-slate-200">{item.value}</p>
+                                <div key={item.label} className="bg-slate-50 dark:bg-slate-700/30 rounded-lg p-3 border border-slate-100 dark:border-transparent">
+                                    <p className="text-xs text-slate-500 dark:text-slate-500 mb-1">{item.label}</p>
+                                    <p className="text-sm text-slate-800 dark:text-slate-200">{item.value}</p>
                                 </div>
                             ))}
                         </div>
                         {contest.description && (
                             <div>
-                                <p className="text-xs text-slate-500 mb-1">Description</p>
-                                <p className="text-sm text-slate-300">{contest.description}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-500 mb-1">Description</p>
+                                <p className="text-sm text-slate-700 dark:text-slate-300">{contest.description}</p>
                             </div>
                         )}
                         {contest.topics?.length > 0 && (
@@ -260,7 +260,7 @@ const AdminContestDetail = () => {
                                 <p className="text-xs text-slate-500 mb-2">Topics</p>
                                 <div className="flex flex-wrap gap-2">
                                     {contest.topics.map(t => (
-                                        <span key={t} className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-xs rounded-full">{t}</span>
+                                        <span key={t} className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 text-xs rounded-full">{t}</span>
                                     ))}
                                 </div>
                             </div>
@@ -270,8 +270,8 @@ const AdminContestDetail = () => {
                                 <p className="text-xs text-slate-500 mb-2">Rules</p>
                                 <ul className="space-y-1">
                                     {(typeof contest.rules === 'string' ? contest.rules.split('\n') : contest.rules).map((r, i) => (
-                                        <li key={i} className="text-sm text-slate-300 flex gap-2">
-                                            <span className="text-indigo-400">{i + 1}.</span> {r}
+                                        <li key={i} className="text-sm text-slate-700 dark:text-slate-300 flex gap-2">
+                                            <span className="text-indigo-600 dark:text-indigo-400">{i + 1}.</span> {r}
                                         </li>
                                     ))}
                                 </ul>
@@ -286,7 +286,7 @@ const AdminContestDetail = () => {
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                                <span className="text-sm text-slate-300">Live — {waitingRoom.length} waiting, {quizRoom.length} in quiz</span>
+                                <span className="text-sm text-slate-700 dark:text-slate-300">Live — {waitingRoom.length} waiting, {quizRoom.length} in quiz</span>
                             </div>
                             {contest.status === 'upcoming' && (
                                 <button onClick={handleStartNow}
@@ -300,21 +300,21 @@ const AdminContestDetail = () => {
                         ) : (
                             <table className="w-full">
                                 <thead>
-                                    <tr className="border-b border-white/[0.06]">
+                                    <tr className="border-b border-slate-200 dark:border-white/[0.06]">
                                         <th className="text-left text-xs text-slate-500 uppercase pb-2">User ID</th>
                                         <th className="text-left text-xs text-slate-500 uppercase pb-2">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {waitingRoom.map((userId, i) => (
-                                        <tr key={i} className="border-b border-white/[0.04]">
-                                            <td className="py-2 text-sm text-slate-300 font-mono">{userId}</td>
+                                        <tr key={i} className="border-b border-slate-100 dark:border-white/[0.04]">
+                                            <td className="py-2 text-sm text-slate-700 dark:text-slate-300 font-mono">{userId}</td>
                                             <td className="py-2"><span className="text-xs text-yellow-400">Waiting</span></td>
                                         </tr>
                                     ))}
                                     {quizRoom.map((userId, i) => (
-                                        <tr key={`q-${i}`} className="border-b border-white/[0.04]">
-                                            <td className="py-2 text-sm text-slate-300 font-mono">{userId}</td>
+                                        <tr key={`q-${i}`} className="border-b border-slate-100 dark:border-white/[0.04]">
+                                            <td className="py-2 text-sm text-slate-700 dark:text-slate-300 font-mono">{userId}</td>
                                             <td className="py-2"><span className="text-xs text-green-400">In Quiz</span></td>
                                         </tr>
                                     ))}
@@ -328,7 +328,7 @@ const AdminContestDetail = () => {
                 {activeTab === 'questions' && (
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                            <h2 className="text-sm font-semibold text-slate-300">
+                            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-300">
                                 {contest.QuestionBank?.length || 0} Questions Assigned
                             </h2>
                             <button onClick={() => setShowAddQuestions(true)}
@@ -345,9 +345,9 @@ const AdminContestDetail = () => {
                             </div>
                         ) : (
                             contest.QuestionBank.map((q, i) => (
-                                <div key={q._id || i} className="bg-slate-700/30 rounded-lg p-3 flex items-start justify-between gap-2">
-                                    <p className="text-sm text-slate-200">
-                                        <span className="text-slate-500 mr-2">{i + 1}.</span>
+                                <div key={q._id || i} className="bg-slate-50 dark:bg-slate-700/30 rounded-lg p-3 flex items-start justify-between gap-2 border border-slate-100 dark:border-transparent">
+                                    <p className="text-sm text-slate-800 dark:text-slate-200">
+                                        <span className="text-slate-400 dark:text-slate-500 mr-2">{i + 1}.</span>
                                         {q.questionText || q}
                                     </p>
                                     {q.difficulty && (
@@ -366,13 +366,13 @@ const AdminContestDetail = () => {
                 {/* PARTICIPANTS */}
                 {activeTab === 'participants' && (
                     <div className="space-y-3">
-                        <h2 className="text-sm font-semibold text-slate-300">{participants.length} Registered</h2>
+                        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-300">{participants.length} Registered</h2>
                         {!participants.length ? (
                             <div className="text-center py-8 text-slate-500 text-sm">No participants yet</div>
                         ) : (
                             <table className="w-full">
                                 <thead>
-                                    <tr className="border-b border-white/[0.06]">
+                                    <tr className="border-b border-slate-200 dark:border-white/[0.06]">
                                         {['Name', 'Email', 'Registration ID', 'Joined'].map(h => (
                                             <th key={h} className="text-left text-xs text-slate-500 uppercase pb-2 pr-4">{h}</th>
                                         ))}
@@ -380,11 +380,11 @@ const AdminContestDetail = () => {
                                 </thead>
                                 <tbody>
                                     {participants.map((p, i) => (
-                                        <tr key={p._id || i} className="border-b border-white/[0.04]">
-                                            <td className="py-2 text-sm text-slate-200 pr-4">{p.username || `${p.firstName || ''} ${p.lastName || ''}`.trim()}</td>
-                                            <td className="py-2 text-sm text-slate-400 pr-4">{p.email}</td>
-                                            <td className="py-2 text-sm text-slate-400 pr-4 font-mono">{p.registrationId || '—'}</td>
-                                            <td className="py-2 text-sm text-slate-400">{new Date(p.createdAt || p.registeredAt).toLocaleDateString('en-IN')}</td>
+                                        <tr key={p._id || i} className="border-b border-slate-100 dark:border-white/[0.04]">
+                                            <td className="py-2 text-sm text-slate-800 dark:text-slate-200 pr-4">{p.username || `${p.firstName || ''} ${p.lastName || ''}`.trim()}</td>
+                                            <td className="py-2 text-sm text-slate-600 dark:text-slate-400 pr-4">{p.email}</td>
+                                            <td className="py-2 text-sm text-slate-600 dark:text-slate-400 pr-4 font-mono">{p.registrationId || '—'}</td>
+                                            <td className="py-2 text-sm text-slate-600 dark:text-slate-400">{new Date(p.createdAt || p.registeredAt).toLocaleDateString('en-IN')}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -396,7 +396,7 @@ const AdminContestDetail = () => {
                 {/* ANALYTICS */}
                 {activeTab === 'analytics' && (
                     <div className="space-y-4">
-                        <h2 className="text-sm font-semibold text-slate-300">Contest Analytics</h2>
+                        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-300">Contest Analytics</h2>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             {[
                                 { label: 'Registered', value: participants.length, color: 'text-blue-400' },
@@ -404,9 +404,9 @@ const AdminContestDetail = () => {
                                 { label: 'In Quiz', value: quizRoom.length, color: 'text-green-400' },
                                 { label: 'Questions', value: contest.QuestionBank?.length || 0, color: 'text-purple-400' },
                             ].map(s => (
-                                <div key={s.label} className="bg-slate-700/30 rounded-lg p-4 text-center">
+                                <div key={s.label} className="bg-slate-50 dark:bg-slate-700/30 rounded-lg p-4 text-center border border-slate-100 dark:border-transparent">
                                     <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
-                                    <p className="text-xs text-slate-500 mt-1">{s.label}</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">{s.label}</p>
                                 </div>
                             ))}
                         </div>
@@ -419,14 +419,14 @@ const AdminContestDetail = () => {
                 {/* EXPORT */}
                 {activeTab === 'export' && (
                     <div className="space-y-4">
-                        <h2 className="text-sm font-semibold text-slate-300">Export Data</h2>
+                        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-300">Export Data</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-slate-700/30 rounded-xl p-5">
+                            <div className="bg-slate-50 dark:bg-slate-700/30 rounded-xl p-5 border border-slate-100 dark:border-transparent">
                                 <div className="flex items-center gap-3 mb-3">
                                     <Users className="w-5 h-5 text-blue-400" />
                                     <div>
-                                        <p className="text-sm font-medium text-slate-200">Participants CSV</p>
-                                        <p className="text-xs text-slate-500">{participants.length} participants</p>
+                                        <p className="text-sm font-medium text-slate-900 dark:text-slate-200">Participants CSV</p>
+                                        <p className="text-xs text-slate-500 dark:text-slate-500">{participants.length} participants</p>
                                     </div>
                                 </div>
                                 <button onClick={exportCSV} disabled={!participants.length}
@@ -434,12 +434,12 @@ const AdminContestDetail = () => {
                                     <Download className="w-4 h-4" /> Download CSV
                                 </button>
                             </div>
-                            <div className="bg-slate-700/30 rounded-xl p-5">
+                            <div className="bg-slate-50 dark:bg-slate-700/30 rounded-xl p-5 border border-slate-100 dark:border-transparent">
                                 <div className="flex items-center gap-3 mb-3">
                                     <Award className="w-5 h-5 text-yellow-400" />
                                     <div>
-                                        <p className="text-sm font-medium text-slate-200">Contest JSON</p>
-                                        <p className="text-xs text-slate-500">Full contest data</p>
+                                        <p className="text-sm font-medium text-slate-900 dark:text-slate-200">Contest JSON</p>
+                                        <p className="text-xs text-slate-500 dark:text-slate-500">Full contest data</p>
                                     </div>
                                 </div>
                                 <button onClick={() => {
