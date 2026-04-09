@@ -12,6 +12,7 @@ import paymentRoutes from './routes/admin/paymentRoutes.js';
 import authRoutes from "./routes/authRoutes.js";
 import contestRoutes from "./routes/contestRoutes.js";
 import questionRoutes from "./routes/admin/questionRoutes.js";
+import settingsRoutes from "./routes/admin/settingsRoutes.js";
 import { authMiddleware } from './middleware/auth.js';
 
 dotenv.config();
@@ -92,6 +93,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/admin/contests", adminContestRoutes);
 app.use("/api/contests", contestRoutes);
 app.use("/api/admin/questions", questionRoutes);
+app.use("/api/admin/settings", settingsRoutes);
 app.use("/api/payments", paymentRoutes);
 
 // F-08: Protected logs endpoint with authMiddleware

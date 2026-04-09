@@ -136,6 +136,56 @@ const submissionSchema = new mongoose.Schema({
 submissionSchema.index({ userId: 1, contestId: 1 }, { unique: true });
 submissionSchema.index({ contestId: 1, score: -1, createdAt: 1 });
 
+const settingsSchema = new mongoose.Schema({
+    // General Settings
+    platformName: { type: String, default: 'Quizbuzz' },
+    supportEmail: { type: String },
+    contactNumber: { type: String },
+    logoUrl: { type: String },
+    faviconUrl: { type: String },
+    maintenanceMode: { type: Boolean, default: false },
+    timezone: { type: String, default: 'UTC' },
+
+    // Contest Settings
+    defaultDuration: { type: Number, default: 60 },
+    allowPaidContests: { type: Boolean, default: true },
+    minEntryFee: { type: Number, default: 0 },
+    maxParticipantsLimit: { type: Number, default: 1000 },
+    autoStart: { type: Boolean, default: false },
+    autoEnd: { type: Boolean, default: true },
+    defaultCutOff: { type: Number, default: 50 },
+
+    // Question Settings
+    defaultQuestionsPerContest: { type: Number, default: 20 },
+    difficultyLevels: { type: [String], default: ['easy', 'medium', 'hard'] },
+    negativeMarking: { type: Boolean, default: false },
+    marksPerQuestion: { type: Number, default: 1 },
+    timePerQuestion: { type: Number, default: 60 },
+
+    // Proctoring & Security
+    tabSwitchLimit: { type: Number, default: 3 },
+    forceFullscreen: { type: Boolean, default: false },
+    maxLoginAttempts: { type: Number, default: 5 },
+    sessionTimeout: { type: Number, default: 1440 }, // in minutes
+
+    // User & Auth Settings
+    allowRegistration: { type: Boolean, default: true },
+    emailVerification: { type: Boolean, default: false },
+    otpLogin: { type: Boolean, default: true },
+
+    // Payment Settings
+    gateway: { type: String, enum: ['RazorPay', 'Stripe'], default: 'RazorPay' },
+    apiKey: { type: String },
+    secretKey: { type: String },
+    currency: { type: String, default: 'INR' },
+    platformCommission: { type: Number, default: 10 },
+    enableWallet: { type: Boolean, default: false },
+
+    // SEO & Analytics
+    metaDescription: { type: String },
+    googleAnalyticsId: { type: String }
+}, { timestamps: true });
+
 export const User = mongoose.models.User || mongoose.model("User", userSchema);
 export const Contest = mongoose.models.Contest || mongoose.model("Contest", contestSchema);
 export const Payment = mongoose.models.Payment || mongoose.model("Payment", paymentsSchema);
@@ -143,6 +193,7 @@ export const Question = mongoose.models.Question || mongoose.model("Question", Q
 export const Certificate = mongoose.models.Certificate || mongoose.model("Certificate", certificatesSchema);
 export const Session = mongoose.models.Session || mongoose.model("Session", sessionSchema);
 export const Submission = mongoose.models.Submission || mongoose.model("Submission", submissionSchema);
+export const Settings = mongoose.models.Settings || mongoose.model("Settings", settingsSchema);
 
 export const connectDB = async () => {
     try {

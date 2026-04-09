@@ -12,6 +12,7 @@ import Analytics from './pages/admin/Analytics';
 import ContestManagement from './pages/admin/ContestManagement';
 import PaymentManagement from './pages/admin/PaymentManagement';
 import QuestionBank from './pages/admin/QuestionBank';
+import AdminSettings from './pages/admin/AdminSettings';
 import ContestJoin from './pages/ContestJoin';
 import ContestResult from './pages/ContestResult';
 import Landing from './pages/Landing';
@@ -44,6 +45,7 @@ function App() {
               <Route path="questions" element={<QuestionBank />} />
               <Route path="payments" element={<PaymentManagement />} />
               <Route path="analytics" element={<Analytics />} />
+              <Route path="settings" element={<AdminSettings />} />
             </Route>
 
             {/* Participant Routes */}

@@ -3,7 +3,8 @@ import {
     Calendar,
     CreditCard,
     Database,
-    FileText
+    FileText,
+    Settings as SettingsIcon
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -28,6 +29,7 @@ const SidebarMenu = ({ location, onClose, user }) => {
     // { icon: Award, label: "Certificates", path: "/admin/certificates" },
     { icon: CreditCard, label: "Payments", path: "/admin/payments" },
     { icon: FileText, label: "Analytics", path: "/admin/analytics" },
+    { icon: SettingsIcon, label: "Settings", path: "/admin/settings" },
   ];
 
   const menuItems = user?.isAdmin ? adminMenuItems : userMenuItems;
