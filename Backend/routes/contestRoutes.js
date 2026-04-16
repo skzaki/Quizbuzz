@@ -27,7 +27,7 @@ router.get('/active', async (req, res) => {
                 { startTime: { $lte: now }, deadline: { $gt: now } }
             ]
         })
-            .select('title slug description duration registerFee startTime deadline topics prizes QuestionBank')
+            .select('title slug description duration registerFee startTime deadline topics domainDistribution prizes QuestionBank')
             .sort({ startTime: 1 })
             .lean();
 

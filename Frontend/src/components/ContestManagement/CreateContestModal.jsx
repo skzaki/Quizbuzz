@@ -2,20 +2,32 @@ import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import MultiSelectDropdown from '../common/MultiSelectDropdown';
 import ErrorBoundary from '../ErrorBoundary';
+import { DEFAULT_CONTEST_RULES_TEXT } from '../../utils/defaultContestRules';
+import {
+  MAX_SELECTABLE_DOMAINS,
+  MIN_DOMAIN_PERCENTAGE,
+  TOTAL_PERCENTAGE,
+  getSliderBounds,
+  normalizeDomainDistribution,
+  rebalanceAfterDomainChange
+} from '../../utils/domainDistribution';
 
-const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    duration: '',
-    startDate: '',
-    startTime: '',
-    registrationFee: '',
-    prizePool: '',
-    topics: [],
-    maxParticipants: '',
-    rules: ''
-  });
+const getInitialFormData = () => ({
+  title: '',
+  description: '',
+  duration: '',
+  startDate: '',
+  startTime: '',
+  registrationFee: '',
+  prizePool: '',
+  topics: [],
+  domainDistribution: [],
+  maxParticipants: '',
+  rules: DEFAULT_CONTEST_RULES_TEXT
+});
+
+const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, serverError = '' }) => {
+  const [formData, setFormData] = useState(getInitialFormData);
   
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -23,20 +35,59 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
   // Pre-populate form if editing
   useEffect(() => {
     if (editData) {
+      const topics = Array.isArray(editData.topics) ? editData.topics : [];
       setFormData({
         title: editData.title || '',
         description: editData.description || '',
         duration: editData.duration || '',
-        startDate: editData.date || '',
-        startTime: editData.time || '',
-        registrationFee: editData.registrationFee || '',
-        prizePool: editData.prizePool || '',
-        topics: Array.isArray(editData.topics) ? editData.topics : [],
-        maxParticipants: editData.maxParticipants || '',
-        rules: editData.rules || ''
+        startDate: editData.startDate || editData.date || '',
+        startTime: editData.startTime || editData.time || '',
+        registrationFee: editData.registrationFee ?? '',
+        prizePool: editData.prizePool ?? '',
+        topics,
+        domainDistribution: normalizeDomainDistribution(topics, editData.domainDistribution || []),
+        maxParticipants: editData.maxParticipants ?? '',
+        rules: Array.isArray(editData.rules) ? editData.rules.join('\n') : (editData.rules || '')
       });
     }
   }, [editData]);
+
+  const handleTopicsSelectionChange = (selectedTopics) => {
+    const constrainedTopics = selectedTopics.slice(0, MAX_SELECTABLE_DOMAINS);
+
+    setFormData(prev => ({
+      ...prev,
+      topics: constrainedTopics,
+      domainDistribution: normalizeDomainDistribution(constrainedTopics, prev.domainDistribution)
+    }));
+
+    if (errors.topics || errors.domainDistribution) {
+      setErrors(prev => ({
+        ...prev,
+        topics: '',
+        domainDistribution: ''
+      }));
+    }
+  };
+
+  const handleDomainWeightChange = (domainName, nextValue) => {
+    setFormData(prev => ({
+      ...prev,
+      domainDistribution: rebalanceAfterDomainChange(
+        prev.topics,
+        prev.domainDistribution,
+        domainName,
+        nextValue
+      )
+    }));
+
+    if (errors.domainDistribution) {
+      setErrors(prev => ({
+        ...prev,
+        domainDistribution: ''
+      }));
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -103,6 +154,24 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
 
     if (!formData.topics || formData.topics.length === 0) {
       newErrors.topics = 'At least one domain must be selected';
+    } else if (formData.topics.length > MAX_SELECTABLE_DOMAINS) {
+      newErrors.topics = `You can select up to ${MAX_SELECTABLE_DOMAINS} domains (minimum ${MIN_DOMAIN_PERCENTAGE}% each)`;
+    }
+
+    const normalizedDistribution = normalizeDomainDistribution(formData.topics, formData.domainDistribution);
+    const distributionTotal = normalizedDistribution.reduce((sum, item) => sum + item.percentage, 0);
+    const hasInvalidMin = normalizedDistribution.some((item) => (
+      formData.topics.length > 1 && item.percentage < MIN_DOMAIN_PERCENTAGE
+    ));
+
+    if (formData.topics.length > 0) {
+      if (normalizedDistribution.length !== formData.topics.length) {
+        newErrors.domainDistribution = 'Domain distribution is out of sync with selected domains';
+      } else if (distributionTotal !== TOTAL_PERCENTAGE) {
+        newErrors.domainDistribution = `Total domain allocation must be exactly ${TOTAL_PERCENTAGE}%`;
+      } else if (hasInvalidMin) {
+        newErrors.domainDistribution = `Each domain must be at least ${MIN_DOMAIN_PERCENTAGE}%`;
+      }
     }
 
     return newErrors;
@@ -127,6 +196,8 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
     setLoading(true);
 
     try {
+      const normalizedDistribution = normalizeDomainDistribution(formData.topics, formData.domainDistribution);
+
       // Pass raw primitive values — let the parent (ContestManagement) do the
       // final shaping so there is only ONE place that builds the API payload.
       const contestData = {
@@ -141,6 +212,7 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
         maxParticipants: formData.maxParticipants,
         // Send raw comma-separated string so parent's split() works correctly
         topics: formData.topics,
+        domainDistribution: normalizedDistribution,
         rules: formData.rules,
         status: isDraft ? 'draft' : 'upcoming',
       };
@@ -156,18 +228,7 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
   };
 
   const resetForm = () => {
-    setFormData({
-      title: '',
-      description: '',
-      duration: '',
-      startDate: '',
-      startTime: '',
-      registrationFee: '',
-      prizePool: '',
-      topics: [],
-      maxParticipants: '',
-      rules: ''
-    });
+    setFormData(getInitialFormData());
     setErrors({});
   };
 
@@ -198,6 +259,9 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
 
   if (!isOpen) return null;
 
+  const generalError = errors.general || serverError;
+  const totalDomainPercentage = formData.domainDistribution.reduce((sum, item) => sum + (item.percentage || 0), 0);
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
     <ErrorBoundary>
@@ -218,9 +282,9 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
           </button>
         </div>
 
-        {errors.general && (
+        {generalError && (
           <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-red-600 dark:text-red-400 text-sm">{errors.general}</p>
+            <p className="text-red-600 dark:text-red-400 text-sm">{generalError}</p>
           </div>
         )}
         
@@ -352,8 +416,12 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
               </label>
               <MultiSelectDropdown
                 selectedOptions={formData.topics}
-                onChange={(selected) => setFormData(prev => ({ ...prev, topics: selected }))}
+                onChange={handleTopicsSelectionChange}
+                maxSelections={MAX_SELECTABLE_DOMAINS}
               />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Select up to {MAX_SELECTABLE_DOMAINS} domains. Minimum {MIN_DOMAIN_PERCENTAGE}% per domain.
+              </p>
               {errors.topics && <p className="text-red-500 text-xs mt-1">{errors.topics}</p>}
             </div>
             <div>
@@ -372,6 +440,63 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
               {errors.maxParticipants && <p className="text-red-500 text-xs mt-1">{errors.maxParticipants}</p>}
             </div>
           </div>
+
+          {formData.topics.length > 0 && (
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-900/30 p-4 space-y-3 transition-all duration-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                  Domain Weight Distribution
+                </h3>
+                <span className={`text-xs font-semibold ${
+                  totalDomainPercentage === TOTAL_PERCENTAGE
+                    ? 'text-green-600 dark:text-green-400'
+                    : 'text-red-600 dark:text-red-400'
+                }`}>
+                  Total: {totalDomainPercentage}%
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {formData.domainDistribution.map((item) => {
+                  const sliderBounds = getSliderBounds(formData.topics.length);
+                  const disableSlider = formData.topics.length === 1 || formData.topics.length > MAX_SELECTABLE_DOMAINS;
+
+                  return (
+                    <div key={item.name} className="space-y-1.5 transition-all duration-200">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium text-gray-700 dark:text-gray-300">{item.name}</span>
+                        <span className="font-semibold text-purple-600 dark:text-purple-400">{item.percentage}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={sliderBounds.min}
+                        max={sliderBounds.max}
+                        step="1"
+                        value={item.percentage}
+                        onChange={(e) => handleDomainWeightChange(item.name, Number(e.target.value))}
+                        disabled={loading || disableSlider}
+                        className="w-full accent-purple-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {formData.topics.length > MAX_SELECTABLE_DOMAINS && (
+                <p className="text-red-500 text-xs">
+                  This contest has more than {MAX_SELECTABLE_DOMAINS} domains. Reduce domains to enable weighted sliders.
+                </p>
+              )}
+
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Allocation updates in real-time and always remains exactly {TOTAL_PERCENTAGE}%.
+              </p>
+
+              {errors.domainDistribution && (
+                <p className="text-red-500 text-xs">{errors.domainDistribution}</p>
+              )}
+            </div>
+          )}
 
           {/* Rules */}
           <div>

@@ -3,6 +3,8 @@ import { Suspense, lazy, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
+import { DEFAULT_CONTEST_RULES } from '../../utils/defaultContestRules';
+import { normalizeDomainDistribution } from '../../utils/domainDistribution';
 
 const ContestTable = lazy(() => import('../../components/ContestManagement/ContestTable'));
 const CreateContestModal = lazy(() => import('../../components/ContestManagement/CreateContestModal'));
@@ -12,6 +14,7 @@ const BASE_URL = `${import.meta.env.VITE_URL}/admin`;
 
 const ContestManagement = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editingContest, setEditingContest] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [contests, setContests] = useState([]);
@@ -60,45 +63,96 @@ const ContestManagement = () => {
     }
   };
 
-  const handleCreateContest = async (formData) => {
-    setCreateError('');
-    try {
-      // Build rules array from newline-separated string
-      const rulesRaw = formData.rules || '';
-      const rulesArray = rulesRaw
-        .split('\n')
-        .map(r => r.trim())
-        .filter(Boolean);
-      if (rulesArray.length === 0) rulesArray.push('Follow all contest guidelines');
+  const buildContestPayload = (formData) => {
+    const rulesRaw = formData.rules || '';
+    const rulesArray = rulesRaw
+      .split('\n')
+      .map((r) => r.trim())
+      .filter(Boolean);
 
-      // Build topics array from comma-separated string
-      const topicsRaw = Array.isArray(formData.topics)
-        ? formData.topics
-        : (formData.topics || '').split(',').map(t => t.trim()).filter(Boolean);
-      if (topicsRaw.length === 0) topicsRaw.push('General');
+    if (rulesArray.length === 0) {
+      rulesArray.push(...DEFAULT_CONTEST_RULES);
+    }
 
-      const prizeAmount = parseFloat(formData.prizePool) || 0;
+    const topicsRaw = Array.isArray(formData.topics)
+      ? formData.topics
+      : (formData.topics || '').split(',').map((t) => t.trim()).filter(Boolean);
 
+    if (topicsRaw.length === 0) {
+      topicsRaw.push('General');
+    }
 
-      const payload = {
-        title: formData.title,
-        description: formData.description,
-        startDate: formData.startDate,           // YYYY-MM-DD (Zod expects this)
-        startTime: formData.startTime,           // HH:MM     (Zod expects this)
-        duration: parseInt(formData.duration),
-        registrationFee: parseFloat(formData.registrationFee) || 0,  // exact Zod field name
-        maxParticipants: parseInt(formData.maxParticipants) || 100,
-        topics: topicsRaw,
-        rules: rulesArray,
-        prizes: [{
+    const prizeAmount = parseFloat(formData.prizePool) || 0;
+    const domainDistribution = normalizeDomainDistribution(
+      topicsRaw,
+      Array.isArray(formData.domainDistribution) ? formData.domainDistribution : []
+    );
+
+    return {
+      title: formData.title,
+      description: formData.description,
+      startDate: formData.startDate,
+      startTime: formData.startTime,
+      duration: parseInt(formData.duration),
+      registrationFee: parseFloat(formData.registrationFee) || 0,
+      maxParticipants: parseInt(formData.maxParticipants) || 100,
+      topics: topicsRaw,
+      domainDistribution,
+      rules: rulesArray,
+      prizes: [
+        {
           rankFrom: 1,
           rankTo: 1,
           amount: prizeAmount,
           currency: 'INR',
           benefits: []
-        }],
-        status: formData.status || 'draft',
-      };
+        }
+      ],
+      status: formData.status || 'draft',
+    };
+  };
+
+  const handleOpenCreate = () => {
+    setCreateError('');
+    setEditingContest(null);
+    setShowCreateForm(true);
+  };
+
+  const handleOpenEdit = async (contest) => {
+    setCreateError('');
+    setEditingContest(contest);
+    setShowCreateForm(true);
+
+    try {
+      const contestId = contest.id || contest._id;
+      const res = await fetch(`${BASE_URL}/contests/${contestId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json?.error?.message || json?.message || 'Failed to fetch contest details');
+      }
+
+      if (json?.data) {
+        setEditingContest(json.data);
+      }
+    } catch (err) {
+      console.error('Fetch contest details error:', err);
+      setCreateError(err.message);
+    }
+  };
+
+  const handleModalClose = () => {
+    setShowCreateForm(false);
+    setEditingContest(null);
+    setCreateError('');
+  };
+
+  const handleCreateContest = async (formData) => {
+    setCreateError('');
+    try {
+      const payload = buildContestPayload(formData);
 
       console.log('Sending payload:', payload);
 
@@ -124,6 +178,7 @@ const ContestManagement = () => {
       }
 
       setShowCreateForm(false);
+      setEditingContest(null);
       fetchContests();
     } catch (err) {
       console.error('Create contest error:', err);
@@ -133,17 +188,43 @@ const ContestManagement = () => {
     }
   };
 
-  const handleEditContest = async (contestId, updates) => {
+  const handleUpdateContest = async (contestId, formData) => {
+    setCreateError('');
     try {
-      await fetch(`${BASE_URL}/contests/${contestId}`, {
+      const payload = buildContestPayload(formData);
+
+      const res = await fetch(`${BASE_URL}/contests/${contestId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(updates)
+        body: JSON.stringify(payload)
       });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        if (json?.error?.details?.length > 0) {
+          const msgs = json.error.details.map((d) => `${d.field}: ${d.message}`).join('\n');
+          throw new Error(msgs);
+        }
+        throw new Error(json?.error?.message || json?.message || 'Failed to update contest');
+      }
+
+      setShowCreateForm(false);
+      setEditingContest(null);
       fetchContests();
     } catch (err) {
-      console.error(err);
+      console.error('Update contest error:', err);
+      setCreateError(err.message);
+      throw err;
     }
+  };
+
+  const handleSubmitContest = async (formData) => {
+    if (editingContest) {
+      const contestId = editingContest.id || editingContest._id;
+      return handleUpdateContest(contestId, formData);
+    }
+    return handleCreateContest(formData);
   };
 
   const handleDeleteContest = async (contestId) => {
@@ -183,7 +264,7 @@ const ContestManagement = () => {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => { setCreateError(''); setShowCreateForm(true); }}
+              onClick={handleOpenCreate}
               className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg"
             >
               <Plus className="w-4 h-4" /> <span>Create Contest</span>
@@ -214,7 +295,7 @@ const ContestManagement = () => {
             <ContestTable
               contests={contests}
               loading={loading}
-              onEdit={handleEditContest}
+              onEdit={handleOpenEdit}
               onDelete={handleDeleteContest}
               onStatusChange={handleStatusChange}
               currentPage={currentPage}
@@ -230,8 +311,9 @@ const ContestManagement = () => {
             <Suspense fallback={<LoadingSpinner />}>
               <CreateContestModal
                 isOpen={showCreateForm}
-                onClose={() => setShowCreateForm(false)}
-                onSubmit={handleCreateContest}
+                onClose={handleModalClose}
+                onSubmit={handleSubmitContest}
+                editData={editingContest}
                 serverError={createError}
               />
             </Suspense>

@@ -168,11 +168,11 @@ const ContestTable = ({
               </tr>
             ) : (
               contests.map((contest) => (
-                <tr key={contest.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                <tr key={contest.id || contest._id || contest.title} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   <td className="px-6 py-4">
                     <div>
                       <Link
-                        to={`/admin/contests/${contest.id}`}
+                        to={`/admin/contests/${contest.id || contest._id}`}
                         className="text-sm font-medium text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300"
                       >
                         {contest.title}
@@ -181,7 +181,7 @@ const ContestTable = ({
                         {contest.description}
                       </div>
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {contest.topics.map((topic, index) => (
+                        {(contest.topics || []).map((topic, index) => (
                           <Suspense key={index} fallback={<span className="text-xs bg-gray-200 dark:bg-gray-700 rounded px-2 py-1">{topic}</span>}>
                             <Badge variant="default" size="sm">
                               {topic}
@@ -192,8 +192,8 @@ const ContestTable = ({
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                    <div>{contest.date}</div>
-                    <div className="text-gray-500 dark:text-gray-400">{contest.time}</div>
+                    <div>{contest.startDate || contest.date || '-'}</div>
+                    <div className="text-gray-500 dark:text-gray-400">{contest.startTime || contest.time || '-'}</div>
                     <div className="text-gray-500 dark:text-gray-400">{contest.duration} min</div>
                   </td>
                   <td className="px-6 py-4">
@@ -222,7 +222,7 @@ const ContestTable = ({
                   <td className="px-6 py-4">
                     <div className="flex space-x-2">
                       <Link
-                        to={`/admin/contests/${contest.id}`}
+                        to={`/admin/contests/${contest.id || contest._id}`}
                         className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                         title="View Details"
                       >
@@ -231,7 +231,7 @@ const ContestTable = ({
                       <button 
                         className="text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                         title="Edit Contest"
-                        onClick={() => onEdit(contest.id, contest)}
+                        onClick={() => onEdit(contest)}
                       >
                         <Edit className="h-4 w-4" />
                       </button>
@@ -239,7 +239,7 @@ const ContestTable = ({
                         <button 
                           className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
                           title="Publish Contest"
-                          onClick={() => handleStatusAction(contest.id, contest.status)}
+                          onClick={() => handleStatusAction(contest.id || contest._id, contest.status)}
                         >
                           <Play className="h-4 w-4" />
                         </button>
@@ -248,7 +248,7 @@ const ContestTable = ({
                         <button 
                           className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                           title="End Contest"
-                          onClick={() => handleStatusAction(contest.id, contest.status)}
+                          onClick={() => handleStatusAction(contest.id || contest._id, contest.status)}
                         >
                           <Square className="h-4 w-4" />
                         </button>
@@ -256,7 +256,7 @@ const ContestTable = ({
                       <button 
                         className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                         title="Delete Contest"
-                        onClick={() => onDelete(contest.id)}
+                        onClick={() => onDelete(contest.id || contest._id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>

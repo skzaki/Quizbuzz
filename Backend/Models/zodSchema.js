@@ -24,18 +24,55 @@ const prizeSchema = z.object({
     }
 });
 
+const MIN_DOMAIN_PERCENTAGE = 10;
+const TOTAL_DOMAIN_PERCENTAGE = 100;
+const MAX_DISTRIBUTION_DOMAINS = TOTAL_DOMAIN_PERCENTAGE / MIN_DOMAIN_PERCENTAGE;
+
+const domainDistributionItemSchema = z.object({
+    name: z.string().min(1, 'Domain name is required'),
+    percentage: z.number().int().min(MIN_DOMAIN_PERCENTAGE, `Each domain must be at least ${MIN_DOMAIN_PERCENTAGE}%`).max(TOTAL_DOMAIN_PERCENTAGE)
+});
+
+const domainDistributionSchema = z.array(domainDistributionItemSchema)
+    .min(1, 'At least one domain distribution entry is required')
+    .max(MAX_DISTRIBUTION_DOMAINS, `You can configure up to ${MAX_DISTRIBUTION_DOMAINS} domains`)
+    .superRefine((data, ctx) => {
+        const names = data.map((item) => item.name);
+        const uniqueNames = new Set(names);
+
+        if (uniqueNames.size !== names.length) {
+            ctx.addIssue({
+                path: ['name'],
+                code: z.ZodIssueCode.custom,
+                message: 'Domain names must be unique in distribution'
+            });
+        }
+
+        const total = data.reduce((sum, item) => sum + item.percentage, 0);
+        if (total !== TOTAL_DOMAIN_PERCENTAGE) {
+            ctx.addIssue({
+                path: ['percentage'],
+                code: z.ZodIssueCode.custom,
+                message: `Domain distribution must total exactly ${TOTAL_DOMAIN_PERCENTAGE}%`
+            });
+        }
+    });
+
 // Contest creation schema
 export const contestSchema = z.object({
     title: z.string().min(1, "Title is required").max(200, "Title must be less than 200 characters"),
     description: z.string().min(1, "Description is required").max(1000, "Description must be less than 1000 characters"),
     details: z.string().optional(),
-    topics: z.array(z.string().min(1, "Topic cannot be empty")).min(1, "At least one topic is required"),
+    topics: z.array(z.string().min(1, "Topic cannot be empty"))
+        .min(1, "At least one topic is required")
+        .max(MAX_DISTRIBUTION_DOMAINS, `You can select up to ${MAX_DISTRIBUTION_DOMAINS} topics`),
     rules: z.array(z.string().min(1, "Rule cannot be empty")).min(1, "At least one rule is required"),
     registrationFee: z.number().min(0, "Registration fee must be non-negative"),
     duration: z.number().int().positive("Duration must be a positive integer (in minutes)"),
     cutOff: z.number().min(0, "Cut off must be non-negative").optional(),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Start date must be in YYYY-MM-DD format"),
     startTime: z.string().regex(/^\d{2}:\d{2}$/, "Start time must be in HH:MM format"),
+    domainDistribution: domainDistributionSchema.optional(),
     maxParticipants: z.number().int().positive("Max participants must be positive integer"),
     prizes: z.array(prizeSchema).min(1, "At least one prize must be defined"),
     status: z.enum(["draft", "upcoming", "ongoing", "completed", "cancelled"]).default("draft")
@@ -64,6 +101,22 @@ export const contestSchema = z.object({
             })
         }
     }
+
+    if (data.domainDistribution) {
+        const topicSet = new Set(data.topics);
+        const distributionSet = new Set(data.domainDistribution.map((item) => item.name));
+
+        if (
+            topicSet.size !== distributionSet.size ||
+            ![...topicSet].every((topic) => distributionSet.has(topic))
+        ) {
+            ctx.addIssue({
+                path: ['domainDistribution'],
+                code: z.ZodIssueCode.custom,
+                message: 'Domain distribution names must exactly match selected topics'
+            });
+        }
+    }
 })
 
 // Contest update schema (all fields optional)
@@ -71,13 +124,17 @@ export const updateContestSchema = z.object({
     title: z.string().min(1, "Title is required").max(200, "Title must be less than 200 characters").optional(),
     description: z.string().min(1, "Description is required").max(1000, "Description must be less than 1000 characters").optional(),
     details: z.string().optional(),
-    topics: z.array(z.string().min(1, "Topic cannot be empty")).min(1, "At least one topic is required").optional(),
+    topics: z.array(z.string().min(1, "Topic cannot be empty"))
+        .min(1, "At least one topic is required")
+        .max(MAX_DISTRIBUTION_DOMAINS, `You can select up to ${MAX_DISTRIBUTION_DOMAINS} topics`)
+        .optional(),
     rules: z.array(z.string().min(1, "Rule cannot be empty")).min(1, "At least one rule is required").optional(),
     registrationFee: z.number().min(0, "Registration fee must be non-negative").optional(),
     duration: z.number().int().positive("Duration must be a positive integer (in minutes)").optional(),
     cutOff: z.number().min(0, "Cut off must be non-negative").optional(),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Start date must be in YYYY-MM-DD format").optional(),
     startTime: z.string().regex(/^\d{2}:\d{2}$/, "Start time must be in HH:MM format").optional(),
+    domainDistribution: domainDistributionSchema.optional(),
     maxParticipants: z.number().int().positive("Max participants must be a positive integer").optional(),
     prizes: z.array(prizeSchema).min(1, "At least one prize must be defined").optional()
 }).superRefine((data, ctx) => {
@@ -106,6 +163,22 @@ export const updateContestSchema = z.object({
                 });
                 break;
             }
+        }
+    }
+
+    if (data.topics && data.domainDistribution) {
+        const topicSet = new Set(data.topics);
+        const distributionSet = new Set(data.domainDistribution.map((item) => item.name));
+
+        if (
+            topicSet.size !== distributionSet.size ||
+            ![...topicSet].every((topic) => distributionSet.has(topic))
+        ) {
+            ctx.addIssue({
+                path: ['domainDistribution'],
+                code: z.ZodIssueCode.custom,
+                message: 'Domain distribution names must exactly match selected topics'
+            });
         }
     }
 });

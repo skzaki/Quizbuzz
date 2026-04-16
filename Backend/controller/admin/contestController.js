@@ -2,6 +2,7 @@
 import { Contest, Question, Submission, User } from "../../Models/DB.js";
 import { bulkStatusUpdateSchema, contestSchema, questionsSchema, updateContestSchema } from "../../Models/zodSchema.js";
 import redisClient from '../../redis.js';
+import { isDistributionMatchingDomains, normalizeDomainDistribution } from '../../utils/domainDistribution.js';
 
 // Redis key helpers
 const getContestCacheKey = (contestId) => `contest:${contestId}`;
@@ -118,6 +119,7 @@ export const getAllContests = async (req, res) => {
             prizePool: contest.prizes.reduce((total, prize) => total + prize.amount, 0),
             status: getContestStatus(contest),
             topics: contest.topics,
+            domainDistribution: contest.domainDistribution || [],
             createdBy: contest.createdBy,
             createdAt: contest.createdAt,
             updatedAt: contest.updatedAt
@@ -208,6 +210,7 @@ export const getContestById = async (req, res) => {
             prizePool: contest.prizes.reduce((total, prize) => total + prize.amount, 0),
             status: getContestStatus(contest),
             topics: contest.topics,
+            domainDistribution: contest.domainDistribution || [],
             rules: contest.rules.join('\n'),
             createdBy: contest.createdBy,
             createdAt: contest.createdAt,
@@ -271,11 +274,17 @@ export const createContest = async (req, res) => {
             });
         }
 
+        const normalizedDomainDistribution = normalizeDomainDistribution(
+            validation.data.topics,
+            validation.data.domainDistribution || []
+        );
+
         const contestData = {
             ...validation.data,
             startTime: new Date(`${validation.data.startDate} ${validation.data.startTime}`),
             deadline: new Date(new Date(`${validation.data.startDate} ${validation.data.startTime}`).getTime() + validation.data.duration * 60000),
             registerFee: validation.data.registrationFee,
+            domainDistribution: normalizedDomainDistribution,
             createdBy: req.user?.userId || 'admin_user_id'
         };
 
@@ -293,6 +302,7 @@ export const createContest = async (req, res) => {
                 registrationFee: validation.data.registrationFee,
                 prizePool: contest.prizes.reduce((total, prize) => total + prize.amount, 0),
                 topics: contest.topics,
+                domainDistribution: contest.domainDistribution || [],
                 maxParticipants: validation.data.maxParticipants,
                 registrationCount: 0,
                 rules: contest.rules.join('\n'),
@@ -357,9 +367,17 @@ export const updateContest = async (req, res) => {
 
         const updateData = { ...validation.data };
 
-        // Handle date/time updates
-        if (validation.data.startDate || validation.data.startTime) {
-            const existingContest = await Contest.findById(id);
+        const needsExistingContest = Boolean(
+            validation.data.startDate ||
+            validation.data.startTime ||
+            validation.data.topics ||
+            validation.data.domainDistribution
+        );
+
+        let existingContest = null;
+
+        if (needsExistingContest) {
+            existingContest = await Contest.findById(id);
             if (!existingContest) {
                 return res.status(404).json({
                     success: false,
@@ -369,11 +387,41 @@ export const updateContest = async (req, res) => {
                     }
                 });
             }
+        }
+
+        // Handle date/time updates
+        if (validation.data.startDate || validation.data.startTime) {
             const currentStartDate = validation.data.startDate || existingContest.startTime.toISOString().split('T')[0];
             const currentStartTime = validation.data.startTime || existingContest.startTime.toTimeString().split(' ')[0].substring(0, 5);
 
             updateData.startTime = new Date(`${currentStartDate} ${currentStartTime}`);
             updateData.deadline = new Date(updateData.startTime.getTime() + (validation.data.duration || existingContest.duration) * 60000);
+        }
+
+        if (validation.data.topics || validation.data.domainDistribution) {
+            const mergedTopics = validation.data.topics || existingContest.topics || [];
+            const mergedDistribution = validation.data.domainDistribution || existingContest.domainDistribution || [];
+
+            if (
+                validation.data.domainDistribution &&
+                !isDistributionMatchingDomains(mergedTopics, validation.data.domainDistribution)
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "VALIDATION_ERROR",
+                        message: "Invalid input data",
+                        details: [
+                            {
+                                field: "domainDistribution",
+                                message: "Domain distribution names must exactly match selected topics"
+                            }
+                        ]
+                    }
+                });
+            }
+
+            updateData.domainDistribution = normalizeDomainDistribution(mergedTopics, mergedDistribution);
         }
 
         if (validation.data.registrationFee !== undefined) {
@@ -405,6 +453,7 @@ export const updateContest = async (req, res) => {
                 registrationFee: contest.registerFee,
                 prizePool: contest.prizes.reduce((total, prize) => total + prize.amount, 0),
                 topics: contest.topics,
+                domainDistribution: contest.domainDistribution || [],
                 maxParticipants: validation.data.maxParticipants,
                 registrationCount: contest.participants.length,
                 rules: contest.rules.join('\n'),

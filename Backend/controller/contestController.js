@@ -2,13 +2,14 @@ import crypto from 'crypto';
 import jwt from "jsonwebtoken";
 import mongoose from 'mongoose';
 import PDFDocument from "pdfkit";
-import { Contest, Session, Submission, User } from '../Models/DB.js';
+import { Contest, Question, Session, Submission, User } from '../Models/DB.js';
 import { validateCredentialsSchema } from '../Models/zodSchema.js';
 import { areAllJobsCompleted, evaluationQueue } from '../queue/submissionQueues.js';
 import redisClient from "../redis.js";
 import { getUserState } from "../store/contestStateService.js";
 import { saveSession } from "../store/sessionService.js";
 import { extractDeviceInfo } from '../utils/sessionHelper.js';
+import { calculateQuestionCountsFromDistribution, normalizeDomainDistribution } from '../utils/domainDistribution.js';
 
 
 
@@ -101,6 +102,7 @@ export const validateCredentials = async (req, res) => {
       description: contest.description,
       details: contest.details,
       topics: contest.topics,
+      domainDistribution: contest.domainDistribution || [],
       rules: contest.rules,
       registerFee: contest.registerFee,
       duration: contest.duration,
@@ -157,22 +159,100 @@ export const getContestQuestions = async (req, res) => {
         const contest = await Contest.findOne({ slug: contestSlug, isDeleted: false });
         if (!contest) return res.status(404).json({ message: "Contest not found" });
 
-        // Fetch random questions from selected domains (topics)
-        const questions = await Question.aggregate([
-            { 
-              $match: { 
-                domain: { $in: contest.topics }, 
-                isDeleted: false 
-              } 
-            },
-            { $sample: { size: contest.QuestionBank?.length || 20 } },
-            { $project: { questionText: 1, options: 1, _id: 1 } }
+      const selectedDomains = Array.isArray(contest.topics) ? contest.topics : [];
+      if (selectedDomains.length === 0) {
+        return res.status(400).json({ message: "No domains configured for this contest" });
+      }
+
+      const totalQuestions = contest.QuestionBank?.length || 20;
+      const normalizedDistribution = normalizeDomainDistribution(
+        selectedDomains,
+        contest.domainDistribution || []
+      );
+      const domainQuestionCounts = calculateQuestionCountsFromDistribution(
+        totalQuestions,
+        normalizedDistribution
+      );
+
+      const pickedQuestions = [];
+      const pickedIds = new Set();
+      const fetchedCountByDomain = {};
+
+      for (const domainConfig of domainQuestionCounts) {
+        const requestedCount = domainConfig.questionCount;
+
+        if (requestedCount <= 0) {
+          fetchedCountByDomain[domainConfig.name] = 0;
+          continue;
+        }
+
+        const match = {
+          domain: domainConfig.name,
+          isDeleted: false
+        };
+
+        if (pickedIds.size > 0) {
+          match._id = {
+            $nin: [...pickedIds].map((id) => new mongoose.Types.ObjectId(id))
+          };
+        }
+
+        const domainQuestions = await Question.aggregate([
+          { $match: match },
+          { $sample: { size: requestedCount } },
+          { $project: { questionText: 1, options: 1, _id: 1, domain: 1 } }
         ]);
+
+        fetchedCountByDomain[domainConfig.name] = domainQuestions.length;
+
+        domainQuestions.forEach((question) => {
+          pickedIds.add(question._id.toString());
+          pickedQuestions.push(question);
+        });
+      }
+
+      const shortfall = totalQuestions - pickedQuestions.length;
+
+      if (shortfall > 0) {
+        const fallbackMatch = {
+          domain: { $in: selectedDomains },
+          isDeleted: false
+        };
+
+        if (pickedIds.size > 0) {
+          fallbackMatch._id = {
+            $nin: [...pickedIds].map((id) => new mongoose.Types.ObjectId(id))
+          };
+        }
+
+        const fallbackQuestions = await Question.aggregate([
+          { $match: fallbackMatch },
+          { $sample: { size: shortfall } },
+          { $project: { questionText: 1, options: 1, _id: 1, domain: 1 } }
+        ]);
+
+        fallbackQuestions.forEach((question) => {
+          pickedIds.add(question._id.toString());
+          pickedQuestions.push(question);
+        });
+      }
+
+      const questions = pickedQuestions
+        .sort(() => Math.random() - 0.5)
+        .slice(0, totalQuestions);
+
+      const domainSummary = domainQuestionCounts.map((item) => ({
+        ...item,
+        fetchedCount: fetchedCountByDomain[item.name] || 0
+      }));
         
         return res.json({
             message: "Fetch Ques success",
             questions: questions,
-            quesCount: questions.length
+        quesCount: questions.length,
+        requestedQuestionCount: totalQuestions,
+        domainDistribution: normalizedDistribution,
+        domainQuestionCounts: domainSummary
         })
 
     } catch(error) {
