@@ -23,6 +23,7 @@ const QuestionBank = () => {
     options: ['', '', '', ''],
     correctOptionIndex: 0,
     correctOptionText: '',
+    domain: '',
     difficulty: 'medium',
     hint: '',
     explanation: '',
@@ -63,6 +64,7 @@ const QuestionBank = () => {
       options: ['', '', '', ''],
       correctOptionIndex: 0,
       correctOptionText: '',
+      domain: '',
       difficulty: 'medium',
       hint: '',
       explanation: '',
@@ -114,6 +116,7 @@ const QuestionBank = () => {
       options: question.options,
       correctOptionIndex: question.correctOptionIndex,
       correctOptionText: question.correctOptionText,
+      domain: question.domain || '',
       difficulty: question.difficulty,
       hint: question.hint || '',
       explanation: question.explanation || '',
@@ -341,6 +344,17 @@ const QuestionBank = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Domain *</label>
+                  <input
+                    type="text"
+                    value={form.domain}
+                    onChange={(e) => setForm(p => ({ ...p, domain: e.target.value }))}
+                    placeholder="e.g. JavaScript, Python"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    required
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Difficulty *</label>
                   <select
                     value={form.difficulty}
@@ -352,16 +366,17 @@ const QuestionBank = () => {
                     <option value="hard">Hard</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Topic / Hint</label>
-                  <input
-                    type="text"
-                    value={form.hint}
-                    onChange={(e) => setForm(p => ({ ...p, hint: e.target.value }))}
-                    placeholder="e.g. JavaScript"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Topic / Hint</label>
+                <input
+                  type="text"
+                  value={form.hint}
+                  onChange={(e) => setForm(p => ({ ...p, hint: e.target.value }))}
+                  placeholder="e.g. JavaScript"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
               </div>
 
               <div>
