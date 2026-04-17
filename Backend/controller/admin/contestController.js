@@ -2,7 +2,14 @@
 import { Contest, Question, Submission, User } from "../../Models/DB.js";
 import { bulkStatusUpdateSchema, contestSchema, questionsSchema, updateContestSchema } from "../../Models/zodSchema.js";
 import redisClient from '../../redis.js';
-import { isDistributionMatchingDomains, normalizeDomainDistribution } from '../../utils/domainDistribution.js';
+import {
+    isDistributionMatchingDomains,
+    isValidDifficultyDistribution,
+    MAX_DOMAIN_PERCENTAGE,
+    MIN_DOMAIN_PERCENTAGE,
+    normalizeDomainDistribution,
+    TOTAL_PERCENTAGE
+} from '../../utils/domainDistribution.js';
 
 // Redis key helpers
 const getContestCacheKey = (contestId) => `contest:${contestId}`;
@@ -14,6 +21,33 @@ const CACHE_TTL = {
     CONTEST: 300, // 5 minutes
     CONTESTS_LIST: 180, // 3 minutes
     STATISTICS: 600, // 10 minutes
+};
+
+const getDomainDistributionValidationError = (distribution = []) => {
+    if (!Array.isArray(distribution) || distribution.length === 0) {
+        return 'At least one domain distribution entry is required';
+    }
+
+    const hasInvalidPercentage = distribution.some((item) => {
+        const value = Number(item?.percentage);
+        return !Number.isInteger(value) || value < MIN_DOMAIN_PERCENTAGE || value > MAX_DOMAIN_PERCENTAGE;
+    });
+
+    if (hasInvalidPercentage) {
+        return `Each domain percentage must be between ${MIN_DOMAIN_PERCENTAGE}% and ${MAX_DOMAIN_PERCENTAGE}%`;
+    }
+
+    const total = distribution.reduce((sum, item) => sum + Number(item?.percentage || 0), 0);
+    if (total !== TOTAL_PERCENTAGE) {
+        return `Domain distribution must total exactly ${TOTAL_PERCENTAGE}%`;
+    }
+
+    const hasInvalidDifficulty = distribution.some((item) => !isValidDifficultyDistribution(item?.difficulty));
+    if (hasInvalidDifficulty) {
+        return 'Each domain difficulty split must include easy/medium/hard values totaling exactly 100%';
+    }
+
+    return null;
 };
 
 
@@ -205,7 +239,7 @@ export const getContestById = async (req, res) => {
             startTime: contest.startTime.toTimeString().split(' ')[0].substring(0, 5),
             duration: parseInt(contest.duration),
             registrationCount: contest.participants.length,
-            maxParticipants: 100, // Default or from schema if added
+            maxParticipants: contest.maxParticipants,
             registrationFee: contest.registerFee,
             prizePool: contest.prizes.reduce((total, prize) => total + prize.amount, 0),
             status: getContestStatus(contest),
@@ -276,8 +310,25 @@ export const createContest = async (req, res) => {
 
         const normalizedDomainDistribution = normalizeDomainDistribution(
             validation.data.topics,
-            validation.data.domainDistribution || []
+            validation.data.domainDistribution
         );
+
+        const distributionValidationError = getDomainDistributionValidationError(normalizedDomainDistribution);
+        if (distributionValidationError) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: "VALIDATION_ERROR",
+                    message: "Invalid input data",
+                    details: [
+                        {
+                            field: "domainDistribution",
+                            message: distributionValidationError
+                        }
+                    ]
+                }
+            });
+        }
 
         const contestData = {
             ...validation.data,
@@ -303,7 +354,7 @@ export const createContest = async (req, res) => {
                 prizePool: contest.prizes.reduce((total, prize) => total + prize.amount, 0),
                 topics: contest.topics,
                 domainDistribution: contest.domainDistribution || [],
-                maxParticipants: validation.data.maxParticipants,
+                maxParticipants: contest.maxParticipants,
                 registrationCount: 0,
                 rules: contest.rules.join('\n'),
                 status: validation.data.status,
@@ -325,7 +376,7 @@ export const createContest = async (req, res) => {
                 success: false,
                 error: {
                     code: "CONFLICT",
-                    message: "Contest with this title already exists"
+                    message: "Unable to create contest due to a unique constraint conflict"
                 }
             });
         }
@@ -422,6 +473,23 @@ export const updateContest = async (req, res) => {
             }
 
             updateData.domainDistribution = normalizeDomainDistribution(mergedTopics, mergedDistribution);
+
+            const distributionValidationError = getDomainDistributionValidationError(updateData.domainDistribution);
+            if (distributionValidationError) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "VALIDATION_ERROR",
+                        message: "Invalid input data",
+                        details: [
+                            {
+                                field: "domainDistribution",
+                                message: distributionValidationError
+                            }
+                        ]
+                    }
+                });
+            }
         }
 
         if (validation.data.registrationFee !== undefined) {
@@ -454,7 +522,7 @@ export const updateContest = async (req, res) => {
                 prizePool: contest.prizes.reduce((total, prize) => total + prize.amount, 0),
                 topics: contest.topics,
                 domainDistribution: contest.domainDistribution || [],
-                maxParticipants: validation.data.maxParticipants,
+                maxParticipants: contest.maxParticipants,
                 registrationCount: contest.participants.length,
                 rules: contest.rules.join('\n'),
                 status: getContestStatus(contest),
@@ -474,6 +542,15 @@ export const updateContest = async (req, res) => {
         return res.json(response);
     } catch (err) {
         console.error("Error updating contest:", err);
+        if (err.code === 11000) {
+            return res.status(409).json({
+                success: false,
+                error: {
+                    code: "CONFLICT",
+                    message: "Unable to update contest due to a unique constraint conflict"
+                }
+            });
+        }
         res.status(500).json({
             success: false,
             error: {

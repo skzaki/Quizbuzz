@@ -11,7 +11,7 @@ export  const validateCredentialsSchema = z.object({
 const prizeSchema = z.object({
     rankFrom: z.number().int().positive("Rank <from> must be a positive integer"),
     rankTo: z.number().int().positive("Rank <to> must be a positive integer"),
-    amount: z.number().positive("Amount must be positive"),
+    amount: z.number().min(0, "Amount must be non-negative"),
     currency: z.string().default('INR'),
     benefits: z.array(z.string()).optional().default([])
 }).superRefine( (data, ctx) => {
@@ -24,9 +24,9 @@ const prizeSchema = z.object({
     }
 });
 
-const MIN_DOMAIN_PERCENTAGE = 10;
+const MIN_DOMAIN_PERCENTAGE = 1;
 const TOTAL_DOMAIN_PERCENTAGE = 100;
-const MAX_DISTRIBUTION_DOMAINS = TOTAL_DOMAIN_PERCENTAGE / MIN_DOMAIN_PERCENTAGE;
+const MAX_DISTRIBUTION_DOMAINS = TOTAL_DOMAIN_PERCENTAGE;
 const TOTAL_DIFFICULTY_PERCENTAGE = 100;
 
 const difficultyDistributionSchema = z.object({
@@ -89,8 +89,8 @@ export const contestSchema = z.object({
     cutOff: z.number().min(0, "Cut off must be non-negative").optional(),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Start date must be in YYYY-MM-DD format"),
     startTime: z.string().regex(/^\d{2}:\d{2}$/, "Start time must be in HH:MM format"),
-    domainDistribution: domainDistributionSchema.optional(),
-    maxParticipants: z.number().int().positive("Max participants must be positive integer"),
+    domainDistribution: domainDistributionSchema,
+    maxParticipants: z.number().int().min(0, "Max participants must be non-negative integer"),
     prizes: z.array(prizeSchema).min(1, "At least one prize must be defined"),
     status: z.enum(["draft", "upcoming", "ongoing", "completed", "cancelled"]).default("draft")
 }).superRefine( (data, ctx) => {
@@ -152,7 +152,7 @@ export const updateContestSchema = z.object({
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Start date must be in YYYY-MM-DD format").optional(),
     startTime: z.string().regex(/^\d{2}:\d{2}$/, "Start time must be in HH:MM format").optional(),
     domainDistribution: domainDistributionSchema.optional(),
-    maxParticipants: z.number().int().positive("Max participants must be a positive integer").optional(),
+    maxParticipants: z.number().int().min(0, "Max participants must be a non-negative integer").optional(),
     prizes: z.array(prizeSchema).min(1, "At least one prize must be defined").optional()
 }).superRefine((data, ctx) => {
     // If both startDate and startTime are provided, validate they're not in the past

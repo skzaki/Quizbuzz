@@ -5,14 +5,17 @@ import ErrorBoundary from '../ErrorBoundary';
 import { DEFAULT_CONTEST_RULES_TEXT } from '../../utils/defaultContestRules';
 import {
   DIFFICULTY_LEVELS,
-  MAX_SELECTABLE_DOMAINS,
   MIN_DOMAIN_PERCENTAGE,
+  MAX_DOMAIN_PERCENTAGE,
   TOTAL_PERCENTAGE,
+  autoDistributeRemainingPercentage,
   getDifficultyTotal,
-  getSliderBounds,
+  getRemainingDomainPercentage,
+  getUsedDomainPercentage,
+  isValidDomainDistribution,
   isValidDifficultyDistribution,
   normalizeDomainDistribution,
-  rebalanceAfterDomainChange,
+  updateDomainPercentage,
   updateDifficultyForDomain
 } from '../../utils/domainDistribution';
 
@@ -57,12 +60,10 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
   }, [editData]);
 
   const handleTopicsSelectionChange = (selectedTopics) => {
-    const constrainedTopics = selectedTopics.slice(0, MAX_SELECTABLE_DOMAINS);
-
     setFormData(prev => ({
       ...prev,
-      topics: constrainedTopics,
-      domainDistribution: normalizeDomainDistribution(constrainedTopics, prev.domainDistribution)
+      topics: selectedTopics,
+      domainDistribution: normalizeDomainDistribution(selectedTopics, prev.domainDistribution)
     }));
 
     if (errors.topics || errors.domainDistribution) {
@@ -74,15 +75,24 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
     }
   };
 
-  const handleDomainWeightChange = (domainName, nextValue) => {
+  const handleDomainPercentageChange = (domainName, nextValue) => {
     setFormData(prev => ({
       ...prev,
-      domainDistribution: rebalanceAfterDomainChange(
-        prev.topics,
-        prev.domainDistribution,
-        domainName,
-        nextValue
-      )
+      domainDistribution: updateDomainPercentage(prev.domainDistribution, domainName, nextValue)
+    }));
+
+    if (errors.domainDistribution) {
+      setErrors(prev => ({
+        ...prev,
+        domainDistribution: ''
+      }));
+    }
+  };
+
+  const handleAutoDistributeRemaining = () => {
+    setFormData(prev => ({
+      ...prev,
+      domainDistribution: autoDistributeRemainingPercentage(prev.domainDistribution)
     }));
 
     if (errors.domainDistribution) {
@@ -172,30 +182,34 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
       newErrors.prizePool = 'Prize pool must be between 0 and 100000';
     }
 
-    if (formData.maxParticipants !== '' && (formData.maxParticipants <= 0 || formData.maxParticipants > 10000)) {
-      newErrors.maxParticipants = 'Max participants must be between 1 and 10000';
+    if (formData.maxParticipants !== '' && (formData.maxParticipants < 0 || formData.maxParticipants > 10000)) {
+      newErrors.maxParticipants = 'Max participants must be between 0 and 10000';
     }
 
     if (!formData.topics || formData.topics.length === 0) {
       newErrors.topics = 'At least one domain must be selected';
-    } else if (formData.topics.length > MAX_SELECTABLE_DOMAINS) {
-      newErrors.topics = `You can select up to ${MAX_SELECTABLE_DOMAINS} domains (minimum ${MIN_DOMAIN_PERCENTAGE}% each)`;
     }
 
     const normalizedDistribution = normalizeDomainDistribution(formData.topics, formData.domainDistribution);
-    const distributionTotal = normalizedDistribution.reduce((sum, item) => sum + item.percentage, 0);
-    const hasInvalidMin = normalizedDistribution.some((item) => (
-      formData.topics.length > 1 && item.percentage < MIN_DOMAIN_PERCENTAGE
-    ));
+    const distributionTotal = getUsedDomainPercentage(normalizedDistribution);
+    const remaining = TOTAL_PERCENTAGE - distributionTotal;
+    const hasInvalidDomainPercentage = normalizedDistribution.some((item) => {
+      const value = Number(item.percentage);
+      return !Number.isInteger(value) || value < MIN_DOMAIN_PERCENTAGE || value > MAX_DOMAIN_PERCENTAGE;
+    });
     const hasInvalidDifficulty = normalizedDistribution.some((item) => !isValidDifficultyDistribution(item.difficulty));
 
     if (formData.topics.length > 0) {
       if (normalizedDistribution.length !== formData.topics.length) {
         newErrors.domainDistribution = 'Domain distribution is out of sync with selected domains';
+      } else if (hasInvalidDomainPercentage) {
+        newErrors.domainDistribution = `Each domain must be between ${MIN_DOMAIN_PERCENTAGE}% and ${MAX_DOMAIN_PERCENTAGE}%`;
       } else if (distributionTotal !== TOTAL_PERCENTAGE) {
-        newErrors.domainDistribution = `Total domain allocation must be exactly ${TOTAL_PERCENTAGE}%`;
-      } else if (hasInvalidMin) {
-        newErrors.domainDistribution = `Each domain must be at least ${MIN_DOMAIN_PERCENTAGE}%`;
+        if (remaining > 0) {
+          newErrors.domainDistribution = `Domain allocation is incomplete. ${remaining}% remaining.`;
+        } else {
+          newErrors.domainDistribution = `Domain allocation exceeds ${TOTAL_PERCENTAGE}% by ${Math.abs(remaining)}%.`;
+        }
       }
 
       if (hasInvalidDifficulty) {
@@ -289,7 +303,12 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
   if (!isOpen) return null;
 
   const generalError = errors.general || serverError;
-  const totalDomainPercentage = formData.domainDistribution.reduce((sum, item) => sum + (item.percentage || 0), 0);
+  const normalizedDistribution = normalizeDomainDistribution(formData.topics, formData.domainDistribution);
+  const usedDomainPercentage = getUsedDomainPercentage(normalizedDistribution);
+  const remainingDomainPercentage = getRemainingDomainPercentage(normalizedDistribution);
+  const hasUnassignedDomains = normalizedDistribution.some((item) => Number(item.percentage || 0) === 0);
+  const liveValidationErrors = validateForm();
+  const isFormInvalid = Object.keys(liveValidationErrors).length > 0;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -416,6 +435,7 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
                 onChange={handleChange}
                 className={`w-full px-3 py-2 border ${errors.registrationFee ? 'border-red-500 focus:border-red-500' : 'border-gray-300 dark:border-gray-600'} rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
                 placeholder="e.g. 50"
+                min="0"
                 disabled={loading}
               />
               {errors.registrationFee && <p className="text-red-500 text-xs mt-1">{errors.registrationFee}</p>}
@@ -431,6 +451,7 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
                 onChange={handleChange}
                 className={`w-full px-3 py-2 border ${errors.prizePool ? 'border-red-500 focus:border-red-500' : 'border-gray-300 dark:border-gray-600'} rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
                 placeholder="e.g. 10000"
+                min="0"
                 disabled={loading}
               />
               {errors.prizePool && <p className="text-red-500 text-xs mt-1">{errors.prizePool}</p>}
@@ -446,10 +467,9 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
               <MultiSelectDropdown
                 selectedOptions={formData.topics}
                 onChange={handleTopicsSelectionChange}
-                maxSelections={MAX_SELECTABLE_DOMAINS}
               />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Select up to {MAX_SELECTABLE_DOMAINS} domains. Minimum {MIN_DOMAIN_PERCENTAGE}% per domain.
+                Assign percentages manually for each selected domain. Total must be exactly {TOTAL_PERCENTAGE}%.
               </p>
               {errors.topics && <p className="text-red-500 text-xs mt-1">{errors.topics}</p>}
             </div>
@@ -464,6 +484,7 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
                 onChange={handleChange}
                 className={`w-full px-3 py-2 border ${errors.maxParticipants ? 'border-red-500 focus:border-red-500' : 'border-gray-300 dark:border-gray-600'} rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
                 placeholder="e.g. 500"
+                min="0"
                 disabled={loading}
               />
               {errors.maxParticipants && <p className="text-red-500 text-xs mt-1">{errors.maxParticipants}</p>}
@@ -476,37 +497,58 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
                 <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                   Domain Weight Distribution
                 </h3>
-                <span className={`text-xs font-semibold ${
-                  totalDomainPercentage === TOTAL_PERCENTAGE
-                    ? 'text-green-600 dark:text-green-400'
-                    : 'text-red-600 dark:text-red-400'
-                }`}>
-                  Total: {totalDomainPercentage}%
-                </span>
+                <div className="text-right">
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">Total: {TOTAL_PERCENTAGE}%</p>
+                  <p className="text-[11px] text-cyan-600 dark:text-cyan-400">Used: {usedDomainPercentage}%</p>
+                  <p className={`text-xs font-semibold ${
+                    remainingDomainPercentage === 0
+                      ? 'text-green-600 dark:text-green-400'
+                      : remainingDomainPercentage > 0
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    Remaining: {remainingDomainPercentage}%
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleAutoDistributeRemaining}
+                  disabled={loading || remainingDomainPercentage <= 0 || !hasUnassignedDomains}
+                  className="px-3 py-1.5 text-xs rounded-md border border-purple-400/60 text-purple-600 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Auto Distribute Remaining
+                </button>
               </div>
 
               <div className="space-y-3">
-                {formData.domainDistribution.map((item) => {
-                  const sliderBounds = getSliderBounds(formData.topics.length);
-                  const disableSlider = formData.topics.length === 1 || formData.topics.length > MAX_SELECTABLE_DOMAINS;
+                {normalizedDistribution.map((item) => {
                   const difficultyTotal = getDifficultyTotal(item.difficulty);
+                  const isDomainValueInvalid = item.percentage < MIN_DOMAIN_PERCENTAGE || item.percentage > MAX_DOMAIN_PERCENTAGE;
+                  const hasDifficultyError = difficultyTotal !== TOTAL_PERCENTAGE;
 
                   return (
                     <div key={item.name} className="space-y-2.5 transition-all duration-200 rounded-md border border-gray-200/80 dark:border-gray-700/60 p-3">
-                      <div className="flex items-center justify-between text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px] gap-2 items-center text-sm">
                         <span className="font-medium text-gray-700 dark:text-gray-300">{item.name}</span>
-                        <span className="font-semibold text-purple-600 dark:text-purple-400">{item.percentage}%</span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={item.percentage}
+                            onChange={(e) => handleDomainPercentageChange(item.name, e.target.value)}
+                            disabled={loading}
+                            className={`w-full px-2.5 py-1.5 text-sm border rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                              isDomainValueInvalid ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                            }`}
+                          />
+                          <span className="text-xs text-gray-500">%</span>
+                        </div>
                       </div>
-                      <input
-                        type="range"
-                        min={sliderBounds.min}
-                        max={sliderBounds.max}
-                        step="1"
-                        value={item.percentage}
-                        onChange={(e) => handleDomainWeightChange(item.name, Number(e.target.value))}
-                        disabled={loading || disableSlider}
-                        className="w-full accent-purple-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                      />
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
                         {DIFFICULTY_LEVELS.map((level) => (
@@ -522,7 +564,9 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
                               value={item.difficulty?.[level] ?? 0}
                               onChange={(e) => handleDifficultyInputChange(item.name, level, e.target.value)}
                               disabled={loading}
-                              className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                              className={`w-full px-2.5 py-1.5 text-sm border rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                                hasDifficultyError ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                              }`}
                             />
                           </div>
                         ))}
@@ -533,22 +577,30 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
                           ? 'text-green-600 dark:text-green-400'
                           : 'text-red-600 dark:text-red-400'
                       }`}>
-                        Total: {difficultyTotal}%
+                        Difficulty Total: {difficultyTotal}%
                       </p>
                     </div>
                   );
                 })}
               </div>
 
-              {formData.topics.length > MAX_SELECTABLE_DOMAINS && (
-                <p className="text-red-500 text-xs">
-                  This contest has more than {MAX_SELECTABLE_DOMAINS} domains. Reduce domains to enable weighted sliders.
+              {remainingDomainPercentage > 0 && (
+                <p className="text-amber-500 text-xs">
+                  Distribution incomplete: {remainingDomainPercentage}% remaining. Assign all percentages to continue.
                 </p>
               )}
 
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Allocation updates in real-time and always remains exactly {TOTAL_PERCENTAGE}%.
-              </p>
+              {remainingDomainPercentage < 0 && (
+                <p className="text-red-500 text-xs">
+                  Distribution exceeded by {Math.abs(remainingDomainPercentage)}%. Reduce domain values to total {TOTAL_PERCENTAGE}%.
+                </p>
+              )}
+
+              {remainingDomainPercentage === 0 && isValidDomainDistribution(formData.topics, normalizedDistribution) && (
+                <p className="text-green-500 text-xs">
+                  Domain distribution is valid.
+                </p>
+              )}
 
               {errors.domainDistribution && (
                 <p className="text-red-500 text-xs">{errors.domainDistribution}</p>
@@ -582,14 +634,14 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
               type="button"
               onClick={(e) => handleSubmit(e, true)}
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-              disabled={loading}
+              disabled={loading || isFormInvalid}
             >
               Save as Draft
             </button>
             <button
               type="submit"
               className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-md transition-colors disabled:opacity-50"
-              disabled={loading}
+              disabled={loading || isFormInvalid}
             >
               {loading ? 'Saving...' : editData ? 'Update Contest' : 'Create Contest'}
             </button>

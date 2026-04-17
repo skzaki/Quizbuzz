@@ -83,6 +83,7 @@ const ContestManagement = () => {
     }
 
     const prizeAmount = parseFloat(formData.prizePool) || 0;
+    const parsedMaxParticipants = Number(formData.maxParticipants);
     const domainDistribution = normalizeDomainDistribution(
       topicsRaw,
       Array.isArray(formData.domainDistribution) ? formData.domainDistribution : []
@@ -95,7 +96,9 @@ const ContestManagement = () => {
       startTime: formData.startTime,
       duration: parseInt(formData.duration),
       registrationFee: parseFloat(formData.registrationFee) || 0,
-      maxParticipants: parseInt(formData.maxParticipants) || 100,
+      maxParticipants: Number.isFinite(parsedMaxParticipants)
+        ? Math.max(0, Math.trunc(parsedMaxParticipants))
+        : 100,
       topics: topicsRaw,
       domainDistribution,
       rules: rulesArray,

@@ -38,7 +38,7 @@ const contestSchema = new mongoose.Schema({
     topics: [{ type: String }],
     domainDistribution: [{
         name: { type: String, required: true },
-        percentage: { type: Number, required: true, min: 10, max: 100 },
+        percentage: { type: Number, required: true, min: 1, max: 100 },
         difficulty: {
             easy: { type: Number, required: true, min: 0, max: 100, default: 40 },
             medium: { type: Number, required: true, min: 0, max: 100, default: 40 },
@@ -47,6 +47,7 @@ const contestSchema = new mongoose.Schema({
     }],
     rules: [{ type: String }],
     registerFee: { type: Number, required: true },
+    maxParticipants: { type: Number, min: 0, default: 100 },
     duration: { type: Number },
     cutOff: { type: Number },
     startTime: { type: Date, required: true },
@@ -74,11 +75,19 @@ contestSchema.index({ slug: 1, isDeleted: 1 });
 contestSchema.index({ startTime: 1, isDeleted: 1 });
 contestSchema.index({ status: 1, isDeleted: 1 });
 
-contestSchema.pre("validate", function (next) {
-    if (this.title && !this.slug) {
-        this.slug = slugify(this.title, { lower: true, strict: true });
+contestSchema.pre("validate", async function () {
+    if (!this.title || this.slug) return;
+
+    const baseSlug = slugify(this.title, { lower: true, strict: true }) || 'contest';
+    let nextSlug = baseSlug;
+    let suffix = 2;
+
+    while (await this.constructor.exists({ slug: nextSlug, _id: { $ne: this._id } })) {
+        nextSlug = `${baseSlug}-${suffix}`;
+        suffix += 1;
     }
-    next();
+
+    this.slug = nextSlug;
 });
 
 const certificatesSchema = new mongoose.Schema({

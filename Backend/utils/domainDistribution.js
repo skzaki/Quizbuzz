@@ -1,6 +1,8 @@
 export const TOTAL_PERCENTAGE = 100;
-export const MIN_DOMAIN_PERCENTAGE = 10;
-export const MAX_DISTRIBUTION_DOMAINS = TOTAL_PERCENTAGE / MIN_DOMAIN_PERCENTAGE;
+export const MIN_DOMAIN_PERCENTAGE = 1;
+export const MAX_DOMAIN_PERCENTAGE = 100;
+export const MAX_DISTRIBUTION_DOMAINS = TOTAL_PERCENTAGE;
+
 export const DIFFICULTY_LEVELS = ['easy', 'medium', 'hard'];
 export const DEFAULT_DIFFICULTY_DISTRIBUTION = {
   easy: 40,
@@ -9,6 +11,16 @@ export const DEFAULT_DIFFICULTY_DISTRIBUTION = {
 };
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+const toInteger = (value, fallback = 0) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.round(parsed);
+};
+
+const sanitizePercentage = (value, fallback = 0) => (
+  clamp(toInteger(value, fallback), 0, MAX_DOMAIN_PERCENTAGE)
+);
 
 const allocateIntegerByWeights = (total, rawWeights = []) => {
   const safeTotal = Math.max(0, Math.round(Number(total) || 0));
@@ -53,32 +65,15 @@ const allocateIntegerByWeights = (total, rawWeights = []) => {
   return allocations;
 };
 
-export const normalizeDifficultyDistribution = (difficulty = DEFAULT_DIFFICULTY_DISTRIBUTION) => {
-  if (!difficulty || typeof difficulty !== 'object') {
-    return { ...DEFAULT_DIFFICULTY_DISTRIBUTION };
-  }
+export const sanitizeDifficultyDistribution = (difficulty = DEFAULT_DIFFICULTY_DISTRIBUTION) => ({
+  easy: clamp(toInteger(difficulty?.easy, DEFAULT_DIFFICULTY_DISTRIBUTION.easy), 0, TOTAL_PERCENTAGE),
+  medium: clamp(toInteger(difficulty?.medium, DEFAULT_DIFFICULTY_DISTRIBUTION.medium), 0, TOTAL_PERCENTAGE),
+  hard: clamp(toInteger(difficulty?.hard, DEFAULT_DIFFICULTY_DISTRIBUTION.hard), 0, TOTAL_PERCENTAGE)
+});
 
-  const parsed = DIFFICULTY_LEVELS.map((level) => {
-    const value = Number(difficulty[level]);
-    if (!Number.isFinite(value)) return null;
-    return clamp(Math.round(value), 0, 100);
-  });
-
-  const hasAnyValue = parsed.some((value) => value !== null);
-  const weightInput = hasAnyValue
-    ? parsed.map((value, index) => (
-      value === null ? DEFAULT_DIFFICULTY_DISTRIBUTION[DIFFICULTY_LEVELS[index]] : value
-    ))
-    : DIFFICULTY_LEVELS.map((level) => DEFAULT_DIFFICULTY_DISTRIBUTION[level]);
-
-  const allocated = allocateIntegerByWeights(TOTAL_PERCENTAGE, weightInput);
-
-  return {
-    easy: allocated[0],
-    medium: allocated[1],
-    hard: allocated[2]
-  };
-};
+export const getDifficultyTotal = (difficulty = {}) => (
+  DIFFICULTY_LEVELS.reduce((sum, level) => sum + (Number(difficulty[level]) || 0), 0)
+);
 
 export const isValidDifficultyDistribution = (difficulty = {}) => {
   if (!difficulty || typeof difficulty !== 'object') return false;
@@ -99,69 +94,14 @@ const toDistributionMap = (distribution = []) => {
 
   distribution.forEach((item) => {
     if (!item?.name) return;
-    const percentage = Number(item.percentage);
-    if (!Number.isFinite(percentage)) return;
 
     map[item.name] = {
-      percentage,
-      difficulty: normalizeDifficultyDistribution(item.difficulty)
+      percentage: sanitizePercentage(item.percentage),
+      difficulty: sanitizeDifficultyDistribution(item.difficulty)
     };
   });
 
   return map;
-};
-
-const allocateWithMinimum = (domains = [], total = TOTAL_PERCENTAGE, preferredMap = {}) => {
-  const allocation = {};
-
-  if (!Array.isArray(domains) || domains.length === 0) {
-    return allocation;
-  }
-
-  if (domains.length === 1) {
-    allocation[domains[0]] = total;
-    return allocation;
-  }
-
-  const minimumTotal = domains.length * MIN_DOMAIN_PERCENTAGE;
-  const safeTotal = Math.max(total, minimumTotal);
-  const extraBudget = safeTotal - minimumTotal;
-
-  let weights = domains.map((domain) => {
-    const preferred = preferredMap[domain]?.percentage ?? MIN_DOMAIN_PERCENTAGE;
-    return Math.max(preferred - MIN_DOMAIN_PERCENTAGE, 0);
-  });
-
-  if (weights.every((weight) => weight === 0)) {
-    weights = domains.map(() => 1);
-  }
-
-  const weightSum = weights.reduce((sum, value) => sum + value, 0);
-  const rawExtras = weights.map((weight) => (extraBudget * weight) / weightSum);
-  const extras = rawExtras.map((value) => Math.floor(value));
-
-  let remainder = extraBudget - extras.reduce((sum, value) => sum + value, 0);
-
-  const fractions = rawExtras
-    .map((value, index) => ({
-      index,
-      fraction: value - Math.floor(value)
-    }))
-    .sort((a, b) => b.fraction - a.fraction);
-
-  let fractionIndex = 0;
-  while (remainder > 0 && fractions.length > 0) {
-    const target = fractions[fractionIndex % fractions.length].index;
-    extras[target] += 1;
-    fractionIndex += 1;
-    remainder -= 1;
-  }
-
-  domains.forEach((domain, index) => {
-    allocation[domain] = MIN_DOMAIN_PERCENTAGE + extras[index];
-  });
-
-  return allocation;
 };
 
 export const isDistributionMatchingDomains = (domains = [], distribution = []) => {
@@ -178,41 +118,18 @@ export const isDistributionMatchingDomains = (domains = [], distribution = []) =
 };
 
 export const normalizeDomainDistribution = (domains = [], distribution = []) => {
-  if (!Array.isArray(domains) || domains.length === 0) return [];
+  const uniqueDomains = [...new Set((domains || []).filter(Boolean))];
+  const existingMap = toDistributionMap(distribution);
 
-  if (domains.length === 1) {
-    const preferredMap = toDistributionMap(distribution);
-    return [{
-      name: domains[0],
-      percentage: TOTAL_PERCENTAGE,
-      difficulty: normalizeDifficultyDistribution(preferredMap[domains[0]]?.difficulty)
-    }];
-  }
+  return uniqueDomains.map((domain) => {
+    const existing = existingMap[domain];
 
-  if (domains.length > MAX_DISTRIBUTION_DOMAINS) {
-    const preferredMap = toDistributionMap(distribution);
-    const base = Math.floor(TOTAL_PERCENTAGE / domains.length);
-    let remainder = TOTAL_PERCENTAGE - (base * domains.length);
-
-    return domains.map((domain) => {
-      const percentage = base + (remainder > 0 ? 1 : 0);
-      if (remainder > 0) remainder -= 1;
-      return {
-        name: domain,
-        percentage,
-        difficulty: normalizeDifficultyDistribution(preferredMap[domain]?.difficulty)
-      };
-    });
-  }
-
-  const preferredMap = toDistributionMap(distribution);
-  const allocation = allocateWithMinimum(domains, TOTAL_PERCENTAGE, preferredMap);
-
-  return domains.map((domain) => ({
-    name: domain,
-    percentage: allocation[domain],
-    difficulty: normalizeDifficultyDistribution(preferredMap[domain]?.difficulty)
-  }));
+    return {
+      name: domain,
+      percentage: existing ? existing.percentage : 0,
+      difficulty: existing ? existing.difficulty : { ...DEFAULT_DIFFICULTY_DISTRIBUTION }
+    };
+  });
 };
 
 export const calculateQuestionCountsFromDistribution = (totalQuestions = 0, distribution = []) => {
@@ -221,31 +138,14 @@ export const calculateQuestionCountsFromDistribution = (totalQuestions = 0, dist
     return [];
   }
 
-  const rawCounts = distribution.map((item) => (safeTotal * Number(item.percentage || 0)) / TOTAL_PERCENTAGE);
-  const counts = rawCounts.map((value) => Math.floor(value));
-
-  let remainder = safeTotal - counts.reduce((sum, value) => sum + value, 0);
-
-  const fractions = rawCounts
-    .map((value, index) => ({
-      index,
-      fraction: value - Math.floor(value)
-    }))
-    .sort((a, b) => b.fraction - a.fraction);
-
-  let fractionIndex = 0;
-  while (remainder > 0 && fractions.length > 0) {
-    const target = fractions[fractionIndex % fractions.length].index;
-    counts[target] += 1;
-    fractionIndex += 1;
-    remainder -= 1;
-  }
+  const percentages = distribution.map((item) => sanitizePercentage(item.percentage));
+  const counts = allocateIntegerByWeights(safeTotal, percentages);
 
   return distribution.map((item, index) => ({
     name: item.name,
-    percentage: Number(item.percentage),
+    percentage: percentages[index],
     questionCount: counts[index],
-    difficulty: normalizeDifficultyDistribution(item.difficulty)
+    difficulty: sanitizeDifficultyDistribution(item.difficulty)
   }));
 };
 
@@ -258,7 +158,7 @@ export const calculateDifficultyQuestionCounts = (
     return [];
   }
 
-  const normalizedDifficulty = normalizeDifficultyDistribution(difficultyDistribution);
+  const normalizedDifficulty = sanitizeDifficultyDistribution(difficultyDistribution);
   const counts = allocateIntegerByWeights(
     safeTotal,
     DIFFICULTY_LEVELS.map((level) => normalizedDifficulty[level])
