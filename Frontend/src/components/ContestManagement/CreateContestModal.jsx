@@ -4,12 +4,16 @@ import MultiSelectDropdown from '../common/MultiSelectDropdown';
 import ErrorBoundary from '../ErrorBoundary';
 import { DEFAULT_CONTEST_RULES_TEXT } from '../../utils/defaultContestRules';
 import {
+  DIFFICULTY_LEVELS,
   MAX_SELECTABLE_DOMAINS,
   MIN_DOMAIN_PERCENTAGE,
   TOTAL_PERCENTAGE,
+  getDifficultyTotal,
   getSliderBounds,
+  isValidDifficultyDistribution,
   normalizeDomainDistribution,
-  rebalanceAfterDomainChange
+  rebalanceAfterDomainChange,
+  updateDifficultyForDomain
 } from '../../utils/domainDistribution';
 
 const getInitialFormData = () => ({
@@ -89,6 +93,26 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
     }
   };
 
+  const handleDifficultyInputChange = (domainName, difficultyLevel, nextValue) => {
+    setFormData(prev => ({
+      ...prev,
+      domainDistribution: updateDifficultyForDomain(
+        prev.domainDistribution,
+        domainName,
+        difficultyLevel,
+        nextValue
+      )
+    }));
+
+    if (errors.domainDistribution || errors.domainDifficultyDistribution) {
+      setErrors(prev => ({
+        ...prev,
+        domainDistribution: '',
+        domainDifficultyDistribution: ''
+      }));
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -163,6 +187,7 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
     const hasInvalidMin = normalizedDistribution.some((item) => (
       formData.topics.length > 1 && item.percentage < MIN_DOMAIN_PERCENTAGE
     ));
+    const hasInvalidDifficulty = normalizedDistribution.some((item) => !isValidDifficultyDistribution(item.difficulty));
 
     if (formData.topics.length > 0) {
       if (normalizedDistribution.length !== formData.topics.length) {
@@ -171,6 +196,10 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
         newErrors.domainDistribution = `Total domain allocation must be exactly ${TOTAL_PERCENTAGE}%`;
       } else if (hasInvalidMin) {
         newErrors.domainDistribution = `Each domain must be at least ${MIN_DOMAIN_PERCENTAGE}%`;
+      }
+
+      if (hasInvalidDifficulty) {
+        newErrors.domainDifficultyDistribution = 'Each domain must have valid difficulty values between 0 and 100 totaling exactly 100';
       }
     }
 
@@ -460,9 +489,10 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
                 {formData.domainDistribution.map((item) => {
                   const sliderBounds = getSliderBounds(formData.topics.length);
                   const disableSlider = formData.topics.length === 1 || formData.topics.length > MAX_SELECTABLE_DOMAINS;
+                  const difficultyTotal = getDifficultyTotal(item.difficulty);
 
                   return (
-                    <div key={item.name} className="space-y-1.5 transition-all duration-200">
+                    <div key={item.name} className="space-y-2.5 transition-all duration-200 rounded-md border border-gray-200/80 dark:border-gray-700/60 p-3">
                       <div className="flex items-center justify-between text-sm">
                         <span className="font-medium text-gray-700 dark:text-gray-300">{item.name}</span>
                         <span className="font-semibold text-purple-600 dark:text-purple-400">{item.percentage}%</span>
@@ -477,6 +507,34 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
                         disabled={loading || disableSlider}
                         className="w-full accent-purple-600 disabled:opacity-50 disabled:cursor-not-allowed"
                       />
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                        {DIFFICULTY_LEVELS.map((level) => (
+                          <div key={`${item.name}-${level}`}>
+                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 capitalize">
+                              {level} (%)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="1"
+                              value={item.difficulty?.[level] ?? 0}
+                              onChange={(e) => handleDifficultyInputChange(item.name, level, e.target.value)}
+                              disabled={loading}
+                              className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      <p className={`text-xs font-medium ${
+                        difficultyTotal === TOTAL_PERCENTAGE
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        Total: {difficultyTotal}%
+                      </p>
                     </div>
                   );
                 })}
@@ -494,6 +552,10 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
 
               {errors.domainDistribution && (
                 <p className="text-red-500 text-xs">{errors.domainDistribution}</p>
+              )}
+
+              {errors.domainDifficultyDistribution && (
+                <p className="text-red-500 text-xs">{errors.domainDifficultyDistribution}</p>
               )}
             </div>
           )}

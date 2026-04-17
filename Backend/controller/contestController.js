@@ -9,7 +9,11 @@ import redisClient from "../redis.js";
 import { getUserState } from "../store/contestStateService.js";
 import { saveSession } from "../store/sessionService.js";
 import { extractDeviceInfo } from '../utils/sessionHelper.js';
-import { calculateQuestionCountsFromDistribution, normalizeDomainDistribution } from '../utils/domainDistribution.js';
+import {
+  calculateDifficultyQuestionCounts,
+  calculateQuestionCountsFromDistribution,
+  normalizeDomainDistribution
+} from '../utils/domainDistribution.js';
 
 
 
@@ -177,38 +181,99 @@ export const getContestQuestions = async (req, res) => {
       const pickedQuestions = [];
       const pickedIds = new Set();
       const fetchedCountByDomain = {};
+      const fetchedCountByDomainDifficulty = {};
 
-      for (const domainConfig of domainQuestionCounts) {
-        const requestedCount = domainConfig.questionCount;
-
-        if (requestedCount <= 0) {
-          fetchedCountByDomain[domainConfig.name] = 0;
-          continue;
+      const initializeDomainCounters = (domain) => {
+        if (!fetchedCountByDomain[domain]) {
+          fetchedCountByDomain[domain] = 0;
         }
 
-        const match = {
-          domain: domainConfig.name,
-          isDeleted: false
-        };
-
-        if (pickedIds.size > 0) {
-          match._id = {
-            $nin: [...pickedIds].map((id) => new mongoose.Types.ObjectId(id))
+        if (!fetchedCountByDomainDifficulty[domain]) {
+          fetchedCountByDomainDifficulty[domain] = {
+            easy: 0,
+            medium: 0,
+            hard: 0
           };
         }
+      };
 
-        const domainQuestions = await Question.aggregate([
-          { $match: match },
-          { $sample: { size: requestedCount } },
-          { $project: { questionText: 1, options: 1, _id: 1, domain: 1 } }
-        ]);
+      const appendQuestion = (question) => {
+        const questionId = question?._id?.toString();
+        if (!questionId || pickedIds.has(questionId)) return;
 
-        fetchedCountByDomain[domainConfig.name] = domainQuestions.length;
+        pickedIds.add(questionId);
+        pickedQuestions.push(question);
 
-        domainQuestions.forEach((question) => {
-          pickedIds.add(question._id.toString());
-          pickedQuestions.push(question);
-        });
+        const domain = question.domain;
+        const difficulty = question.difficulty;
+
+        initializeDomainCounters(domain);
+        fetchedCountByDomain[domain] += 1;
+
+        if (['easy', 'medium', 'hard'].includes(difficulty)) {
+          fetchedCountByDomainDifficulty[domain][difficulty] += 1;
+        }
+      };
+
+      for (const domainConfig of domainQuestionCounts) {
+        const domain = domainConfig.name;
+        initializeDomainCounters(domain);
+
+        const difficultyPlan = calculateDifficultyQuestionCounts(
+          domainConfig.questionCount,
+          domainConfig.difficulty
+        );
+
+        for (const difficultyConfig of difficultyPlan) {
+          const requestedCount = difficultyConfig.questionCount;
+
+          if (requestedCount <= 0) {
+            continue;
+          }
+
+          const match = {
+            domain,
+            difficulty: difficultyConfig.difficulty,
+            isDeleted: false
+          };
+
+          if (pickedIds.size > 0) {
+            match._id = {
+              $nin: [...pickedIds].map((id) => new mongoose.Types.ObjectId(id))
+            };
+          }
+
+          const difficultyQuestions = await Question.aggregate([
+            { $match: match },
+            { $sample: { size: requestedCount } },
+            { $project: { questionText: 1, options: 1, _id: 1, domain: 1, difficulty: 1 } }
+          ]);
+
+          difficultyQuestions.forEach(appendQuestion);
+        }
+
+        const domainShortfall = domainConfig.questionCount - (fetchedCountByDomain[domain] || 0);
+
+        if (domainShortfall > 0) {
+          const domainFallbackMatch = {
+            domain,
+            isDeleted: false
+          };
+
+          if (pickedIds.size > 0) {
+            domainFallbackMatch._id = {
+              $nin: [...pickedIds].map((id) => new mongoose.Types.ObjectId(id))
+            };
+          }
+
+          const domainFallbackQuestions = await Question.aggregate([
+            { $match: domainFallbackMatch },
+            { $sample: { size: domainShortfall } },
+            { $project: { questionText: 1, options: 1, _id: 1, domain: 1, difficulty: 1 } }
+          ]);
+
+          domainFallbackQuestions.forEach(appendQuestion);
+        }
       }
 
       const shortfall = totalQuestions - pickedQuestions.length;
@@ -228,13 +293,10 @@ export const getContestQuestions = async (req, res) => {
         const fallbackQuestions = await Question.aggregate([
           { $match: fallbackMatch },
           { $sample: { size: shortfall } },
-          { $project: { questionText: 1, options: 1, _id: 1, domain: 1 } }
+          { $project: { questionText: 1, options: 1, _id: 1, domain: 1, difficulty: 1 } }
         ]);
 
-        fallbackQuestions.forEach((question) => {
-          pickedIds.add(question._id.toString());
-          pickedQuestions.push(question);
-        });
+        fallbackQuestions.forEach(appendQuestion);
       }
 
       const questions = pickedQuestions
@@ -243,7 +305,14 @@ export const getContestQuestions = async (req, res) => {
 
       const domainSummary = domainQuestionCounts.map((item) => ({
         ...item,
-        fetchedCount: fetchedCountByDomain[item.name] || 0
+        fetchedCount: fetchedCountByDomain[item.name] || 0,
+        difficultyQuestionCounts: calculateDifficultyQuestionCounts(
+          item.questionCount,
+          item.difficulty
+        ).map((difficultyItem) => ({
+          ...difficultyItem,
+          fetchedCount: fetchedCountByDomainDifficulty[item.name]?.[difficultyItem.difficulty] || 0
+        }))
       }));
         
         return res.json({

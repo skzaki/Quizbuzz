@@ -27,10 +27,27 @@ const prizeSchema = z.object({
 const MIN_DOMAIN_PERCENTAGE = 10;
 const TOTAL_DOMAIN_PERCENTAGE = 100;
 const MAX_DISTRIBUTION_DOMAINS = TOTAL_DOMAIN_PERCENTAGE / MIN_DOMAIN_PERCENTAGE;
+const TOTAL_DIFFICULTY_PERCENTAGE = 100;
+
+const difficultyDistributionSchema = z.object({
+    easy: z.number().int().min(0, 'Easy difficulty must be between 0 and 100').max(TOTAL_DIFFICULTY_PERCENTAGE),
+    medium: z.number().int().min(0, 'Medium difficulty must be between 0 and 100').max(TOTAL_DIFFICULTY_PERCENTAGE),
+    hard: z.number().int().min(0, 'Hard difficulty must be between 0 and 100').max(TOTAL_DIFFICULTY_PERCENTAGE)
+}).superRefine((data, ctx) => {
+    const total = data.easy + data.medium + data.hard;
+    if (total !== TOTAL_DIFFICULTY_PERCENTAGE) {
+        ctx.addIssue({
+            path: ['easy'],
+            code: z.ZodIssueCode.custom,
+            message: `Difficulty distribution must total exactly ${TOTAL_DIFFICULTY_PERCENTAGE}%`
+        });
+    }
+});
 
 const domainDistributionItemSchema = z.object({
     name: z.string().min(1, 'Domain name is required'),
-    percentage: z.number().int().min(MIN_DOMAIN_PERCENTAGE, `Each domain must be at least ${MIN_DOMAIN_PERCENTAGE}%`).max(TOTAL_DOMAIN_PERCENTAGE)
+    percentage: z.number().int().min(MIN_DOMAIN_PERCENTAGE, `Each domain must be at least ${MIN_DOMAIN_PERCENTAGE}%`).max(TOTAL_DOMAIN_PERCENTAGE),
+    difficulty: difficultyDistributionSchema
 });
 
 const domainDistributionSchema = z.array(domainDistributionItemSchema)

@@ -38,7 +38,12 @@ const contestSchema = new mongoose.Schema({
     topics: [{ type: String }],
     domainDistribution: [{
         name: { type: String, required: true },
-        percentage: { type: Number, required: true, min: 10, max: 100 }
+        percentage: { type: Number, required: true, min: 10, max: 100 },
+        difficulty: {
+            easy: { type: Number, required: true, min: 0, max: 100, default: 40 },
+            medium: { type: Number, required: true, min: 0, max: 100, default: 40 },
+            hard: { type: Number, required: true, min: 0, max: 100, default: 20 }
+        }
     }],
     rules: [{ type: String }],
     registerFee: { type: Number, required: true },
