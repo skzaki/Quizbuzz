@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import './CreateContestModal.css';
 import MultiSelectDropdown from '../common/MultiSelectDropdown';
 import ErrorBoundary from '../ErrorBoundary';
 import { DEFAULT_CONTEST_RULES_TEXT } from '../../utils/defaultContestRules';
@@ -33,7 +34,14 @@ const getInitialFormData = () => ({
   rules: DEFAULT_CONTEST_RULES_TEXT
 });
 
-const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, serverError = '' }) => {
+const CreateContestModal = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  editData = null,
+  serverError = '',
+  domainOptions = []
+}) => {
   const [formData, setFormData] = useState(getInitialFormData);
   
   const [loading, setLoading] = useState(false);
@@ -188,6 +196,8 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
 
     if (!formData.topics || formData.topics.length === 0) {
       newErrors.topics = 'At least one domain must be selected';
+    } else if (domainOptions.length === 0) {
+      newErrors.topics = 'No domains available. Please configure domains in backend first.';
     }
 
     const normalizedDistribution = normalizeDomainDistribution(formData.topics, formData.domainDistribution);
@@ -311,11 +321,11 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
   const isFormInvalid = Object.keys(liveValidationErrors).length > 0;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="create-contest-overlay">
     <ErrorBoundary>
 
         
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="create-contest-panel bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             {editData ? 'Edit Contest' : 'Create New Contest'}
@@ -466,6 +476,7 @@ const CreateContestModal = ({ isOpen, onClose, onSubmit, editData = null, server
               </label>
               <MultiSelectDropdown
                 selectedOptions={formData.topics}
+                options={domainOptions}
                 onChange={handleTopicsSelectionChange}
               />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

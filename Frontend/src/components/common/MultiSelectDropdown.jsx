@@ -1,20 +1,17 @@
 import { Check, ChevronDown, Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-const DOMAINS = [
-  'Java', 'Python', 'JavaScript', 'Web Development', 'Cloud', 'AI',
-  'Machine Learning', 'Data Science', 'Cybersecurity', 'Networking',
-  'Database', 'DevOps', 'Blockchain', 'Software Engineering',
-  'Operating Systems', 'Computer Networks', 'Data Structures', 'Algorithms',
-  'C Programming', 'C++', 'React', 'Angular', 'Node.js', 'Git', 'Linux'
-];
-
-const MultiSelectDropdown = ({ selectedOptions = [], onChange, maxSelections = null }) => {
+const MultiSelectDropdown = ({
+  selectedOptions = [],
+  options = [],
+  onChange,
+  maxSelections = null
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef(null);
 
-  const filteredDomains = DOMAINS.filter(domain =>
+  const filteredDomains = options.filter(domain =>
     domain.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -30,10 +27,10 @@ const MultiSelectDropdown = ({ selectedOptions = [], onChange, maxSelections = n
   };
 
   const toggleSelectAll = () => {
-    if (selectedOptions.length === DOMAINS.length) {
+    if (selectedOptions.length === options.length) {
       onChange([]);
     } else {
-      onChange([...DOMAINS]);
+      onChange([...options]);
     }
   };
 
@@ -103,9 +100,14 @@ const MultiSelectDropdown = ({ selectedOptions = [], onChange, maxSelections = n
                 e.stopPropagation();
                 toggleSelectAll();
               }}
+              disabled={options.length === 0}
               className="w-full text-left px-3 py-1.5 text-xs font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10 rounded-md transition-colors"
             >
-              {selectedOptions.length === DOMAINS.length ? 'Deselect All' : 'Select All Domains'}
+              {options.length === 0
+                ? 'No domains available'
+                : selectedOptions.length === options.length
+                  ? 'Deselect All'
+                  : 'Select All Domains'}
             </button>
           </div>
           <div className="max-h-60 overflow-y-auto p-1 custom-scrollbar">

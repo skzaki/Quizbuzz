@@ -18,6 +18,7 @@ const ContestManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [contests, setContests] = useState([]);
+  const [domainOptions, setDomainOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [createError, setCreateError] = useState('');
@@ -33,6 +34,10 @@ const ContestManagement = () => {
   useEffect(() => {
     fetchContests();
   }, [currentPage, searchTerm, statusFilter]);
+
+  useEffect(() => {
+    fetchDomainOptions();
+  }, []);
 
   useEffect(() => {
     if (searchParams.get('openCreate') === 'true') {
@@ -63,6 +68,28 @@ const ContestManagement = () => {
     }
   };
 
+  const fetchDomainOptions = async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/domains`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json?.error?.message || 'Failed to fetch domains');
+      }
+
+      const domains = Array.isArray(json?.data?.domains)
+        ? json.data.domains.map((domain) => domain.name).filter(Boolean)
+        : [];
+
+      setDomainOptions(domains);
+    } catch (err) {
+      console.error('Fetch domains error:', err);
+      setDomainOptions([]);
+    }
+  };
+
   const buildContestPayload = (formData) => {
     const rulesRaw = formData.rules || '';
     const rulesArray = rulesRaw
@@ -77,10 +104,6 @@ const ContestManagement = () => {
     const topicsRaw = Array.isArray(formData.topics)
       ? formData.topics
       : (formData.topics || '').split(',').map((t) => t.trim()).filter(Boolean);
-
-    if (topicsRaw.length === 0) {
-      topicsRaw.push('General');
-    }
 
     const prizeAmount = parseFloat(formData.prizePool) || 0;
     const parsedMaxParticipants = Number(formData.maxParticipants);
@@ -318,6 +341,7 @@ const ContestManagement = () => {
                 onSubmit={handleSubmitContest}
                 editData={editingContest}
                 serverError={createError}
+                domainOptions={domainOptions}
               />
             </Suspense>
           )}

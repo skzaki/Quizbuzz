@@ -1,5 +1,6 @@
 import slugify from "slugify";
 import mongoose from 'mongoose';
+import { DEFAULT_DOMAIN_NAMES, normalizeDomainName, toDomainKey } from '../utils/domainCatalog.js';
 
 const userSchema = new mongoose.Schema({
     registrationId: { type: String },
@@ -29,6 +30,24 @@ const QuestionSchema = new mongoose.Schema({
     explanation: { type: String },
     isDeleted: { type: Boolean, default: false, index: true },
 }, { timestamps: true });
+
+const domainSchema = new mongoose.Schema({
+    name: { type: String, required: true, trim: true },
+    key: { type: String, required: true, lowercase: true, trim: true },
+    displayOrder: { type: Number, default: 0 },
+    isActive: { type: Boolean, default: true, index: true },
+    isDeleted: { type: Boolean, default: false, index: true },
+}, { timestamps: true });
+
+domainSchema.pre('validate', function (next) {
+    const normalizedName = normalizeDomainName(this.name);
+    this.name = normalizedName;
+    this.key = toDomainKey(normalizedName);
+    next();
+});
+
+domainSchema.index({ key: 1 }, { unique: true });
+domainSchema.index({ name: 1, isDeleted: 1 });
 
 const contestSchema = new mongoose.Schema({
     title: { type: String, required: true },
@@ -208,15 +227,45 @@ export const User = mongoose.models.User || mongoose.model("User", userSchema);
 export const Contest = mongoose.models.Contest || mongoose.model("Contest", contestSchema);
 export const Payment = mongoose.models.Payment || mongoose.model("Payment", paymentsSchema);
 export const Question = mongoose.models.Question || mongoose.model("Question", QuestionSchema);
+export const Domain = mongoose.models.Domain || mongoose.model('Domain', domainSchema);
 export const Certificate = mongoose.models.Certificate || mongoose.model("Certificate", certificatesSchema);
 export const Session = mongoose.models.Session || mongoose.model("Session", sessionSchema);
 export const Submission = mongoose.models.Submission || mongoose.model("Submission", submissionSchema);
 export const Settings = mongoose.models.Settings || mongoose.model("Settings", settingsSchema);
 
+const seedDefaultDomains = async () => {
+    const operations = DEFAULT_DOMAIN_NAMES.map((domainName, index) => ({
+        updateOne: {
+            filter: { key: toDomainKey(domainName) },
+            update: {
+                $set: {
+                    name: normalizeDomainName(domainName),
+                    key: toDomainKey(domainName),
+                    displayOrder: index,
+                    isActive: true,
+                    isDeleted: false
+                }
+            },
+            upsert: true
+        }
+    }));
+
+    if (operations.length > 0) {
+        await Domain.bulkWrite(operations);
+    }
+};
+
 export const connectDB = async () => {
     try {
         await mongoose.connect(process.env.MONGODB_URL);
         console.log('MongoDB connected');
+
+        try {
+            await seedDefaultDomains();
+            console.log('Default domains synchronized');
+        } catch (domainSeedError) {
+            console.error('Failed to synchronize default domains', domainSeedError);
+        }
     } catch (error) {
         console.error('MongoDB connection failed', error);
         process.exit(1);

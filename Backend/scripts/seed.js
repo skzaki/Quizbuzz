@@ -2,7 +2,8 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { User } from '../Models/DB.js';
+import { Domain, User } from '../Models/DB.js';
+import { DEFAULT_DOMAIN_NAMES, normalizeDomainName, toDomainKey } from '../utils/domainCatalog.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,6 +47,28 @@ const seed = async () => {
             console.log('Test participant seeded.');
         } else {
             console.log('Test participant already exists.');
+        }
+
+        // Seed default domains
+        const domainUpserts = DEFAULT_DOMAIN_NAMES.map((domainName, index) => ({
+            updateOne: {
+                filter: { key: toDomainKey(domainName) },
+                update: {
+                    $set: {
+                        name: normalizeDomainName(domainName),
+                        key: toDomainKey(domainName),
+                        displayOrder: index,
+                        isActive: true,
+                        isDeleted: false
+                    }
+                },
+                upsert: true
+            }
+        }));
+
+        if (domainUpserts.length > 0) {
+            await Domain.bulkWrite(domainUpserts);
+            console.log(`Default domains synchronized (${DEFAULT_DOMAIN_NAMES.length})`);
         }
 
         console.log('Seeding completed successfully.');

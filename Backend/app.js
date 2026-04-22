@@ -11,6 +11,7 @@ import adminContestRoutes from "./routes/admin/contestRoutes.js";
 import paymentRoutes from './routes/admin/paymentRoutes.js';
 import authRoutes from "./routes/authRoutes.js";
 import contestRoutes from "./routes/contestRoutes.js";
+import domainRoutes from './routes/admin/domainRoutes.js';
 import questionRoutes from "./routes/admin/questionRoutes.js";
 import settingsRoutes from "./routes/admin/settingsRoutes.js";
 import { authMiddleware } from './middleware/auth.js';
@@ -92,6 +93,7 @@ app.get('/health', async (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/admin/contests", adminContestRoutes);
 app.use("/api/contests", contestRoutes);
+app.use('/api/admin/domains', domainRoutes);
 app.use("/api/admin/questions", questionRoutes);
 app.use("/api/admin/settings", settingsRoutes);
 app.use("/api/payments", paymentRoutes);

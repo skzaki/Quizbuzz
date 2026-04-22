@@ -1,4 +1,4 @@
-import { BookOpen, Database, Download, Plus, Search, Target, Upload } from 'lucide-react';
+import { BookOpen, Check, ChevronDown, Database, Download, Plus, Search, Target, Upload } from 'lucide-react';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import LoadingSpinner from "../../components/UI/LoadingSpinner";
 
@@ -6,12 +6,14 @@ const BASE_URL = `${import.meta.env.VITE_URL}/admin`;
 
 const QuestionBank = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [topicFilter, setTopicFilter] = useState('all');
+  const [domainFilter, setDomainFilter] = useState('all');
   const [difficultyFilter, setDifficultyFilter] = useState('all');
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showDomainDropdown, setShowDomainDropdown] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [questions, setQuestions] = useState([]);
+  const [domainOptions, setDomainOptions] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -33,7 +35,46 @@ const QuestionBank = () => {
 
   useEffect(() => {
     fetchQuestions();
-  }, [currentPage, searchTerm, difficultyFilter]);
+  }, [currentPage, searchTerm, difficultyFilter, domainFilter]);
+
+  useEffect(() => {
+    fetchDomains();
+  }, []);
+
+  useEffect(() => {
+    if (!showDomainDropdown) return;
+
+    const handleOutsideClick = (event) => {
+      if (!event.target.closest('[data-domain-dropdown]')) {
+        setShowDomainDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [showDomainDropdown]);
+
+  const fetchDomains = async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/domains`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json?.error?.message || 'Failed to fetch domains');
+      }
+
+      const domains = Array.isArray(json?.data?.domains)
+        ? json.data.domains.map((domain) => domain.name).filter(Boolean)
+        : [];
+
+      setDomainOptions(domains);
+    } catch (err) {
+      console.error('Failed to fetch domains:', err);
+      setDomainOptions([]);
+    }
+  };
 
   const fetchQuestions = async () => {
     setIsLoading(true);
@@ -43,6 +84,7 @@ const QuestionBank = () => {
         limit: itemsPerPage,
         ...(searchTerm && { search: searchTerm }),
         ...(difficultyFilter !== 'all' && { difficulty: difficultyFilter }),
+        ...(domainFilter !== 'all' && { domain: domainFilter }),
       });
       const res = await fetch(`${BASE_URL}/questions?${params}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -69,6 +111,7 @@ const QuestionBank = () => {
       hint: '',
       explanation: '',
     });
+    setShowDomainDropdown(false);
     setEditingQuestion(null);
     setError('');
   };
@@ -76,6 +119,11 @@ const QuestionBank = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (!form.domain) {
+      setError('Please select a domain');
+      return;
+    }
 
     const payload = {
       ...form,
@@ -97,7 +145,7 @@ const QuestionBank = () => {
 
       const json = await res.json();
       if (!res.ok) {
-        setError(json.message || 'Failed to save question');
+        setError(json?.error?.message || json?.message || 'Failed to save question');
         return;
       }
 
@@ -121,6 +169,7 @@ const QuestionBank = () => {
       hint: question.hint || '',
       explanation: question.explanation || '',
     });
+    setShowDomainDropdown(false);
     setShowCreateForm(true);
   };
 
@@ -197,6 +246,16 @@ const QuestionBank = () => {
           />
         </div>
         <select
+          value={domainFilter}
+          onChange={(e) => { setDomainFilter(e.target.value); setCurrentPage(1); }}
+          className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+        >
+          <option value="all">All Domains</option>
+          {domainOptions.map((domain) => (
+            <option key={domain} value={domain}>{domain}</option>
+          ))}
+        </select>
+        <select
           value={difficultyFilter}
           onChange={(e) => { setDifficultyFilter(e.target.value); setCurrentPage(1); }}
           className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -215,7 +274,7 @@ const QuestionBank = () => {
         ) : questions.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             No questions yet.{' '}
-            <button onClick={() => setShowCreateForm(true)} className="text-purple-500 hover:underline">
+            <button onClick={() => { resetForm(); setShowCreateForm(true); }} className="text-purple-500 hover:underline">
               Add one
             </button>
           </div>
@@ -223,7 +282,7 @@ const QuestionBank = () => {
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
-                {['Question', 'Difficulty', 'Options', 'Actions'].map(h => (
+                {['Question', 'Domain', 'Difficulty', 'Options', 'Actions'].map(h => (
                   <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
@@ -233,6 +292,9 @@ const QuestionBank = () => {
                 <tr key={q._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   <td className="px-6 py-4 text-sm text-gray-900 dark:text-white max-w-xs truncate">
                     {q.questionText}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
+                    {q.domain || '-'}
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${q.difficulty === 'easy' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
@@ -343,16 +405,45 @@ const QuestionBank = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                <div className="relative" data-domain-dropdown>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Domain *</label>
-                  <input
-                    type="text"
-                    value={form.domain}
-                    onChange={(e) => setForm(p => ({ ...p, domain: e.target.value }))}
-                    placeholder="e.g. JavaScript, Python"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    required
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowDomainDropdown((prev) => !prev)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-left text-gray-900 dark:text-white flex items-center justify-between"
+                  >
+                    <span className={form.domain ? '' : 'text-gray-400 dark:text-gray-500'}>
+                      {form.domain || 'Select a domain'}
+                    </span>
+                    <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${showDomainDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {showDomainDropdown && (
+                    <div className="absolute mt-1 w-full z-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                      {domainOptions.length === 0 ? (
+                        <p className="px-3 py-2 text-sm text-gray-500">No domains available</p>
+                      ) : (
+                        domainOptions.map((domain) => (
+                          <label
+                            key={domain}
+                            className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={form.domain === domain}
+                              onChange={() => {
+                                setForm((prev) => ({ ...prev, domain }));
+                                setShowDomainDropdown(false);
+                              }}
+                              className="h-4 w-4 text-purple-600 border-gray-300 rounded"
+                            />
+                            <span className="text-sm text-gray-800 dark:text-gray-200 flex-1">{domain}</span>
+                            {form.domain === domain && <Check className="h-4 w-4 text-purple-600" />}
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Difficulty *</label>

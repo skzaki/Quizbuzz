@@ -3,6 +3,12 @@ import { Contest, Question, Submission, User } from "../../Models/DB.js";
 import { bulkStatusUpdateSchema, contestSchema, questionsSchema, updateContestSchema } from "../../Models/zodSchema.js";
 import redisClient from '../../redis.js';
 import {
+    canonicalizeSingleDomain,
+    canonicalizeDomainDistributionList,
+    canonicalizeDomainList,
+    getActiveDomainKeyMap
+} from '../../utils/domainMaster.js';
+import {
     isDistributionMatchingDomains,
     isValidDifficultyDistribution,
     MAX_DOMAIN_PERCENTAGE,
@@ -49,6 +55,11 @@ const getDomainDistributionValidationError = (distribution = []) => {
 
     return null;
 };
+
+const buildUnknownDomainDetails = (field, unknownDomains = []) => ({
+    field,
+    message: `Invalid domain(s): ${[...new Set(unknownDomains.filter(Boolean))].join(', ')}`
+});
 
 
 /**
@@ -308,9 +319,58 @@ export const createContest = async (req, res) => {
             });
         }
 
-        const normalizedDomainDistribution = normalizeDomainDistribution(
+        const activeDomainKeyMap = await getActiveDomainKeyMap();
+        const { canonicalNames: canonicalTopics, unknownDomains: unknownTopicDomains } = canonicalizeDomainList(
             validation.data.topics,
-            validation.data.domainDistribution
+            activeDomainKeyMap
+        );
+
+        if (unknownTopicDomains.length > 0) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: "VALIDATION_ERROR",
+                    message: "Invalid input data",
+                    details: [buildUnknownDomainDetails('topics', unknownTopicDomains)]
+                }
+            });
+        }
+
+        const {
+            canonicalDistribution,
+            unknownDomains: unknownDistributionDomains
+        } = canonicalizeDomainDistributionList(validation.data.domainDistribution, activeDomainKeyMap);
+
+        if (unknownDistributionDomains.length > 0) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: "VALIDATION_ERROR",
+                    message: "Invalid input data",
+                    details: [buildUnknownDomainDetails('domainDistribution', unknownDistributionDomains)]
+                }
+            });
+        }
+
+        if (!isDistributionMatchingDomains(canonicalTopics, canonicalDistribution)) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: "VALIDATION_ERROR",
+                    message: "Invalid input data",
+                    details: [
+                        {
+                            field: "domainDistribution",
+                            message: "Domain distribution names must exactly match selected topics"
+                        }
+                    ]
+                }
+            });
+        }
+
+        const normalizedDomainDistribution = normalizeDomainDistribution(
+            canonicalTopics,
+            canonicalDistribution
         );
 
         const distributionValidationError = getDomainDistributionValidationError(normalizedDomainDistribution);
@@ -332,6 +392,7 @@ export const createContest = async (req, res) => {
 
         const contestData = {
             ...validation.data,
+            topics: canonicalTopics,
             startTime: new Date(`${validation.data.startDate} ${validation.data.startTime}`),
             deadline: new Date(new Date(`${validation.data.startDate} ${validation.data.startTime}`).getTime() + validation.data.duration * 60000),
             registerFee: validation.data.registrationFee,
@@ -450,13 +511,43 @@ export const updateContest = async (req, res) => {
         }
 
         if (validation.data.topics || validation.data.domainDistribution) {
-            const mergedTopics = validation.data.topics || existingContest.topics || [];
-            const mergedDistribution = validation.data.domainDistribution || existingContest.domainDistribution || [];
+            const activeDomainKeyMap = await getActiveDomainKeyMap();
+            const mergedTopicsInput = validation.data.topics || existingContest.topics || [];
+            const mergedDistributionInput = validation.data.domainDistribution || existingContest.domainDistribution || [];
 
-            if (
-                validation.data.domainDistribution &&
-                !isDistributionMatchingDomains(mergedTopics, validation.data.domainDistribution)
-            ) {
+            const {
+                canonicalNames: mergedTopics,
+                unknownDomains: unknownTopicDomains
+            } = canonicalizeDomainList(mergedTopicsInput, activeDomainKeyMap);
+
+            if (unknownTopicDomains.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "VALIDATION_ERROR",
+                        message: "Invalid input data",
+                        details: [buildUnknownDomainDetails('topics', unknownTopicDomains)]
+                    }
+                });
+            }
+
+            const {
+                canonicalDistribution: mergedDistribution,
+                unknownDomains: unknownDistributionDomains
+            } = canonicalizeDomainDistributionList(mergedDistributionInput, activeDomainKeyMap);
+
+            if (unknownDistributionDomains.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "VALIDATION_ERROR",
+                        message: "Invalid input data",
+                        details: [buildUnknownDomainDetails('domainDistribution', unknownDistributionDomains)]
+                    }
+                });
+            }
+
+            if (!isDistributionMatchingDomains(mergedTopics, mergedDistribution)) {
                 return res.status(400).json({
                     success: false,
                     error: {
@@ -470,6 +561,10 @@ export const updateContest = async (req, res) => {
                         ]
                     }
                 });
+            }
+
+            if (validation.data.topics) {
+                updateData.topics = mergedTopics;
             }
 
             updateData.domainDistribution = normalizeDomainDistribution(mergedTopics, mergedDistribution);
@@ -936,6 +1031,8 @@ export const addQuestionsToContest = async (req, res) => {
     }
 
     try {
+        const activeDomainKeyMap = await getActiveDomainKeyMap();
+
         // Process each question
         questions.forEach(question => {
             const result = questionsSchema.safeParse(question);
@@ -946,7 +1043,25 @@ export const addQuestionsToContest = async (req, res) => {
                     errors: result.error.errors
                 });
             } else {
-                acceptedQues.push(question);
+                const canonicalDomain = canonicalizeSingleDomain(question.domain, activeDomainKeyMap);
+
+                if (!canonicalDomain) {
+                    notAcceptedQues.push({
+                        question,
+                        errors: [
+                            {
+                                path: ['domain'],
+                                message: 'Invalid domain selected'
+                            }
+                        ]
+                    });
+                    return;
+                }
+
+                acceptedQues.push({
+                    ...question,
+                    domain: canonicalDomain
+                });
             }
         });
 

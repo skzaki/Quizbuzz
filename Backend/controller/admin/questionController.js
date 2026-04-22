@@ -1,6 +1,7 @@
 // controller/admin/questionController.js
 import { Contest, Question } from "../../Models/DB.js";
 import redisClient from '../../redis.js';
+import { canonicalizeSingleDomain, getActiveDomainKeyMap } from '../../utils/domainMaster.js';
 
 /**
  * @desc    Get all questions (with filtering and pagination)
@@ -13,7 +14,20 @@ export const getAllQuestions = async (req, res) => {
         let query = { isDeleted: false };
         
         if (domain && domain !== 'all') {
-            query.domain = domain;
+            const activeDomainKeyMap = await getActiveDomainKeyMap();
+            const canonicalDomain = canonicalizeSingleDomain(domain, activeDomainKeyMap);
+
+            if (!canonicalDomain) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: 'VALIDATION_ERROR',
+                        message: 'Invalid domain filter'
+                    }
+                });
+            }
+
+            query.domain = canonicalDomain;
         }
         
         if (search) {
@@ -83,12 +97,25 @@ export const createQuestion = async (req, res) => {
             explanation 
         } = req.body;
 
+        const activeDomainKeyMap = await getActiveDomainKeyMap();
+        const canonicalDomain = canonicalizeSingleDomain(domain, activeDomainKeyMap);
+
+        if (!canonicalDomain) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: 'VALIDATION_ERROR',
+                    message: 'Invalid domain selected'
+                }
+            });
+        }
+
         const question = await Question.create({
             questionText, 
             options, 
             correctOptionIndex, 
             correctOptionText, 
-            domain,
+            domain: canonicalDomain,
             difficulty, 
             hint, 
             explanation
@@ -119,9 +146,29 @@ export const createQuestion = async (req, res) => {
 export const updateQuestion = async (req, res) => {
     try {
         const { id } = req.params;
+
+        const updatePayload = { ...req.body };
+
+        if (updatePayload.domain !== undefined) {
+            const activeDomainKeyMap = await getActiveDomainKeyMap();
+            const canonicalDomain = canonicalizeSingleDomain(updatePayload.domain, activeDomainKeyMap);
+
+            if (!canonicalDomain) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: 'VALIDATION_ERROR',
+                        message: 'Invalid domain selected'
+                    }
+                });
+            }
+
+            updatePayload.domain = canonicalDomain;
+        }
+
         const question = await Question.findByIdAndUpdate(
             id, 
-            { $set: req.body }, 
+            { $set: updatePayload }, 
             { new: true, runValidators: true }
         );
 
