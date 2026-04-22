@@ -3,12 +3,14 @@ import { Contest, Question, Submission, User } from "../../Models/DB.js";
 import { bulkStatusUpdateSchema, contestSchema, questionsSchema, updateContestSchema } from "../../Models/zodSchema.js";
 import redisClient from '../../redis.js';
 import {
-    canonicalizeSingleDomain,
-    canonicalizeDomainDistributionList,
-    canonicalizeDomainList,
-    getActiveDomainKeyMap
+    canonicalizeSingleDomainWithRef,
+    canonicalizeDomainDistributionWithRefs,
+    canonicalizeDomainListWithRefs,
+    getActiveDomainLookup
 } from '../../utils/domainMaster.js';
 import {
+    calculateDifficultyQuestionCounts,
+    calculateQuestionCountsFromDistribution,
     isDistributionMatchingDomains,
     isValidDifficultyDistribution,
     MAX_DOMAIN_PERCENTAGE,
@@ -28,6 +30,9 @@ const CACHE_TTL = {
     CONTESTS_LIST: 180, // 3 minutes
     STATISTICS: 600, // 10 minutes
 };
+
+const DEFAULT_CONTEST_QUESTION_COUNT = 20;
+const PUBLISHABLE_CONTEST_STATUSES = new Set(['upcoming', 'ongoing']);
 
 const getDomainDistributionValidationError = (distribution = []) => {
     if (!Array.isArray(distribution) || distribution.length === 0) {
@@ -60,6 +65,252 @@ const buildUnknownDomainDetails = (field, unknownDomains = []) => ({
     field,
     message: `Invalid domain(s): ${[...new Set(unknownDomains.filter(Boolean))].join(', ')}`
 });
+
+const uniqueObjectIdValues = (values = []) => {
+    const seen = new Set();
+    const uniqueValues = [];
+
+    values.forEach((value) => {
+        if (!value) return;
+
+        const key = value.toString();
+        if (seen.has(key)) return;
+
+        seen.add(key);
+        uniqueValues.push(value);
+    });
+
+    return uniqueValues;
+};
+
+const withDomainRefs = (distribution = [], canonicalDistribution = []) => {
+    return distribution.map((item) => {
+        const matched = canonicalDistribution.find((entry) => entry.name === item.name);
+
+        if (!matched?.domainRef) {
+            return item;
+        }
+
+        return {
+            ...item,
+            domainRef: matched.domainRef
+        };
+    });
+};
+
+const resolveRequiredQuestionCount = (contestLike = {}) => {
+    const assignedQuestionCount = Array.isArray(contestLike?.QuestionBank)
+        ? contestLike.QuestionBank.length
+        : 0;
+
+    return assignedQuestionCount > 0 ? assignedQuestionCount : DEFAULT_CONTEST_QUESTION_COUNT;
+};
+
+const getQuestionDomainMatch = (domainName, domainRef) => {
+    if (!domainRef) {
+        return { domain: domainName };
+    }
+
+    return {
+        $or: [
+            { domain: domainName },
+            { domainRef }
+        ]
+    };
+};
+
+const evaluateContestReadiness = async ({
+    domainDistribution = [],
+    requiredQuestionCount = DEFAULT_CONTEST_QUESTION_COUNT
+}) => {
+    const safeQuestionCount = Math.max(0, Number(requiredQuestionCount) || 0);
+    const domainQuestionCounts = calculateQuestionCountsFromDistribution(
+        safeQuestionCount,
+        domainDistribution
+    );
+
+    const shortages = [];
+
+    for (const domainConfig of domainQuestionCounts) {
+        const difficultyPlan = calculateDifficultyQuestionCounts(
+            domainConfig.questionCount,
+            domainConfig.difficulty
+        );
+
+        for (const difficultyConfig of difficultyPlan) {
+            if (difficultyConfig.questionCount <= 0) {
+                continue;
+            }
+
+            const availableCount = await Question.countDocuments({
+                ...getQuestionDomainMatch(domainConfig.name, domainConfig.domainRef),
+                difficulty: difficultyConfig.difficulty,
+                isDeleted: false
+            });
+
+            if (availableCount < difficultyConfig.questionCount) {
+                shortages.push({
+                    domain: domainConfig.name,
+                    difficulty: difficultyConfig.difficulty,
+                    required: difficultyConfig.questionCount,
+                    available: availableCount,
+                    shortBy: difficultyConfig.questionCount - availableCount
+                });
+            }
+        }
+    }
+
+    return {
+        isReady: shortages.length === 0,
+        requiredQuestionCount: safeQuestionCount,
+        shortages
+    };
+};
+
+const buildReadinessErrorDetails = (shortages = []) => {
+    const shortageSummary = shortages.map((item) => (
+        `${item.domain}/${item.difficulty}: need ${item.required}, have ${item.available}`
+    ));
+
+    return [
+        {
+            field: 'questionReadiness',
+            message: `Insufficient domain questions for selected distribution. ${shortageSummary.join('; ')}`
+        }
+    ];
+};
+
+/**
+ * @desc    Preview contest readiness for selected domain distribution
+ * @route   POST /api/admin/contests/readiness
+ * @access  Admin
+ */
+export const checkContestReadiness = async (req, res) => {
+    try {
+        const { topics = [], domainDistribution = [], requiredQuestionCount } = req.body || {};
+
+        if (!Array.isArray(topics) || topics.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: 'VALIDATION_ERROR',
+                    message: 'At least one topic is required for readiness check',
+                    details: [{ field: 'topics', message: 'At least one topic is required' }]
+                }
+            });
+        }
+
+        if (!Array.isArray(domainDistribution) || domainDistribution.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: 'VALIDATION_ERROR',
+                    message: 'Domain distribution is required for readiness check',
+                    details: [{ field: 'domainDistribution', message: 'At least one domain distribution entry is required' }]
+                }
+            });
+        }
+
+        const activeDomainLookup = await getActiveDomainLookup();
+        const {
+            canonicalDomains: canonicalTopicEntries,
+            unknownDomains: unknownTopicDomains
+        } = canonicalizeDomainListWithRefs(topics, activeDomainLookup);
+        const canonicalTopics = canonicalTopicEntries.map((item) => item.name);
+
+        if (unknownTopicDomains.length > 0) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: 'VALIDATION_ERROR',
+                    message: 'Invalid input data',
+                    details: [buildUnknownDomainDetails('topics', unknownTopicDomains)]
+                }
+            });
+        }
+
+        const {
+            canonicalDistribution,
+            unknownDomains: unknownDistributionDomains
+        } = canonicalizeDomainDistributionWithRefs(domainDistribution, activeDomainLookup);
+
+        if (unknownDistributionDomains.length > 0) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: 'VALIDATION_ERROR',
+                    message: 'Invalid input data',
+                    details: [buildUnknownDomainDetails('domainDistribution', unknownDistributionDomains)]
+                }
+            });
+        }
+
+        if (!isDistributionMatchingDomains(canonicalTopics, canonicalDistribution)) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: 'VALIDATION_ERROR',
+                    message: 'Invalid input data',
+                    details: [
+                        {
+                            field: 'domainDistribution',
+                            message: 'Domain distribution names must exactly match selected topics'
+                        }
+                    ]
+                }
+            });
+        }
+
+        const normalizedDistribution = withDomainRefs(
+            normalizeDomainDistribution(canonicalTopics, canonicalDistribution),
+            canonicalDistribution
+        );
+
+        const distributionValidationError = getDomainDistributionValidationError(normalizedDistribution);
+        if (distributionValidationError) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: 'VALIDATION_ERROR',
+                    message: 'Invalid input data',
+                    details: [
+                        {
+                            field: 'domainDistribution',
+                            message: distributionValidationError
+                        }
+                    ]
+                }
+            });
+        }
+
+        const readiness = await evaluateContestReadiness({
+            domainDistribution: normalizedDistribution,
+            requiredQuestionCount: requiredQuestionCount || DEFAULT_CONTEST_QUESTION_COUNT
+        });
+
+        return res.json({
+            success: true,
+            data: {
+                isReady: readiness.isReady,
+                requiredQuestionCount: readiness.requiredQuestionCount,
+                shortages: readiness.shortages,
+                domainDistribution: normalizedDistribution
+            },
+            message: readiness.isReady
+                ? 'Contest is ready for publish'
+                : 'Contest is not ready for publish'
+        });
+    } catch (error) {
+        console.error('Check contest readiness error:', error);
+        return res.status(500).json({
+            success: false,
+            error: {
+                code: 'INTERNAL_SERVER_ERROR',
+                message: 'Failed to check contest readiness'
+            }
+        });
+    }
+};
 
 
 /**
@@ -209,6 +460,93 @@ export const getAllContests = async (req, res) => {
 };
 
 /**
+ * @desc    Get contests overview stats
+ * @route   GET /api/admin/contests/overview
+ * @access  Admin
+ */
+export const getContestsOverview = async (req, res) => {
+    try {
+        const match = { isDeleted: false };
+
+        const [totalContests, statusGroups, summaryGroups] = await Promise.all([
+            Contest.countDocuments(match),
+            Contest.aggregate([
+                { $match: match },
+                {
+                    $group: {
+                        _id: '$status',
+                        count: { $sum: 1 }
+                    }
+                }
+            ]),
+            Contest.aggregate([
+                { $match: match },
+                {
+                    $project: {
+                        participantCount: { $size: { $ifNull: ['$participants', []] } },
+                        questionCount: { $size: { $ifNull: ['$QuestionBank', []] } },
+                        registerFee: { $ifNull: ['$registerFee', 0] }
+                    }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        totalParticipants: { $sum: '$participantCount' },
+                        totalQuestionBank: { $sum: '$questionCount' },
+                        estimatedRevenue: {
+                            $sum: {
+                                $multiply: ['$participantCount', '$registerFee']
+                            }
+                        }
+                    }
+                }
+            ])
+        ]);
+
+        const statusSummary = {
+            draft: 0,
+            upcoming: 0,
+            ongoing: 0,
+            completed: 0,
+            cancelled: 0
+        };
+
+        statusGroups.forEach((item) => {
+            if (statusSummary[item._id] !== undefined) {
+                statusSummary[item._id] = item.count;
+            }
+        });
+
+        const summary = summaryGroups[0] || {
+            totalParticipants: 0,
+            totalQuestionBank: 0,
+            estimatedRevenue: 0
+        };
+
+        return res.json({
+            success: true,
+            data: {
+                totalContests,
+                statusSummary,
+                totalParticipants: summary.totalParticipants,
+                totalQuestionBank: summary.totalQuestionBank,
+                estimatedRevenue: summary.estimatedRevenue
+            },
+            message: 'Contest overview retrieved successfully'
+        });
+    } catch (err) {
+        console.error('Error fetching contest overview:', err);
+        return res.status(500).json({
+            success: false,
+            error: {
+                code: 'INTERNAL_SERVER_ERROR',
+                message: 'Server error'
+            }
+        });
+    }
+};
+
+/**
  * @desc    Get contest by ID
  * @route   GET /api/admin/contests/:id
  * @access  Admin
@@ -319,11 +657,13 @@ export const createContest = async (req, res) => {
             });
         }
 
-        const activeDomainKeyMap = await getActiveDomainKeyMap();
-        const { canonicalNames: canonicalTopics, unknownDomains: unknownTopicDomains } = canonicalizeDomainList(
-            validation.data.topics,
-            activeDomainKeyMap
-        );
+        const activeDomainLookup = await getActiveDomainLookup();
+        const {
+            canonicalDomains: canonicalTopicEntries,
+            unknownDomains: unknownTopicDomains
+        } = canonicalizeDomainListWithRefs(validation.data.topics, activeDomainLookup);
+        const canonicalTopics = canonicalTopicEntries.map((item) => item.name);
+        const canonicalTopicRefs = uniqueObjectIdValues(canonicalTopicEntries.map((item) => item.domainRef));
 
         if (unknownTopicDomains.length > 0) {
             return res.status(400).json({
@@ -339,7 +679,7 @@ export const createContest = async (req, res) => {
         const {
             canonicalDistribution,
             unknownDomains: unknownDistributionDomains
-        } = canonicalizeDomainDistributionList(validation.data.domainDistribution, activeDomainKeyMap);
+        } = canonicalizeDomainDistributionWithRefs(validation.data.domainDistribution, activeDomainLookup);
 
         if (unknownDistributionDomains.length > 0) {
             return res.status(400).json({
@@ -368,10 +708,10 @@ export const createContest = async (req, res) => {
             });
         }
 
-        const normalizedDomainDistribution = normalizeDomainDistribution(
+        const normalizedDomainDistribution = withDomainRefs(normalizeDomainDistribution(
             canonicalTopics,
             canonicalDistribution
-        );
+        ), canonicalDistribution);
 
         const distributionValidationError = getDomainDistributionValidationError(normalizedDomainDistribution);
         if (distributionValidationError) {
@@ -390,9 +730,28 @@ export const createContest = async (req, res) => {
             });
         }
 
+        if (PUBLISHABLE_CONTEST_STATUSES.has(validation.data.status)) {
+            const readiness = await evaluateContestReadiness({
+                domainDistribution: normalizedDomainDistribution,
+                requiredQuestionCount: DEFAULT_CONTEST_QUESTION_COUNT
+            });
+
+            if (!readiness.isReady) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: 'VALIDATION_ERROR',
+                        message: 'Contest cannot be published due to insufficient questions',
+                        details: buildReadinessErrorDetails(readiness.shortages)
+                    }
+                });
+            }
+        }
+
         const contestData = {
             ...validation.data,
             topics: canonicalTopics,
+            topicRefs: canonicalTopicRefs,
             startTime: new Date(`${validation.data.startDate} ${validation.data.startTime}`),
             deadline: new Date(new Date(`${validation.data.startDate} ${validation.data.startTime}`).getTime() + validation.data.duration * 60000),
             registerFee: validation.data.registrationFee,
@@ -511,14 +870,16 @@ export const updateContest = async (req, res) => {
         }
 
         if (validation.data.topics || validation.data.domainDistribution) {
-            const activeDomainKeyMap = await getActiveDomainKeyMap();
+            const activeDomainLookup = await getActiveDomainLookup();
             const mergedTopicsInput = validation.data.topics || existingContest.topics || [];
             const mergedDistributionInput = validation.data.domainDistribution || existingContest.domainDistribution || [];
 
             const {
-                canonicalNames: mergedTopics,
+                canonicalDomains: mergedTopicEntries,
                 unknownDomains: unknownTopicDomains
-            } = canonicalizeDomainList(mergedTopicsInput, activeDomainKeyMap);
+            } = canonicalizeDomainListWithRefs(mergedTopicsInput, activeDomainLookup);
+            const mergedTopics = mergedTopicEntries.map((item) => item.name);
+            const mergedTopicRefs = uniqueObjectIdValues(mergedTopicEntries.map((item) => item.domainRef));
 
             if (unknownTopicDomains.length > 0) {
                 return res.status(400).json({
@@ -534,7 +895,7 @@ export const updateContest = async (req, res) => {
             const {
                 canonicalDistribution: mergedDistribution,
                 unknownDomains: unknownDistributionDomains
-            } = canonicalizeDomainDistributionList(mergedDistributionInput, activeDomainKeyMap);
+            } = canonicalizeDomainDistributionWithRefs(mergedDistributionInput, activeDomainLookup);
 
             if (unknownDistributionDomains.length > 0) {
                 return res.status(400).json({
@@ -565,9 +926,13 @@ export const updateContest = async (req, res) => {
 
             if (validation.data.topics) {
                 updateData.topics = mergedTopics;
+                updateData.topicRefs = mergedTopicRefs;
             }
 
-            updateData.domainDistribution = normalizeDomainDistribution(mergedTopics, mergedDistribution);
+            updateData.domainDistribution = withDomainRefs(
+                normalizeDomainDistribution(mergedTopics, mergedDistribution),
+                mergedDistribution
+            );
 
             const distributionValidationError = getDomainDistributionValidationError(updateData.domainDistribution);
             if (distributionValidationError) {
@@ -584,6 +949,24 @@ export const updateContest = async (req, res) => {
                         ]
                     }
                 });
+            }
+
+            if (PUBLISHABLE_CONTEST_STATUSES.has(existingContest.status)) {
+                const readiness = await evaluateContestReadiness({
+                    domainDistribution: updateData.domainDistribution,
+                    requiredQuestionCount: resolveRequiredQuestionCount(existingContest)
+                });
+
+                if (!readiness.isReady) {
+                    return res.status(400).json({
+                        success: false,
+                        error: {
+                            code: 'VALIDATION_ERROR',
+                            message: 'Contest update would make published contest under-provisioned',
+                            details: buildReadinessErrorDetails(readiness.shortages)
+                        }
+                    });
+                }
             }
         }
 
@@ -684,11 +1067,7 @@ export const updateContestStatus = async (req, res) => {
             });
         }
 
-        const contest = await Contest.findByIdAndUpdate(
-            id,
-            { status, updatedAt: new Date() },
-            { new: true }
-        );
+        const contest = await Contest.findById(id);
 
         if (!contest) {
             return res.status(404).json({
@@ -699,6 +1078,28 @@ export const updateContestStatus = async (req, res) => {
                 }
             });
         }
+
+        if (PUBLISHABLE_CONTEST_STATUSES.has(status)) {
+            const readiness = await evaluateContestReadiness({
+                domainDistribution: contest.domainDistribution || [],
+                requiredQuestionCount: resolveRequiredQuestionCount(contest)
+            });
+
+            if (!readiness.isReady) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: 'VALIDATION_ERROR',
+                        message: 'Contest cannot be moved to a publishable status due to insufficient questions',
+                        details: buildReadinessErrorDetails(readiness.shortages)
+                    }
+                });
+            }
+        }
+
+        contest.status = status;
+        contest.updatedAt = new Date();
+        await contest.save();
 
         const response = {
             success: true,
@@ -1031,7 +1432,7 @@ export const addQuestionsToContest = async (req, res) => {
     }
 
     try {
-        const activeDomainKeyMap = await getActiveDomainKeyMap();
+        const activeDomainLookup = await getActiveDomainLookup();
 
         // Process each question
         questions.forEach(question => {
@@ -1043,7 +1444,7 @@ export const addQuestionsToContest = async (req, res) => {
                     errors: result.error.errors
                 });
             } else {
-                const canonicalDomain = canonicalizeSingleDomain(question.domain, activeDomainKeyMap);
+                const canonicalDomain = canonicalizeSingleDomainWithRef(question.domain, activeDomainLookup);
 
                 if (!canonicalDomain) {
                     notAcceptedQues.push({
@@ -1060,7 +1461,8 @@ export const addQuestionsToContest = async (req, res) => {
 
                 acceptedQues.push({
                     ...question,
-                    domain: canonicalDomain
+                    domain: canonicalDomain.name,
+                    domainRef: canonicalDomain.domainRef
                 });
             }
         });

@@ -1,7 +1,53 @@
 // controller/admin/questionController.js
 import { Contest, Question } from "../../Models/DB.js";
 import redisClient from '../../redis.js';
-import { canonicalizeSingleDomain, getActiveDomainKeyMap } from '../../utils/domainMaster.js';
+import {
+    canonicalizeSingleDomainWithRef,
+    getActiveDomainLookup
+} from '../../utils/domainMaster.js';
+
+const buildQuestionQuery = async (
+    { search, difficulty, topic, domain } = {},
+    { includeDifficulty = true } = {}
+) => {
+    const query = { isDeleted: false };
+
+    if (domain && domain !== 'all') {
+        const activeDomainLookup = await getActiveDomainLookup();
+        const canonicalDomain = canonicalizeSingleDomainWithRef(domain, activeDomainLookup);
+
+        if (!canonicalDomain) {
+            return {
+                errorResponse: {
+                    success: false,
+                    error: {
+                        code: 'VALIDATION_ERROR',
+                        message: 'Invalid domain filter'
+                    }
+                }
+            };
+        }
+
+        query.$or = [
+            { domain: canonicalDomain.name },
+            { domainRef: canonicalDomain.domainRef }
+        ];
+    }
+
+    if (search) {
+        query.questionText = { $regex: search, $options: 'i' };
+    }
+
+    if (includeDifficulty && difficulty && difficulty !== 'all') {
+        query.difficulty = difficulty;
+    }
+
+    if (topic && topic !== 'all') {
+        query.hint = { $regex: topic, $options: 'i' };
+    }
+
+    return { query };
+};
 
 /**
  * @desc    Get all questions (with filtering and pagination)
@@ -10,36 +56,14 @@ import { canonicalizeSingleDomain, getActiveDomainKeyMap } from '../../utils/dom
  */
 export const getAllQuestions = async (req, res) => {
     try {
-        const { page = 1, limit = 10, search, difficulty, topic, domain } = req.query;
-        let query = { isDeleted: false };
-        
-        if (domain && domain !== 'all') {
-            const activeDomainKeyMap = await getActiveDomainKeyMap();
-            const canonicalDomain = canonicalizeSingleDomain(domain, activeDomainKeyMap);
+        const { page = 1, limit = 10 } = req.query;
 
-            if (!canonicalDomain) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        code: 'VALIDATION_ERROR',
-                        message: 'Invalid domain filter'
-                    }
-                });
-            }
+        const { query, errorResponse } = await buildQuestionQuery(req.query, {
+            includeDifficulty: true
+        });
 
-            query.domain = canonicalDomain;
-        }
-        
-        if (search) {
-            query.questionText = { $regex: search, $options: 'i' };
-        }
-        
-        if (difficulty && difficulty !== 'all') {
-            query.difficulty = difficulty;
-        }
-        
-        if (topic && topic !== 'all') {
-            query.hint = { $regex: topic, $options: 'i' };
+        if (errorResponse) {
+            return res.status(400).json(errorResponse);
         }
 
         const limitNum = parseInt(limit);
@@ -80,6 +104,60 @@ export const getAllQuestions = async (req, res) => {
 };
 
 /**
+ * @desc    Get aggregate question stats
+ * @route   GET /api/admin/questions/stats
+ * @access  Admin
+ */
+export const getQuestionStats = async (req, res) => {
+    try {
+        const { query, errorResponse } = await buildQuestionQuery(req.query, {
+            includeDifficulty: false
+        });
+
+        if (errorResponse) {
+            return res.status(400).json(errorResponse);
+        }
+
+        const [total, groupedByDifficulty] = await Promise.all([
+            Question.countDocuments(query),
+            Question.aggregate([
+                { $match: query },
+                {
+                    $group: {
+                        _id: '$difficulty',
+                        count: { $sum: 1 }
+                    }
+                }
+            ])
+        ]);
+
+        const counts = groupedByDifficulty.reduce((acc, item) => {
+            acc[item._id] = item.count;
+            return acc;
+        }, {});
+
+        return res.json({
+            success: true,
+            data: {
+                total,
+                easy: counts.easy || 0,
+                medium: counts.medium || 0,
+                hard: counts.hard || 0
+            }
+        });
+    } catch (err) {
+        console.error('Get question stats error:', err);
+        return res.status(500).json({
+            success: false,
+            error: {
+                code: 'INTERNAL_SERVER_ERROR',
+                message: err.message
+            }
+        });
+    }
+};
+
+/**
  * @desc    Create a new question
  * @route   POST /api/admin/questions
  * @access  Admin
@@ -97,8 +175,8 @@ export const createQuestion = async (req, res) => {
             explanation 
         } = req.body;
 
-        const activeDomainKeyMap = await getActiveDomainKeyMap();
-        const canonicalDomain = canonicalizeSingleDomain(domain, activeDomainKeyMap);
+        const activeDomainLookup = await getActiveDomainLookup();
+        const canonicalDomain = canonicalizeSingleDomainWithRef(domain, activeDomainLookup);
 
         if (!canonicalDomain) {
             return res.status(400).json({
@@ -115,7 +193,8 @@ export const createQuestion = async (req, res) => {
             options, 
             correctOptionIndex, 
             correctOptionText, 
-            domain: canonicalDomain,
+            domain: canonicalDomain.name,
+            domainRef: canonicalDomain.domainRef,
             difficulty, 
             hint, 
             explanation
@@ -150,8 +229,8 @@ export const updateQuestion = async (req, res) => {
         const updatePayload = { ...req.body };
 
         if (updatePayload.domain !== undefined) {
-            const activeDomainKeyMap = await getActiveDomainKeyMap();
-            const canonicalDomain = canonicalizeSingleDomain(updatePayload.domain, activeDomainKeyMap);
+            const activeDomainLookup = await getActiveDomainLookup();
+            const canonicalDomain = canonicalizeSingleDomainWithRef(updatePayload.domain, activeDomainLookup);
 
             if (!canonicalDomain) {
                 return res.status(400).json({
@@ -163,7 +242,8 @@ export const updateQuestion = async (req, res) => {
                 });
             }
 
-            updatePayload.domain = canonicalDomain;
+            updatePayload.domain = canonicalDomain.name;
+            updatePayload.domainRef = canonicalDomain.domainRef;
         }
 
         const question = await Question.findByIdAndUpdate(

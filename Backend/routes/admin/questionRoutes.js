@@ -6,6 +6,7 @@ import {
     createQuestion,
     deleteQuestion,
     getAllQuestions,
+    getQuestionStats,
     updateQuestion
 } from '../../controller/admin/questionController.js';
 
@@ -16,6 +17,9 @@ router.use(adminMiddleware);
 
 // GET all questions
 router.get('/', getAllQuestions);
+
+// GET aggregate question stats
+router.get('/stats', getQuestionStats);
 
 // POST assign existing questions to a contest
 router.post('/assign-to-contest', assignQuestionsToContest);

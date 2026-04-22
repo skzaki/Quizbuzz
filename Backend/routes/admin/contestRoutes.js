@@ -4,9 +4,11 @@ import {
     addQuestionsToContest,
     bulkDeleteContests,
     bulkUpdateStatus,
+    checkContestReadiness,
     createContest,
     deleteContest,
     getAllContests,
+    getContestsOverview,
     getContestById,
     getContestStatistics,
     updateContest,
@@ -33,6 +35,8 @@ router.delete('/bulk-delete', bulkDeleteContests);
 
 // ─── Collection-level routes ────────────────────────────────────────────────
 router.get('/', getAllContests);
+router.get('/overview', getContestsOverview);
+router.post('/readiness', checkContestReadiness);
 router.post('/', createContest);
 
 // ─── Resource-level routes (:id parameterized) ──────────────────────────────

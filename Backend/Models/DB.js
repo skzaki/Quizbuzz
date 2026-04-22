@@ -25,11 +25,17 @@ const QuestionSchema = new mongoose.Schema({
     correctOptionIndex: { type: Number, required: true },
     correctOptionText: { type: String, required: true },
     domain: { type: String, required: true, index: true },
+    domainRef: { type: mongoose.Schema.Types.ObjectId, ref: 'Domain', index: true },
     difficulty: { type: String, enum: ['easy', 'medium', 'hard'], required: true, index: true },
     hint: { type: String },
     explanation: { type: String },
     isDeleted: { type: Boolean, default: false, index: true },
 }, { timestamps: true });
+
+QuestionSchema.index({ domain: 1, difficulty: 1, isDeleted: 1 });
+QuestionSchema.index({ domainRef: 1, difficulty: 1, isDeleted: 1 });
+QuestionSchema.index({ isDeleted: 1, createdAt: -1 });
+QuestionSchema.index({ questionText: 'text', hint: 'text', explanation: 'text' });
 
 const domainSchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true },
@@ -55,8 +61,10 @@ const contestSchema = new mongoose.Schema({
     description: { type: String },
     details: { type: String },
     topics: [{ type: String }],
+    topicRefs: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Domain' }],
     domainDistribution: [{
         name: { type: String, required: true },
+        domainRef: { type: mongoose.Schema.Types.ObjectId, ref: 'Domain' },
         percentage: { type: Number, required: true, min: 1, max: 100 },
         difficulty: {
             easy: { type: Number, required: true, min: 0, max: 100, default: 40 },
@@ -93,6 +101,11 @@ const contestSchema = new mongoose.Schema({
 contestSchema.index({ slug: 1, isDeleted: 1 });
 contestSchema.index({ startTime: 1, isDeleted: 1 });
 contestSchema.index({ status: 1, isDeleted: 1 });
+contestSchema.index({ topicRefs: 1, isDeleted: 1 });
+contestSchema.index({ 'domainDistribution.domainRef': 1, isDeleted: 1 });
+contestSchema.index({ isDeleted: 1, createdAt: -1 });
+contestSchema.index({ isDeleted: 1, status: 1, startTime: 1 });
+contestSchema.index({ isDeleted: 1, deadline: 1 });
 
 contestSchema.pre("validate", async function () {
     if (!this.title || this.slug) return;

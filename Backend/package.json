@@ -15,6 +15,7 @@
         "build": "echo 'No build step required for Node.js'",
         "seed": "node scripts/seedDatabase.js",
         "migrate": "node scripts/migrate.js",
+        "migrate:domain-refs": "node scripts/migrateDomainReferences.js",
         "docker:build": "docker build -t contest-api .",
         "docker:run": "docker run -p 5000:5000 contest-api",
         "docker:start": "docker start my-redis redis-commander",
