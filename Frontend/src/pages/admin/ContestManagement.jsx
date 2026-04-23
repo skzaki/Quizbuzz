@@ -1,8 +1,10 @@
-import { Calendar, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
+import { useAdminContests } from '../../hooks/useAdminContests';
+import { useAdminDomains } from '../../hooks/useAdminDomains';
 import { DEFAULT_CONTEST_RULES } from '../../utils/defaultContestRules';
 import { normalizeDomainDistribution } from '../../utils/domainDistribution';
 
@@ -17,27 +19,35 @@ const ContestManagement = () => {
   const [editingContest, setEditingContest] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [contests, setContests] = useState([]);
-  const [domainOptions, setDomainOptions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [createError, setCreateError] = useState('');
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalContests, setTotalContests] = useState(0);
-  const [itemsPerPage] = useState(10);
+  const itemsPerPage = 10;
   const [searchParams, setSearchParams] = useSearchParams();
 
   const token = localStorage.getItem("authToken");
 
-  useEffect(() => {
-    fetchContests();
-  }, [currentPage, searchTerm, statusFilter]);
+  const { domains: domainOptions } = useAdminDomains({
+    baseUrl: BASE_URL,
+    token
+  });
 
-  useEffect(() => {
-    fetchDomainOptions();
-  }, []);
+  const {
+    contests,
+    totalPages,
+    totalItems: totalContests,
+    overview,
+    loading,
+    error,
+    refetchAll
+  } = useAdminContests({
+    baseUrl: BASE_URL,
+    token,
+    page: currentPage,
+    limit: itemsPerPage,
+    search: searchTerm,
+    status: statusFilter
+  });
 
   useEffect(() => {
     if (searchParams.get('openCreate') === 'true') {
@@ -49,46 +59,9 @@ const ContestManagement = () => {
     }
   }, [searchParams, setSearchParams]);
 
-  const fetchContests = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(
-        `${BASE_URL}/contests?page=${currentPage}&limit=${itemsPerPage}&search=${searchTerm}&status=${statusFilter}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const json = await res.json();
-      setContests(json.data?.contests || []);
-      setTotalContests(json.data?.pagination?.totalItems || 0);
-      setTotalPages(json.data?.pagination?.totalPages || 1);
-      setError(null);
-    } catch (err) {
-      setError('Failed to fetch contests');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchDomainOptions = async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/domains`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const json = await res.json();
-
-      if (!res.ok) {
-        throw new Error(json?.error?.message || 'Failed to fetch domains');
-      }
-
-      const domains = Array.isArray(json?.data?.domains)
-        ? json.data.domains.map((domain) => domain.name).filter(Boolean)
-        : [];
-
-      setDomainOptions(domains);
-    } catch (err) {
-      console.error('Fetch domains error:', err);
-      setDomainOptions([]);
-    }
-  };
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
 
   const buildContestPayload = (formData) => {
     const rulesRaw = formData.rules || '';
@@ -205,7 +178,7 @@ const ContestManagement = () => {
 
       setShowCreateForm(false);
       setEditingContest(null);
-      fetchContests();
+      await refetchAll();
     } catch (err) {
       console.error('Create contest error:', err);
       // Re-throw so the modal's catch block can display it inside the modal
@@ -237,7 +210,7 @@ const ContestManagement = () => {
 
       setShowCreateForm(false);
       setEditingContest(null);
-      fetchContests();
+      await refetchAll();
     } catch (err) {
       console.error('Update contest error:', err);
       setCreateError(err.message);
@@ -253,14 +226,54 @@ const ContestManagement = () => {
     return handleCreateContest(formData);
   };
 
+  const handleCheckContestReadiness = async (formData) => {
+    const payload = {
+      topics: Array.isArray(formData.topics)
+        ? formData.topics
+        : (formData.topics || '').split(',').map((topic) => topic.trim()).filter(Boolean),
+      domainDistribution: Array.isArray(formData.domainDistribution) ? formData.domainDistribution : [],
+      requiredQuestionCount: Number(formData.requiredQuestionCount) > 0
+        ? Number(formData.requiredQuestionCount)
+        : undefined
+    };
+
+    const res = await fetch(`${BASE_URL}/contests/readiness`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      if (json?.error?.details?.length > 0) {
+        const msgs = json.error.details.map((d) => `${d.field}: ${d.message}`).join('\n');
+        throw new Error(msgs);
+      }
+
+      throw new Error(json?.error?.message || json?.message || 'Failed to check readiness');
+    }
+
+    return json?.data;
+  };
+
   const handleDeleteContest = async (contestId) => {
     if (!window.confirm("Delete this contest?")) return;
     try {
-      await fetch(`${BASE_URL}/contests/${contestId}`, {
+      const res = await fetch(`${BASE_URL}/contests/${contestId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
-      fetchContests();
+
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json?.error?.message || 'Failed to delete contest');
+      }
+
+      await refetchAll();
     } catch (err) {
       console.error(err);
     }
@@ -268,12 +281,18 @@ const ContestManagement = () => {
 
   const handleStatusChange = async (contestId, newStatus) => {
     try {
-      await fetch(`${BASE_URL}/contests/${contestId}/status`, {
+      const res = await fetch(`${BASE_URL}/contests/${contestId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status: newStatus })
       });
-      fetchContests();
+
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json?.error?.message || 'Failed to update status');
+      }
+
+      await refetchAll();
     } catch (err) {
       console.error(err);
     }
@@ -296,6 +315,25 @@ const ContestManagement = () => {
               <Plus className="w-4 h-4" /> <span>Create Contest</span>
             </button>
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {[
+            { label: 'Total', value: overview.totalContests },
+            { label: 'Draft', value: overview.statusSummary?.draft || 0 },
+            { label: 'Upcoming', value: overview.statusSummary?.upcoming || 0 },
+            { label: 'Ongoing', value: overview.statusSummary?.ongoing || 0 },
+            { label: 'Completed', value: overview.statusSummary?.completed || 0 },
+            { label: 'Participants', value: overview.totalParticipants || 0 }
+          ].map((item) => (
+            <div
+              key={item.label}
+              className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3"
+            >
+              <p className="text-xs text-slate-500 dark:text-slate-400">{item.label}</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{item.value}</p>
+            </div>
+          ))}
         </div>
 
         {/* Filters */}
@@ -339,9 +377,10 @@ const ContestManagement = () => {
                 isOpen={showCreateForm}
                 onClose={handleModalClose}
                 onSubmit={handleSubmitContest}
+                onCheckReadiness={handleCheckContestReadiness}
                 editData={editingContest}
                 serverError={createError}
-                domainOptions={domainOptions}
+                domainOptions={domainOptions.map((domain) => domain.value)}
               />
             </Suspense>
           )}

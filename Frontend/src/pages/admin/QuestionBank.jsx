@@ -1,6 +1,8 @@
-import { BookOpen, Check, ChevronDown, Database, Download, Plus, Search, Target, Upload } from 'lucide-react';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { BookOpen, Check, ChevronDown, Database, Plus, Search, Target } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import LoadingSpinner from "../../components/UI/LoadingSpinner";
+import { useAdminDomains } from '../../hooks/useAdminDomains';
+import { useAdminQuestions } from '../../hooks/useAdminQuestions';
 
 const BASE_URL = `${import.meta.env.VITE_URL}/admin`;
 
@@ -11,13 +13,8 @@ const QuestionBank = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showDomainDropdown, setShowDomainDropdown] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [questions, setQuestions] = useState([]);
-  const [domainOptions, setDomainOptions] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
-  const [error, setError] = useState('');
+  const [formError, setFormError] = useState('');
   const itemsPerPage = 10;
 
   const [form, setForm] = useState({
@@ -33,13 +30,28 @@ const QuestionBank = () => {
 
   const token = localStorage.getItem('authToken');
 
-  useEffect(() => {
-    fetchQuestions();
-  }, [currentPage, searchTerm, difficultyFilter, domainFilter]);
+  const { domains: domainOptions } = useAdminDomains({
+    baseUrl: BASE_URL,
+    token
+  });
 
-  useEffect(() => {
-    fetchDomains();
-  }, []);
+  const {
+    questions,
+    totalPages,
+    totalItems,
+    stats,
+    loading: isLoading,
+    error: listError,
+    refetch
+  } = useAdminQuestions({
+    baseUrl: BASE_URL,
+    token,
+    page: currentPage,
+    limit: itemsPerPage,
+    search: searchTerm,
+    difficulty: difficultyFilter,
+    domain: domainFilter
+  });
 
   useEffect(() => {
     if (!showDomainDropdown) return;
@@ -54,52 +66,6 @@ const QuestionBank = () => {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [showDomainDropdown]);
 
-  const fetchDomains = async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/domains`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const json = await res.json();
-
-      if (!res.ok) {
-        throw new Error(json?.error?.message || 'Failed to fetch domains');
-      }
-
-      const domains = Array.isArray(json?.data?.domains)
-        ? json.data.domains.map((domain) => domain.name).filter(Boolean)
-        : [];
-
-      setDomainOptions(domains);
-    } catch (err) {
-      console.error('Failed to fetch domains:', err);
-      setDomainOptions([]);
-    }
-  };
-
-  const fetchQuestions = async () => {
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams({
-        page: currentPage,
-        limit: itemsPerPage,
-        ...(searchTerm && { search: searchTerm }),
-        ...(difficultyFilter !== 'all' && { difficulty: difficultyFilter }),
-        ...(domainFilter !== 'all' && { domain: domainFilter }),
-      });
-      const res = await fetch(`${BASE_URL}/questions?${params}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const json = await res.json();
-      setQuestions(json.data?.questions || []);
-      setTotalPages(json.data?.pagination?.totalPages || 1);
-      setTotalItems(json.data?.pagination?.totalItems || 0);
-    } catch (err) {
-      setError('Failed to fetch questions');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const resetForm = () => {
     setForm({
       questionText: '',
@@ -113,15 +79,15 @@ const QuestionBank = () => {
     });
     setShowDomainDropdown(false);
     setEditingQuestion(null);
-    setError('');
+    setFormError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setFormError('');
 
     if (!form.domain) {
-      setError('Please select a domain');
+      setFormError('Please select a domain');
       return;
     }
 
@@ -145,15 +111,15 @@ const QuestionBank = () => {
 
       const json = await res.json();
       if (!res.ok) {
-        setError(json?.error?.message || json?.message || 'Failed to save question');
+        setFormError(json?.error?.message || json?.message || 'Failed to save question');
         return;
       }
 
       setShowCreateForm(false);
       resetForm();
-      fetchQuestions();
+      await refetch();
     } catch (err) {
-      setError('Network error. Please try again.');
+      setFormError('Network error. Please try again.');
     }
   };
 
@@ -171,6 +137,7 @@ const QuestionBank = () => {
     });
     setShowDomainDropdown(false);
     setShowCreateForm(true);
+    setFormError('');
   };
 
   const handleDelete = async (id) => {
@@ -180,14 +147,11 @@ const QuestionBank = () => {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
-      fetchQuestions();
+      await refetch();
     } catch (err) {
       console.error(err);
     }
   };
-
-  const easyCount = questions.filter(q => q.difficulty === 'easy').length;
-  const hardCount = questions.filter(q => q.difficulty === 'hard').length;
 
   return (
     <div className="space-y-6 p-6">
@@ -216,10 +180,10 @@ const QuestionBank = () => {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total', value: totalItems, icon: BookOpen, color: 'text-purple-400' },
-          { label: 'Easy', value: easyCount, icon: Target, color: 'text-green-400' },
-          { label: 'Hard', value: hardCount, icon: Target, color: 'text-red-400' },
-          { label: 'Medium', value: totalItems - easyCount - hardCount, icon: Target, color: 'text-yellow-400' },
+          { label: 'Total', value: stats.total, icon: BookOpen, color: 'text-purple-400' },
+          { label: 'Easy', value: stats.easy, icon: Target, color: 'text-green-400' },
+          { label: 'Hard', value: stats.hard, icon: Target, color: 'text-red-400' },
+          { label: 'Medium', value: stats.medium, icon: Target, color: 'text-yellow-400' },
         ].map((s) => (
           <div key={s.label} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
@@ -252,7 +216,7 @@ const QuestionBank = () => {
         >
           <option value="all">All Domains</option>
           {domainOptions.map((domain) => (
-            <option key={domain} value={domain}>{domain}</option>
+            <option key={domain.id || domain.value} value={domain.value}>{domain.label}</option>
           ))}
         </select>
         <select
@@ -266,6 +230,12 @@ const QuestionBank = () => {
           <option value="hard">Hard</option>
         </select>
       </div>
+
+      {listError && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-3 text-sm text-red-600 dark:text-red-300">
+          {listError}
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -357,9 +327,9 @@ const QuestionBank = () => {
               {editingQuestion ? 'Edit Question' : 'Add Question'}
             </h2>
 
-            {error && (
+              {formError && (
               <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 rounded-lg text-red-600 text-sm">
-                {error}
+                  {formError}
               </div>
             )}
 
@@ -425,20 +395,20 @@ const QuestionBank = () => {
                       ) : (
                         domainOptions.map((domain) => (
                           <label
-                            key={domain}
+                            key={domain.id || domain.value}
                             className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50"
                           >
                             <input
                               type="checkbox"
-                              checked={form.domain === domain}
+                              checked={form.domain === domain.value}
                               onChange={() => {
-                                setForm((prev) => ({ ...prev, domain }));
+                                setForm((prev) => ({ ...prev, domain: domain.value }));
                                 setShowDomainDropdown(false);
                               }}
                               className="h-4 w-4 text-purple-600 border-gray-300 rounded"
                             />
-                            <span className="text-sm text-gray-800 dark:text-gray-200 flex-1">{domain}</span>
-                            {form.domain === domain && <Check className="h-4 w-4 text-purple-600" />}
+                            <span className="text-sm text-gray-800 dark:text-gray-200 flex-1">{domain.label}</span>
+                            {form.domain === domain.value && <Check className="h-4 w-4 text-purple-600" />}
                           </label>
                         ))
                       )}

@@ -38,6 +38,7 @@ const CreateContestModal = ({
   isOpen,
   onClose,
   onSubmit,
+  onCheckReadiness,
   editData = null,
   serverError = '',
   domainOptions = []
@@ -45,6 +46,8 @@ const CreateContestModal = ({
   const [formData, setFormData] = useState(getInitialFormData);
   
   const [loading, setLoading] = useState(false);
+  const [checkingReadiness, setCheckingReadiness] = useState(false);
+  const [readinessResult, setReadinessResult] = useState(null);
   const [errors, setErrors] = useState({});
 
   // Pre-populate form if editing
@@ -73,6 +76,7 @@ const CreateContestModal = ({
       topics: selectedTopics,
       domainDistribution: normalizeDomainDistribution(selectedTopics, prev.domainDistribution)
     }));
+    setReadinessResult(null);
 
     if (errors.topics || errors.domainDistribution) {
       setErrors(prev => ({
@@ -88,6 +92,7 @@ const CreateContestModal = ({
       ...prev,
       domainDistribution: updateDomainPercentage(prev.domainDistribution, domainName, nextValue)
     }));
+    setReadinessResult(null);
 
     if (errors.domainDistribution) {
       setErrors(prev => ({
@@ -102,6 +107,7 @@ const CreateContestModal = ({
       ...prev,
       domainDistribution: autoDistributeRemainingPercentage(prev.domainDistribution)
     }));
+    setReadinessResult(null);
 
     if (errors.domainDistribution) {
       setErrors(prev => ({
@@ -121,6 +127,7 @@ const CreateContestModal = ({
         nextValue
       )
     }));
+    setReadinessResult(null);
 
     if (errors.domainDistribution || errors.domainDifficultyDistribution) {
       setErrors(prev => ({
@@ -137,6 +144,7 @@ const CreateContestModal = ({
       ...prev,
       [name]: value
     }));
+    setReadinessResult(null);
     
     if (errors[name]) {
       setErrors(prev => ({
@@ -280,8 +288,55 @@ const CreateContestModal = ({
     }
   };
 
+  const handleCheckReadiness = async () => {
+    if (!onCheckReadiness) {
+      return;
+    }
+
+    const validationErrors = validateForm();
+    if (
+      validationErrors.topics ||
+      validationErrors.domainDistribution ||
+      validationErrors.domainDifficultyDistribution
+    ) {
+      setErrors(prev => ({
+        ...prev,
+        topics: validationErrors.topics || prev.topics,
+        domainDistribution: validationErrors.domainDistribution || prev.domainDistribution,
+        domainDifficultyDistribution: validationErrors.domainDifficultyDistribution || prev.domainDifficultyDistribution
+      }));
+      setReadinessResult(null);
+      return;
+    }
+
+    setCheckingReadiness(true);
+    try {
+      const normalizedDistribution = normalizeDomainDistribution(formData.topics, formData.domainDistribution);
+
+      const readinessData = await onCheckReadiness({
+        topics: formData.topics,
+        domainDistribution: normalizedDistribution,
+        requiredQuestionCount: Array.isArray(editData?.QuestionBank) && editData.QuestionBank.length > 0
+          ? editData.QuestionBank.length
+          : undefined
+      });
+
+      setReadinessResult(readinessData || null);
+      setErrors(prev => ({ ...prev, questionReadiness: '' }));
+    } catch (error) {
+      setReadinessResult(null);
+      setErrors(prev => ({
+        ...prev,
+        questionReadiness: error?.message || 'Failed to check readiness'
+      }));
+    } finally {
+      setCheckingReadiness(false);
+    }
+  };
+
   const resetForm = () => {
     setFormData(getInitialFormData());
+    setReadinessResult(null);
     setErrors({});
   };
 
@@ -524,14 +579,24 @@ const CreateContestModal = ({
               </div>
 
               <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={handleAutoDistributeRemaining}
-                  disabled={loading || remainingDomainPercentage <= 0 || !hasUnassignedDomains}
-                  className="px-3 py-1.5 text-xs rounded-md border border-purple-400/60 text-purple-600 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Auto Distribute Remaining
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleAutoDistributeRemaining}
+                    disabled={loading || remainingDomainPercentage <= 0 || !hasUnassignedDomains}
+                    className="px-3 py-1.5 text-xs rounded-md border border-purple-400/60 text-purple-600 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Auto Distribute Remaining
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCheckReadiness}
+                    disabled={loading || checkingReadiness || !onCheckReadiness}
+                    className="px-3 py-1.5 text-xs rounded-md border border-cyan-400/60 text-cyan-600 dark:text-cyan-300 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {checkingReadiness ? 'Checking...' : 'Check Readiness'}
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-3">
@@ -619,6 +684,37 @@ const CreateContestModal = ({
 
               {errors.domainDifficultyDistribution && (
                 <p className="text-red-500 text-xs">{errors.domainDifficultyDistribution}</p>
+              )}
+
+              {errors.questionReadiness && (
+                <p className="text-red-500 text-xs whitespace-pre-line">{errors.questionReadiness}</p>
+              )}
+
+              {readinessResult && (
+                <div className={`rounded-md border p-3 text-xs space-y-2 ${
+                  readinessResult.isReady
+                    ? 'border-green-300 bg-green-50/70 dark:border-green-700 dark:bg-green-900/20'
+                    : 'border-amber-300 bg-amber-50/70 dark:border-amber-700 dark:bg-amber-900/20'
+                }`}>
+                  <p className="font-semibold text-gray-700 dark:text-gray-200">
+                    Readiness Check ({readinessResult.requiredQuestionCount || 0} questions)
+                  </p>
+
+                  {readinessResult.isReady ? (
+                    <p className="text-green-700 dark:text-green-300">
+                      Contest is ready to publish for the selected domain distribution.
+                    </p>
+                  ) : (
+                    <div className="space-y-1 text-amber-700 dark:text-amber-300">
+                      <p>Insufficient questions found for these buckets:</p>
+                      {(readinessResult.shortages || []).map((item) => (
+                        <p key={`${item.domain}-${item.difficulty}`}>
+                          {item.domain} / {item.difficulty}: need {item.required}, available {item.available}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
