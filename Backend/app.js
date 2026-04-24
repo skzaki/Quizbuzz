@@ -4,17 +4,16 @@ import dotenv from "dotenv";
 import express from "express";
 import helmet from 'helmet';
 import morgan from 'morgan';
-import logger from './utils/logger.js';
 import { rateLimitMiddleware } from './middleware/rateLimit.js';
 import redisClient from './redis.js';
 import adminContestRoutes from "./routes/admin/contestRoutes.js";
 import paymentRoutes from './routes/admin/paymentRoutes.js';
-import authRoutes from "./routes/authRoutes.js";
+import authRoutes from "./routes/auth.routes.js";
 import contestRoutes from "./routes/contestRoutes.js";
 import domainRoutes from './routes/admin/domainRoutes.js';
 import questionRoutes from "./routes/admin/questionRoutes.js";
 import settingsRoutes from "./routes/admin/settingsRoutes.js";
-import { authMiddleware } from './middleware/auth.js';
+import { authMiddleware } from './middleware/auth.middleware.js';
 
 dotenv.config();
 
@@ -122,21 +121,8 @@ app.use((req, res) => {
 
 // F-35: Global Error Handler
 app.use((err, req, res, next) => {
-    // Log the error using Winston
-    logger.error(`${err.message} - ${req.originalUrl} - ${req.method} - ${req.ip}`, { stack: err.stack });
-
-    const status = err.status || 500;
-    const message = err.message || 'An unexpected error occurred';
-
-    res.status(status).json({
-        success: false,
-        error: {
-            code: err.code || "INTERNAL_SERVER_ERROR",
-            message: process.env.NODE_ENV === 'production' ? message : err.stack,
-            details: err.details || null,
-            timestamp: new Date().toISOString()
-        }
-    });
+    const status = err.statusCode || 500;
+    res.status(status).json({ success: false, message: err.message });
 });
 
 
