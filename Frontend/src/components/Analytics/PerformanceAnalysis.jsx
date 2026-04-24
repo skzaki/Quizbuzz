@@ -2,7 +2,7 @@
 import { Award, Clock, Target, TrendingDown, TrendingUp, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import Badge from '../UI/badge';
+import Badge from '../uI/badge';
 import LoadingSpinner from '../UI/LoadingSpinner';
 
 const PerformanceAnalysis = ({ dateRange }) => {
