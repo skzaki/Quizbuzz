@@ -2,8 +2,8 @@
 import { Award, Clock, Target, TrendingDown, TrendingUp, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import Badge from '../ui/badge';
-import LoadingSpinner from '../ui/LoadingSpinner';
+import Badge from '../UI/badge';
+import LoadingSpinner from '../UI/LoadingSpinner';
 
 const PerformanceAnalysis = ({ dateRange }) => {
   const [data, setData] = useState([]);
