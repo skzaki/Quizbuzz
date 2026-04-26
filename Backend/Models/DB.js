@@ -1,6 +1,7 @@
-import slugify from "slugify";
 import mongoose from 'mongoose';
 import { DEFAULT_DOMAIN_NAMES, normalizeDomainName, toDomainKey } from '../utils/domainCatalog.js';
+import { Contest as ContestModel } from './contest.model.js';
+import { ContestRegistration as ContestRegistrationModel } from './contest-registration.model.js';
 
 const userSchema = new mongoose.Schema({
     registrationId: { type: String },
@@ -54,73 +55,6 @@ domainSchema.pre('validate', function (next) {
 
 domainSchema.index({ key: 1 }, { unique: true });
 domainSchema.index({ name: 1, isDeleted: 1 });
-
-const contestSchema = new mongoose.Schema({
-    title: { type: String, required: true },
-    slug: { type: String, required: true, unique: true, immutable: true },
-    description: { type: String },
-    details: { type: String },
-    topics: [{ type: String }],
-    topicRefs: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Domain' }],
-    domainDistribution: [{
-        name: { type: String, required: true },
-        domainRef: { type: mongoose.Schema.Types.ObjectId, ref: 'Domain' },
-        percentage: { type: Number, required: true, min: 1, max: 100 },
-        difficulty: {
-            easy: { type: Number, required: true, min: 0, max: 100, default: 40 },
-            medium: { type: Number, required: true, min: 0, max: 100, default: 40 },
-            hard: { type: Number, required: true, min: 0, max: 100, default: 20 }
-        }
-    }],
-    rules: [{ type: String }],
-    registerFee: { type: Number, required: true },
-    maxParticipants: { type: Number, min: 0, default: 100 },
-    duration: { type: Number },
-    cutOff: { type: Number },
-    startTime: { type: Date, required: true },
-    deadline: { type: Date, required: true },
-    // Explicit status field: draft → upcoming → ongoing → completed
-    status: {
-        type: String,
-        enum: ['draft', 'upcoming', 'ongoing', 'completed', 'cancelled'],
-        default: 'draft',
-        index: true
-    },
-    participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    QuestionBank: [{ type: mongoose.Schema.Types.ObjectId, ref: "Question" }],
-    prizes: [{
-        rankFrom: { type: Number, required: true },
-        rankTo: { type: Number, required: true },
-        amount: { type: Number, required: true },
-        currency: { type: String, default: 'INR' },
-        benefits: [{ type: String }]
-    }],
-    isDeleted: { type: Boolean, default: false, index: true },
-}, { timestamps: true });
-
-contestSchema.index({ slug: 1, isDeleted: 1 });
-contestSchema.index({ startTime: 1, isDeleted: 1 });
-contestSchema.index({ status: 1, isDeleted: 1 });
-contestSchema.index({ topicRefs: 1, isDeleted: 1 });
-contestSchema.index({ 'domainDistribution.domainRef': 1, isDeleted: 1 });
-contestSchema.index({ isDeleted: 1, createdAt: -1 });
-contestSchema.index({ isDeleted: 1, status: 1, startTime: 1 });
-contestSchema.index({ isDeleted: 1, deadline: 1 });
-
-contestSchema.pre("validate", async function () {
-    if (!this.title || this.slug) return;
-
-    const baseSlug = slugify(this.title, { lower: true, strict: true }) || 'contest';
-    let nextSlug = baseSlug;
-    let suffix = 2;
-
-    while (await this.constructor.exists({ slug: nextSlug, _id: { $ne: this._id } })) {
-        nextSlug = `${baseSlug}-${suffix}`;
-        suffix += 1;
-    }
-
-    this.slug = nextSlug;
-});
 
 const certificatesSchema = new mongoose.Schema({
     userRef: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -237,7 +171,8 @@ const settingsSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 export const User = mongoose.models.User || mongoose.model("User", userSchema);
-export const Contest = mongoose.models.Contest || mongoose.model("Contest", contestSchema);
+export const Contest = ContestModel;
+export const ContestRegistration = ContestRegistrationModel;
 export const Payment = mongoose.models.Payment || mongoose.model("Payment", paymentsSchema);
 export const Question = mongoose.models.Question || mongoose.model("Question", QuestionSchema);
 export const Domain = mongoose.models.Domain || mongoose.model('Domain', domainSchema);
