@@ -9,6 +9,36 @@ export async function create(data) {
   return created.toObject();
 }
 
+export async function findById(submissionId) {
+  return Submission.findById(submissionId).lean();
+}
+
+export async function findByIdDetailed(submissionId) {
+  return Submission.findById(submissionId)
+    .populate("userId", "firstName lastName email registrationId")
+    .populate("contestId", "title startTime status cutOff slug")
+    .populate("answers.questionId")
+    .lean();
+}
+
+export async function findByContestAndUserDetailed(contestId, userId) {
+  return Submission.findOne({ contestId, userId })
+    .populate("contestId", "title")
+    .populate("userId", "firstName lastName")
+    .lean();
+}
+
+export async function findLeaderboardByContest(contestId, scoreThreshold = 0) {
+  return Submission.find({
+    contestId,
+    score: { $gte: scoreThreshold }
+  })
+    .select("_id userId score totalQuestions createdAt updatedAt contestId")
+    .populate("userId", "registrationId firstName lastName college")
+    .populate("contestId", "startTime")
+    .lean();
+}
+
 export async function aggregateStatsByContest(contestId) {
   const [summary] = await Submission.aggregate([
     { $match: { contestId } },

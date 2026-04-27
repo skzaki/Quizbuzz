@@ -6,6 +6,7 @@ import { Contest, Question, Session, Submission, User } from '../Models/DB.js';
 import { validateCredentialsSchema } from '../Models/zodSchema.js';
 import { areAllJobsCompleted, evaluationQueue } from '../queue/submissionQueues.js';
 import redisClient from "../redis.js";
+import * as contestService from "../services/contest.service.js";
 import { getUserState } from "../store/contestStateService.js";
 import { saveSession } from "../store/sessionService.js";
 import { extractDeviceInfo } from '../utils/sessionHelper.js';
@@ -14,6 +15,21 @@ import {
   calculateQuestionCountsFromDistribution,
   normalizeDomainDistribution
 } from '../utils/domainDistribution.js';
+
+const sendServiceError = (res, error, fallbackMessage = "Internal server error") => {
+  if (error?.statusCode) {
+    return res.status(error.statusCode).json({
+      message: error.message,
+      code: error.code
+    });
+  }
+
+  console.error(error);
+  return res.status(500).json({
+    message: fallbackMessage,
+    error: process.env.NODE_ENV === 'development' ? error?.message : undefined
+  });
+};
 
 
 
@@ -39,7 +55,7 @@ export const validateCredentials = async (req, res) => {
     console.log(`registrationId: ${registrationId} | phone: ${phone}`);
     
     // Check if contest exists
-    const contest = await Contest.findOne({ slug, isDeleted: false });
+    const contest = await contestService.getBySlug(slug);
     if (!contest) {
       return res.status(404).json({ 
         message: "Contest not found. Please check the contest link or contact support." 
@@ -113,9 +129,9 @@ export const validateCredentials = async (req, res) => {
       cutOff: contest.cutOff,
       startTime: contest.startTime,
       deadline: contest.deadline,
-      participants: contest.participants.length,
+      participants: contest.participants?.length || 0,
       prizes: contest.prizes,
-      totalQuestions: contest.QuestionBank.length
+      totalQuestions: contest.questionBank?.length || contest.QuestionBank?.length || 0
     };
 
     // Response
@@ -133,11 +149,7 @@ export const validateCredentials = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('validateCredentials error:', error);
-    res.status(500).json({ 
-      message: "Internal server error. Please try again later.", 
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    return sendServiceError(res, error, "Internal server error. Please try again later.");
   }
 };
 
@@ -145,16 +157,27 @@ export const validateCredentials = async (req, res) => {
 export const getContestBySlug = async (req, res) => {
     try {
         const { slug } = req.params;
-        const contest = await Contest.findOne({ slug, isDeleted: false });
+    const contest = await contestService.getBySlug(slug);
         if (!contest) return res.status(404).json({ message: "Contest not found" });
         res.json(contest);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error" });
+      return sendServiceError(res, err, "Server error");
     }
 };
 
 export const getContestQuestions = async (req, res) => {
+    try {
+      const { contestSlug } = req.params;
+      if (!contestSlug) {
+        return res.status(400).json({ message: "provide the contest slug" });
+      }
+
+      const result = await contestService.getContestQuestions(contestSlug);
+      return res.json(result);
+    } catch (error) {
+      return sendServiceError(res, error, "Internal server error");
+    }
+
     const { contestSlug } = req.params;
     
     if(!contestSlug) return res.status(400).json({ message: "provide the contest slug"});
@@ -334,6 +357,45 @@ export const getContestQuestions = async (req, res) => {
 };
 
 export const submitContest = async (req, res) => {
+  try {
+    const contestSlug = req.params.contestSlug;
+    const { userRegistrationId } = req.body;
+
+    if(!contestSlug || !userRegistrationId) {
+      return res.status(400).json({ message: "ContestSlug and userRegistrationId are required "});
+    }
+
+    const [contest, user] = await Promise.all([
+      contestService.getBySlug(contestSlug),
+      User.findOne({ registrationId: userRegistrationId }).select('_id registrationId name')
+    ]);
+
+    if(!contest) return res.status(404).json({ message: `Contest not found: ${contestSlug}`});
+    if(!user) return res.status(404).json({ message: `User not found: ${userRegistrationId}`});
+
+    const userState = await getUserState(contestSlug, userRegistrationId);
+
+    if(!userState || !userState.answers || userState.answers.length === 0) {
+      return res.status(400).json({ message: "No answers found. Please answer question first."});
+    }
+
+    const { submissionId, status } = await contestService.submitContest(
+      contestSlug,
+      user._id,
+      userState.answers
+    );
+
+    return res.json({
+      message: "Contest submitted successfully",
+      submissionId,
+      status,
+      contestSlug,
+      userRegistrationId
+    });
+  } catch (error) {
+    return sendServiceError(res, error, "Internal Server Error");
+  }
+
      
     // Read contestSlug from URL param, userRegistrationId from body
     const contestSlug = req.params.contestSlug;
@@ -347,8 +409,8 @@ export const submitContest = async (req, res) => {
     try {
             // Find contest and user by slug/registrationId
         const [contest, user] = await Promise.all([
-            Contest.findOne({ slug: contestSlug }).select('_id slug title'),
-            User.findOne({ registrationId: userRegistrationId }).select('_id registrationId name')
+          contestService.getBySlug(contestSlug),
+          User.findOne({ registrationId: userRegistrationId }).select('_id registrationId name')
         ]);
 
         if(!contest) return res.status(404).json({ message: `Contest not found: ${contestSlug}`});
@@ -357,68 +419,25 @@ export const submitContest = async (req, res) => {
 
         console.log(`contestid: ${contest._id}`);
 
-        const existingSubmission = await Submission.findOne({
-            userId: user._id,
-            contestId: contest._id
-        });
-
-        if(existingSubmission) {
-            return res.status(400).json({
-                message: 'Already submitted for this contest',
-                submissionId: existingSubmission._id,
-            });
-        }
-
         const userState = await getUserState(contestSlug, userRegistrationId);
 
         if(!userState || !userState.answers || userState.answers.length === 0) {
             return res.status(400).json({ message: "No answers found. Please answer question first."});
         }
 
-        // if (userState.answers.some(answer => answer.answerIndex === "" || answer.answerIndex === undefined || answer.answerIndex === null)) {
-        //     return res.status(400).json({ error: 'Please answer all questions before submitting.' });
-        // }
-
-        // F-51: Fixed typo in log message
-        console.log('New Submission');
-        const submission = new Submission({
-            userId: user._id,
-            contestId: contest._id,
-            answers: userState.answers.map(answer => ({
-                questionId: new mongoose.Types.ObjectId(answer.questionId),
-                answer: answer.answer || '',
-                answerIndex: answer.answerIndex,
-                submittedAt: answer.submittedAt || new Date(),
-                isCorrect: false
-            })),
-            score: 0,
-            totalQuestions: userState.answers.length,
-            status: 'submitted',
-        });
-        // save submission to DB
-        await submission.save();
-        console.log('Saved')
-        console.log('create job');
-        // Create a job & add to Queue
-        const job = await evaluationQueue.add('evaluate-submission', {
-            submissionId: submission._id.toString(),
-            contestSlug,
-            userRegistrationId,
-            contestId: contest._id.toString(),
-            userId: user._id.toString(),
-        }, {
-            priority: 1,
-            delay: 0
-        });
+        const { submissionId, status } = await contestService.submitContest(
+          contestSlug,
+          user._id,
+          userState.answers
+        );
 
         console.log(`Contest submitted - User: ${userRegistrationId}, Contest: ${contestSlug}`);
 
         // Return response with submissionId
         return res.json({
             message: "Contest submitted successfully",
-            submissionId: submission._id,
-            status: 'submitted',
-            jobId: job.id,
+          submissionId,
+          status,
             contestSlug,
             userRegistrationId
         });
@@ -435,6 +454,14 @@ export const submitContest = async (req, res) => {
 };
 
 export const getSubmissionStatus = async (req, res) => {
+  try {
+    const { submissionId } = req.params;
+    const response = await contestService.getSubmissionStatus(submissionId);
+    return res.json(response);
+  } catch (error) {
+    return sendServiceError(res, error, 'Failed to fetch submission status');
+  }
+
   try {
     const { submissionId } = req.params;
     
@@ -491,6 +518,15 @@ export const getSubmissionStatus = async (req, res) => {
 };
 
 export const getSubmissionResult = async (req, res) => {
+  try {
+    const { submissionId } = req.params;
+    const userId = req.user.userId;
+    const response = await contestService.getSubmissionResult(submissionId, userId);
+    return res.json(response);
+  } catch (error) {
+    return sendServiceError(res, error, 'Failed to fetch submission results');
+  }
+
   try {
     console.log(`In getSubmissionResult:`);  
     const { submissionId } = req.params;
@@ -685,6 +721,31 @@ export const getSubmissionResult = async (req, res) => {
 };
 
 export const getContestLeaderboard = async (req, res) => {
+  try {
+    const contestId = new mongoose.Types.ObjectId(req.params.contestId);
+
+    const allDone = await areAllJobsCompleted();
+
+    if(!allDone) {
+      return res.json({ 
+        success: false,
+        message: "The Quiz or Evaluation is still under processing" 
+      }); 
+    }
+        
+    if(!contestId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Contest ID needed"
+      });
+    }
+
+    const response = await contestService.getContestLeaderboard(contestId);
+    return res.json(response);
+  } catch(error) {
+    return sendServiceError(res, error, "Error fetching the LeaderBoard");
+  }
+
     try {
         const contestId = new mongoose.Types.ObjectId(req.params.contestId);
         console.log('In getContestLeaderboard');
@@ -775,6 +836,32 @@ export const endContest = async (req, res) => {
 
 
 export const getContestCertificate = async (req, res) => {
+  try {
+    const { contestSlug } = req.params;
+    const userId = req.user.userId;
+    const response = await contestService.getContestCertificate(contestSlug, userId);
+
+    const doc = new PDFDocument();
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="certificate-${contestSlug}.pdf"`
+    );
+
+    doc.fontSize(24).text("Certificate of Participation", { align: "center" });
+    doc.moveDown();
+    doc.fontSize(16).text(`This is to certify that ${response.participantName}`, { align: "center" });
+    doc.text(`participated in the contest "${response.contestTitle}".`, { align: "center" });
+    doc.moveDown();
+    doc.text(`Score: ${response.score}`, { align: "center" });
+
+    doc.pipe(res);
+    doc.end();
+    return;
+  } catch (error) {
+    return sendServiceError(res, error, "Server error");
+  }
+
   try {
     const { contestSlug } = req.params;
     const userId = req.user.userId;  // fixed: was req.user.id

@@ -8,6 +8,19 @@ export async function findById(id) {
   return Contest.findOne({ _id: id, isDeleted: false }).lean();
 }
 
+export async function findActiveContest(now = new Date()) {
+  return Contest.findOne({
+    isDeleted: false,
+    $or: [
+      { startTime: { $gt: now } },
+      { startTime: { $lte: now }, deadline: { $gt: now } }
+    ]
+  })
+    .select('title slug description duration registerFee startTime deadline topics domainDistribution prizes QuestionBank questionBank')
+    .sort({ startTime: 1 })
+    .lean();
+}
+
 export async function create(data) {
   const created = await Contest.create(data);
   return created.toObject();

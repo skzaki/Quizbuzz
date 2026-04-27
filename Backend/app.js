@@ -5,11 +5,12 @@ import express from "express";
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { rateLimitMiddleware } from './middleware/rateLimit.js';
+import { adminMiddleware } from './middleware/admin.js';
 import redisClient from './redis.js';
-import adminContestRoutes from "./routes/admin/contestRoutes.js";
+import adminContestRoutes from "./routes/admin/contest.routes.js";
 import paymentRoutes from './routes/admin/paymentRoutes.js';
 import authRoutes from "./routes/auth.routes.js";
-import contestRoutes from "./routes/contestRoutes.js";
+import contestRoutes from "./routes/contest.routes.js";
 import domainRoutes from './routes/admin/domainRoutes.js';
 import questionRoutes from "./routes/admin/questionRoutes.js";
 import settingsRoutes from "./routes/admin/settingsRoutes.js";
@@ -90,7 +91,7 @@ app.get('/health', async (req, res) => {
 
 // Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/admin/contests", adminContestRoutes);
+app.use("/api/admin/contests", adminMiddleware, adminContestRoutes);
 app.use("/api/contests", contestRoutes);
 app.use('/api/admin/domains', domainRoutes);
 app.use("/api/admin/questions", questionRoutes);

@@ -9,7 +9,7 @@ import {
     submitContest,
     validateCredentials
 } from "../controller/contestController.js";
-import { Contest } from "../Models/DB.js";
+import * as contestService from "../services/contest.service.js";
 import { authMiddleware } from './../middleware/auth.js';
 
 const router = Router();
@@ -19,28 +19,10 @@ const router = Router();
 // Landing page: get the nearest active or upcoming contest
 router.get('/active', async (req, res) => {
     try {
-        const now = new Date();
-        const contest = await Contest.findOne({
-            isDeleted: false,
-            $or: [
-                { startTime: { $gt: now } },
-                { startTime: { $lte: now }, deadline: { $gt: now } }
-            ]
-        })
-            .select('title slug description duration registerFee startTime deadline topics domainDistribution prizes QuestionBank')
-            .sort({ startTime: 1 })
-            .lean();
-
-        if (!contest) {
-            return res.status(404).json({ message: 'No active contest found' });
-        }
-
-        res.json({
-            ...contest,
-            totalQuestions: contest.QuestionBank?.length || 0
-        });
+        const contest = await contestService.getActiveContest();
+        res.json(contest);
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        return res.status(err?.statusCode || 500).json({ message: err.message });
     }
 });
 

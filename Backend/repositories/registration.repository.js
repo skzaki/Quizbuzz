@@ -32,3 +32,7 @@ export async function findPaginated(contestId, skip = 0, limit = 20) {
 
   return { registrations, total };
 }
+
+export async function countByContestId(contestId) {
+  return ContestRegistration.countDocuments({ contestId });
+}
