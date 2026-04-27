@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { DEFAULT_DOMAIN_NAMES, normalizeDomainName, toDomainKey } from '../utils/domainCatalog.js';
 import { Contest as ContestModel } from './contest.model.js';
 import { ContestRegistration as ContestRegistrationModel } from './contest-registration.model.js';
+import { Question as QuestionModel } from './question.model.js';
 
 const userSchema = new mongoose.Schema({
     registrationId: { type: String },
@@ -19,24 +20,6 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ email: 1, isDeleted: 1 });
 userSchema.index({ registrationId: 1 }, { sparse: true });
 userSchema.index({ phone: 1 }, { sparse: true });
-
-const QuestionSchema = new mongoose.Schema({
-    questionText: { type: String, required: true },
-    options: { type: [String], required: true },
-    correctOptionIndex: { type: Number, required: true },
-    correctOptionText: { type: String, required: true },
-    domain: { type: String, required: true, index: true },
-    domainRef: { type: mongoose.Schema.Types.ObjectId, ref: 'Domain', index: true },
-    difficulty: { type: String, enum: ['easy', 'medium', 'hard'], required: true, index: true },
-    hint: { type: String },
-    explanation: { type: String },
-    isDeleted: { type: Boolean, default: false, index: true },
-}, { timestamps: true });
-
-QuestionSchema.index({ domain: 1, difficulty: 1, isDeleted: 1 });
-QuestionSchema.index({ domainRef: 1, difficulty: 1, isDeleted: 1 });
-QuestionSchema.index({ isDeleted: 1, createdAt: -1 });
-QuestionSchema.index({ questionText: 'text', hint: 'text', explanation: 'text' });
 
 const domainSchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true },
@@ -174,7 +157,7 @@ export const User = mongoose.models.User || mongoose.model("User", userSchema);
 export const Contest = ContestModel;
 export const ContestRegistration = ContestRegistrationModel;
 export const Payment = mongoose.models.Payment || mongoose.model("Payment", paymentsSchema);
-export const Question = mongoose.models.Question || mongoose.model("Question", QuestionSchema);
+export const Question = QuestionModel;
 export const Domain = mongoose.models.Domain || mongoose.model('Domain', domainSchema);
 export const Certificate = mongoose.models.Certificate || mongoose.model("Certificate", certificatesSchema);
 export const Session = mongoose.models.Session || mongoose.model("Session", sessionSchema);

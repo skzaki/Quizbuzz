@@ -6,15 +6,15 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import { rateLimitMiddleware } from './middleware/rateLimit.js';
 import { adminMiddleware } from './middleware/admin.js';
+import { authMiddleware as roleAuthMiddleware } from './middleware/auth.js';
 import redisClient from './redis.js';
 import adminContestRoutes from "./routes/admin/contest.routes.js";
+import adminQuestionRoutes from "./routes/admin/question.routes.js";
 import paymentRoutes from './routes/admin/paymentRoutes.js';
 import authRoutes from "./routes/auth.routes.js";
 import contestRoutes from "./routes/contest.routes.js";
 import domainRoutes from './routes/admin/domainRoutes.js';
-import questionRoutes from "./routes/admin/questionRoutes.js";
 import settingsRoutes from "./routes/admin/settingsRoutes.js";
-import { authMiddleware } from './middleware/auth.middleware.js';
 
 dotenv.config();
 
@@ -91,10 +91,10 @@ app.get('/health', async (req, res) => {
 
 // Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/admin/contests", adminMiddleware, adminContestRoutes);
+app.use("/api/admin/contests", roleAuthMiddleware, adminMiddleware, adminContestRoutes);
 app.use("/api/contests", contestRoutes);
 app.use('/api/admin/domains', domainRoutes);
-app.use("/api/admin/questions", questionRoutes);
+app.use("/api/admin/questions", roleAuthMiddleware, adminMiddleware, adminQuestionRoutes);
 app.use("/api/admin/settings", settingsRoutes);
 app.use("/api/payments", paymentRoutes);
 
