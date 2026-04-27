@@ -1,6 +1,6 @@
 import { BookOpen, Check, ChevronDown, Database, Plus, Search, Target } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import LoadingSpinner from "../../components/UI/LoadingSpinner";
+import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import { useAdminDomains } from '../../hooks/useAdminDomains';
 import { useAdminQuestions } from '../../hooks/useAdminQuestions';
 

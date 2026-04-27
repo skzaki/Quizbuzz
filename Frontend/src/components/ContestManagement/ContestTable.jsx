@@ -13,7 +13,7 @@ import { Link } from 'react-router-dom';
 import ErrorBoundary from '../ErrorBoundary';
 
 // Lazy load Badge component
-const Badge = lazy(() => import('../UI/Badge'));
+const Badge = lazy(() => import('../ui/badge'));
 
 const LoadingRow = () => (
   <tr className="animate-pulse">
@@ -185,7 +185,7 @@ const ContestTable = ({
                           <Suspense key={index} fallback={<span className="text-xs bg-gray-200 dark:bg-gray-700 rounded px-2 py-1">{topic}</span>}>
                             <Badge variant="default" size="sm">
                               {topic}
-                            </Badge>
+                            </badge>
                           </Suspense>
                         ))}
                       </div>
@@ -216,7 +216,7 @@ const ContestTable = ({
                     <Suspense fallback={<span className="inline-block w-16 h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></span>}>
                       <Badge variant={getStatusColor(contest.status)}>
                         {contest.status}
-                      </Badge>
+                      </badge>
                     </Suspense>
                   </td>
                   <td className="px-6 py-4">

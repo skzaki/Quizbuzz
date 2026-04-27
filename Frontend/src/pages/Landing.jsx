@@ -4,7 +4,7 @@ import Footer from '../components/Landing/Footer';
 import Guidelines from '../components/Landing/Guidelines';
 import HeroBanner from '../components/Landing/HeroBanner';
 import PrizesSection from '../components/Landing/PrizesSection';
-import triggerConfetti from '../components/UI/triggerConfetti';
+import triggerConfetti from '../components/ui/triggerConfetti';
 
 const Landing = () => {
     const [contest, setContest] = useState(null);

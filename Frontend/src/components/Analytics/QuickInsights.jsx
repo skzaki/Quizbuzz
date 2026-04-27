@@ -1,6 +1,6 @@
 // components/QuickInsights.jsx
 import { useEffect, useState } from 'react';
-import LoadingSpinner from '../UI/LoadingSpinner';
+import LoadingSpinner from '../ui/LoadingSpinner';
 
 const QuickInsights = ({ dateRange }) => {
   const [insights, setInsights] = useState({});

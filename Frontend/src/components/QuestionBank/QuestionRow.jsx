@@ -1,6 +1,6 @@
 import { Edit, Eye, Trash2 } from 'lucide-react';
 import React from "react";
-import Badge from '../UI/Badge';
+import Badge from '../ui/badge';
 const QuestionRow = React.memo(({ question, onEdit, onDelete, onPreview }) => {
   const getDifficultyColor = (difficulty) => {
     switch (difficulty) {
@@ -22,18 +22,18 @@ const QuestionRow = React.memo(({ question, onEdit, onDelete, onPreview }) => {
             {question.tags.map((tag, index) => (
               <Badge key={index} variant="default" size="sm">
                 {tag}
-              </Badge>
+              </badge>
             ))}
           </div>
         </div>
       </td>
       <td className="px-6 py-4">
-        <Badge variant="info">{question.topic}</Badge>
+        <Badge variant="info">{question.topic}</badge>
       </td>
       <td className="px-6 py-4">
         <Badge variant={getDifficultyColor(question.difficulty)}>
           {question.difficulty}
-        </Badge>
+        </badge>
       </td>
       <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
         {question.xpReward} XP

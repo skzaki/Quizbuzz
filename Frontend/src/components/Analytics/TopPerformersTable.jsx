@@ -2,8 +2,8 @@
 import { Award, Clock, Target, TrendingDown, TrendingUp, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import Badge from '../UI/Badge';
-import LoadingSpinner from '../UI/LoadingSpinner';
+import Badge from '../ui/badge';
+import LoadingSpinner from '../ui/LoadingSpinner';
 
 const PerformanceAnalysis = ({ dateRange }) => {
   const [data, setData] = useState([]);
@@ -244,7 +244,7 @@ const PerformanceAnalysis = ({ dateRange }) => {
                     <h4 className={`font-bold text-xl ${colors.text}`}>{item.difficulty}</h4>
                     <Badge color={item.difficulty.toLowerCase() === 'easy' ? 'green' : item.difficulty.toLowerCase() === 'medium' ? 'yellow' : 'red'}>
                       {item.attempts} attempts
-                    </Badge>
+                    </badge>
                   </div>
 
                   {/* Key Metrics */}
@@ -415,7 +415,7 @@ const PerformanceAnalysis = ({ dateRange }) => {
                         <td className="py-3 px-4">
                           <Badge color={item.difficulty.toLowerCase() === 'easy' ? 'green' : item.difficulty.toLowerCase() === 'medium' ? 'yellow' : 'red'}>
                             {item.difficulty}
-                          </Badge>
+                          </badge>
                         </td>
                         <td className="py-3 px-4">
                           <span className="text-gray-900 dark:text-white font-medium">

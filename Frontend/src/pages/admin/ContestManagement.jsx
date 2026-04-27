@@ -2,7 +2,7 @@ import { Plus } from 'lucide-react';
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import ErrorBoundary from '../../components/ErrorBoundary';
-import LoadingSpinner from '../../components/UI/LoadingSpinner';
+import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { useAdminContests } from '../../hooks/useAdminContests';
 import { useAdminDomains } from '../../hooks/useAdminDomains';
 import { DEFAULT_CONTEST_RULES } from '../../utils/defaultContestRules';

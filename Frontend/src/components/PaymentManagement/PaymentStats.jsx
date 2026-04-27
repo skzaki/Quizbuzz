@@ -1,6 +1,6 @@
 // File: components/PaymentStats.jsx
 import { Calendar, CreditCard, DollarSign, TrendingUp } from 'lucide-react';
-import StatCard from '../UI/StatCard';
+import StatCard from '../ui/StatCard';
 
 const PaymentStats = ({ payments }) => {
   const totalRevenue = payments

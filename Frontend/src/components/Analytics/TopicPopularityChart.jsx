@@ -2,7 +2,7 @@
 import { Target } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
-import LoadingSpinner from '../UI/LoadingSpinner';
+import LoadingSpinner from '../ui/LoadingSpinner';
 
 const TopicPopularityChart = ({ dateRange }) => {
   const [data, setData] = useState([]);

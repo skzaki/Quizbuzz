@@ -2,7 +2,7 @@
 import { Trophy } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import LoadingSpinner from '../UI/LoadingSpinner';
+import LoadingSpinner from '../ui/LoadingSpinner';
 
 const ContestEngagementChart = ({ dateRange }) => {
   const [data, setData] = useState([]);

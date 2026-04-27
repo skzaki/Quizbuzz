@@ -1,7 +1,7 @@
 // File: components/PaymentTable.jsx
 import { CreditCard } from 'lucide-react';
 import ErrorBoundary from '../ErrorBoundary';
-import Badge from '../UI/Badge';
+import Badge from '../ui/badge';
 
 const PaymentTable = ({ payments }) => {
   const getStatusColor = (status) => {
@@ -96,7 +96,7 @@ const PaymentTable = ({ payments }) => {
                 <td className="px-6 py-4">
                   <Badge variant={getStatusColor(payment.status)}>
                     {payment.status}
-                  </Badge>
+                  </badge>
                   {payment.failureReason && (
                     <div className="text-xs text-red-600 dark:text-red-400 mt-1">
                       {payment.failureReason}

@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import ErrorBoundary from '../ErrorBoundary';
-import Badge from '../UI/Badge';
+import Badge from '../ui/badge';
 
 const ParticipantsTab = ({ contest, participants, setParticipants }) => {
   const [participantFilter, setParticipantFilter] = useState('all');
@@ -143,7 +143,7 @@ const ParticipantsTab = ({ contest, participants, setParticipants }) => {
                   <td className="px-6 py-4">
                     <Badge variant={getPaymentStatusColor(participant.paymentStatus)}>
                       {participant.paymentStatus}
-                    </Badge>
+                    </badge>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900 dark:text-white">

@@ -11,8 +11,8 @@ import {
     Users
 } from 'lucide-react';
 import ErrorBoundary from '../ErrorBoundary';
-import Badge from '../UI/Badge';
-import StatCard from '../UI/StatCard';
+import Badge from '../ui/badge';
+import StatCard from '../ui/StatCard';
 
 const OverviewTab = ({ contest, participants }) => {
   // Calculate analytics
@@ -99,7 +99,7 @@ const OverviewTab = ({ contest, participants }) => {
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{contest.title}</h1>
                 <Badge variant={getStatusColor(contest.status)}>
                   {contest.status}
-                </Badge>
+                </badge>
               </div>
               <p className="text-gray-600 dark:text-gray-400">{contest.description}</p>
             </div>
@@ -129,7 +129,7 @@ const OverviewTab = ({ contest, participants }) => {
                   <div className="font-medium text-gray-900 dark:text-white">Difficulty</div>
                   <Badge variant={getDifficultyColor(contest.difficulty)} size="sm">
                     {contest.difficulty}
-                  </Badge>
+                  </badge>
                 </div>
               </div>
             </div>
@@ -163,7 +163,7 @@ const OverviewTab = ({ contest, participants }) => {
               {contest.topics.map((topic, index) => (
                 <Badge key={index} variant="default">
                   {topic}
-                </Badge>
+                </badge>
               ))}
             </div>
           </div>

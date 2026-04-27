@@ -2,7 +2,7 @@ import { X } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { useLocation } from "react-router-dom";
 import ErrorBoundary from "../../components/ErrorBoundary";
-import LoadingSpinner from "../../components/UI/LoadingSpinner";
+import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import { useAuth } from "../../contexts/AuthContext";
 
 // Lazy-loaded components (split Sidebar into smaller parts)

@@ -4,7 +4,7 @@ import React, { lazy, Suspense } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import ErrorBoundary from '../ErrorBoundary';
-import LoadingSpinner from '../UI/LoadingSpinner';
+import LoadingSpinner from '../ui/LoadingSpinner';
 
 // Lazy load Notifications panel
 const NotificationsPanel = lazy(() => import('../NavBar/NotificationPanel'));
