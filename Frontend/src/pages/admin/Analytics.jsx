@@ -9,8 +9,8 @@ import {
 } from 'lucide-react';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import ErrorBoundary from '../../components/ErrorBoundary';
-import LoadingSpinner from '../../components/ui/LoadingSpinner';
-import StatCard from '../../components/ui/StatCard';
+import LoadingSpinner from '../../components/UI/LoadingSpinner';
+import StatCard from '../../components/UI/StatCard';
 
 // Lazy load chart components for better performance
 const UserGrowthChart = lazy(() => import('../../components/Analytics/UserGrowthChart'));

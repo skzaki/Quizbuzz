@@ -2,7 +2,7 @@
 import { Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import LoadingSpinner from '../ui/LoadingSpinner';
+import LoadingSpinner from '../UI/LoadingSpinner';
 
 const UserGrowthChart = ({ dateRange }) => {
   const [data, setData] = useState([]);

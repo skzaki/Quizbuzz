@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import ErrorBoundary from '../ErrorBoundary';
 import Badge from '../ui/badge';
-import StatCard from '../ui/StatCard';
+import StatCard from '../UI/StatCard';
 
 const OverviewTab = ({ contest, participants }) => {
   // Calculate analytics

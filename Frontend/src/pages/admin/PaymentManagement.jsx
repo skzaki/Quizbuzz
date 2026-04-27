@@ -2,7 +2,7 @@ import { CreditCard, Download } from 'lucide-react';
 import { lazy, Suspense, useEffect, useState } from 'react';
 
 import ErrorBoundary from '../../components/ErrorBoundary';
-import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import LoadingSpinner from '../../components/UI/LoadingSpinner';
 
 const PaymentTable = lazy(() => import('./../../components/PaymentManagement/PaymentTable'));
 const PaymentFilters = lazy(() => import('../../components/PaymentManagement/PaymentFilters'));

@@ -2,7 +2,7 @@
 import { TrendingUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Bar, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import LoadingSpinner from '../ui/LoadingSpinner';
+import LoadingSpinner from '../UI/LoadingSpinner';
 
 const RevenueChart = ({ dateRange }) => {
   const [data, setData] = useState([]);
