@@ -22,18 +22,18 @@ const QuestionRow = React.memo(({ question, onEdit, onDelete, onPreview }) => {
             {question.tags.map((tag, index) => (
               <Badge key={index} variant="default" size="sm">
                 {tag}
-              </badge>
+              </Badge>
             ))}
           </div>
         </div>
       </td>
       <td className="px-6 py-4">
-        <Badge variant="info">{question.topic}</badge>
+        <Badge variant="info">{question.topic}</Badge>
       </td>
       <td className="px-6 py-4">
         <Badge variant={getDifficultyColor(question.difficulty)}>
           {question.difficulty}
-        </badge>
+        </Badge>
       </td>
       <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
         {question.xpReward} XP

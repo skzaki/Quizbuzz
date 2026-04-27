@@ -70,13 +70,13 @@ const QuestionPreview = ({ question, isOpen, onClose }) => {
           <div className="flex flex-wrap gap-4 pt-4 border-t border-gray-200 dark:border-gray-600">
             <div className="flex items-center space-x-2">
               <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Topic:</span>
-              <Badge variant="info">{question.topic}</badge>
+              <Badge variant="info">{question.topic}</Badge>
             </div>
             <div className="flex items-center space-x-2">
               <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Difficulty:</span>
               <Badge variant={question.difficulty === 'easy' ? 'success' : question.difficulty === 'medium' ? 'warning' : 'error'}>
                 {question.difficulty}
-              </badge>
+              </Badge>
             </div>
             <div className="flex items-center space-x-2">
               <span className="text-sm font-medium text-gray-500 dark:text-gray-400">XP Reward:</span>

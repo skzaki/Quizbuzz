@@ -185,7 +185,7 @@ const ContestTable = ({
                           <Suspense key={index} fallback={<span className="text-xs bg-gray-200 dark:bg-gray-700 rounded px-2 py-1">{topic}</span>}>
                             <Badge variant="default" size="sm">
                               {topic}
-                            </badge>
+                            </Badge>
                           </Suspense>
                         ))}
                       </div>
@@ -216,7 +216,7 @@ const ContestTable = ({
                     <Suspense fallback={<span className="inline-block w-16 h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></span>}>
                       <Badge variant={getStatusColor(contest.status)}>
                         {contest.status}
-                      </badge>
+                      </Badge>
                     </Suspense>
                   </td>
                   <td className="px-6 py-4">

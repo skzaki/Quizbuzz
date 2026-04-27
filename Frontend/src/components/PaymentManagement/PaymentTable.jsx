@@ -96,7 +96,7 @@ const PaymentTable = ({ payments }) => {
                 <td className="px-6 py-4">
                   <Badge variant={getStatusColor(payment.status)}>
                     {payment.status}
-                  </badge>
+                  </Badge>
                   {payment.failureReason && (
                     <div className="text-xs text-red-600 dark:text-red-400 mt-1">
                       {payment.failureReason}

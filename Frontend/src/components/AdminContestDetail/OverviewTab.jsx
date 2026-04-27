@@ -99,7 +99,7 @@ const OverviewTab = ({ contest, participants }) => {
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{contest.title}</h1>
                 <Badge variant={getStatusColor(contest.status)}>
                   {contest.status}
-                </badge>
+                </Badge>
               </div>
               <p className="text-gray-600 dark:text-gray-400">{contest.description}</p>
             </div>
@@ -129,7 +129,7 @@ const OverviewTab = ({ contest, participants }) => {
                   <div className="font-medium text-gray-900 dark:text-white">Difficulty</div>
                   <Badge variant={getDifficultyColor(contest.difficulty)} size="sm">
                     {contest.difficulty}
-                  </badge>
+                  </Badge>
                 </div>
               </div>
             </div>
@@ -163,7 +163,7 @@ const OverviewTab = ({ contest, participants }) => {
               {contest.topics.map((topic, index) => (
                 <Badge key={index} variant="default">
                   {topic}
-                </badge>
+                </Badge>
               ))}
             </div>
           </div>

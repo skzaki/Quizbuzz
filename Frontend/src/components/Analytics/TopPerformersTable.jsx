@@ -244,7 +244,7 @@ const PerformanceAnalysis = ({ dateRange }) => {
                     <h4 className={`font-bold text-xl ${colors.text}`}>{item.difficulty}</h4>
                     <Badge color={item.difficulty.toLowerCase() === 'easy' ? 'green' : item.difficulty.toLowerCase() === 'medium' ? 'yellow' : 'red'}>
                       {item.attempts} attempts
-                    </badge>
+                    </Badge>
                   </div>
 
                   {/* Key Metrics */}
@@ -415,7 +415,7 @@ const PerformanceAnalysis = ({ dateRange }) => {
                         <td className="py-3 px-4">
                           <Badge color={item.difficulty.toLowerCase() === 'easy' ? 'green' : item.difficulty.toLowerCase() === 'medium' ? 'yellow' : 'red'}>
                             {item.difficulty}
-                          </badge>
+                          </Badge>
                         </td>
                         <td className="py-3 px-4">
                           <span className="text-gray-900 dark:text-white font-medium">

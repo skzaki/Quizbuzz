@@ -143,7 +143,7 @@ const ParticipantsTab = ({ contest, participants, setParticipants }) => {
                   <td className="px-6 py-4">
                     <Badge variant={getPaymentStatusColor(participant.paymentStatus)}>
                       {participant.paymentStatus}
-                    </badge>
+                    </Badge>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900 dark:text-white">
