@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { DEFAULT_DOMAIN_NAMES, normalizeDomainName, toDomainKey } from '../utils/domainCatalog.js';
 import { Contest as ContestModel } from './contest.model.js';
 import { ContestRegistration as ContestRegistrationModel } from './contest-registration.model.js';
+import { Certificate as CertificateModel } from './certificate.model.js';
 import { Message as MessageModel } from './message.model.js';
 import { Payment as PaymentModel } from './payment.model.js';
 import { Question as QuestionModel } from './question.model.js';
@@ -22,7 +23,7 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 userSchema.index({ email: 1, isDeleted: 1 });
-userSchema.index({ registrationId: 1 }, { sparse: true });
+userSchema.index({ registrationId: 1 }, { unique: true, sparse: true });
 userSchema.index({ phone: 1 }, { sparse: true });
 
 const domainSchema = new mongoose.Schema({
@@ -42,15 +43,6 @@ domainSchema.pre('validate', function (next) {
 
 domainSchema.index({ key: 1 }, { unique: true });
 domainSchema.index({ name: 1, isDeleted: 1 });
-
-const certificatesSchema = new mongoose.Schema({
-    userRef: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    contestRef: { type: mongoose.Schema.Types.ObjectId, ref: "Contest" },
-    url: { type: String },
-    isDeleted: { type: Boolean, default: false, index: true },
-}, { timestamps: true });
-
-certificatesSchema.index({ userRef: 1, contestRef: 1 });
 
 const sessionSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -119,13 +111,13 @@ const settingsSchema = new mongoose.Schema({
 export const User = mongoose.models.User || mongoose.model("User", userSchema);
 export const Contest = ContestModel;
 export const ContestRegistration = ContestRegistrationModel;
+export const Certificate = CertificateModel;
 export const Message = MessageModel;
 export const Payment = PaymentModel;
 export const Question = QuestionModel;
 export const ProctoringEvent = ProctoringEventModel;
 export const Submission = SubmissionModel;
 export const Domain = mongoose.models.Domain || mongoose.model('Domain', domainSchema);
-export const Certificate = mongoose.models.Certificate || mongoose.model("Certificate", certificatesSchema);
 export const Session = mongoose.models.Session || mongoose.model("Session", sessionSchema);
 export const Settings = mongoose.models.Settings || mongoose.model("Settings", settingsSchema);
 

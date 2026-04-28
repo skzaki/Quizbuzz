@@ -1,65 +1,108 @@
-import http from "http";
-import { Server } from "socket.io";
-import app from "./app.js";
-import { connectDB } from './Models/DB.js';
-import initSocket from "./socket/socket.init.js";
+import dotenv from "dotenv";
 
-const PORT = process.env.PORT || 5000;
+dotenv.config();
 
-const methodsToOverride = ['log', 'error', 'warn', 'table'];
+const [{ default: http }, { Server }, { default: mongoose }, { default: app }, { default: initSocket }, redisModule] = await Promise.all([
+  import("http"),
+  import("socket.io"),
+  import("mongoose"),
+  import("./app.js"),
+  import("./socket/socket.init.js"),
+  import("./config/redis.js")
+]);
 
-methodsToOverride.forEach(methodName => {
-  const originalMethod = console[methodName];
-  console[methodName] = (...args) => {
-    // Get IST parts
-    const now = new Date();
-    const options = { timeZone: "Asia/Kolkata", hour12: true };
-    const formatter = new Intl.DateTimeFormat("en-GB", {
-      ...options,
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit"
-    });
+const { default: redisClient, pubClient, subClient } = redisModule;
 
-    // Example: "13/09/2025, 10:25:42 am"
-    const parts = formatter.formatToParts(now);
-
-    const day = parts.find(p => p.type === "day").value;
-    const month = parts.find(p => p.type === "month").value;
-    const year = parts.find(p => p.type === "year").value;
-    let hour = parts.find(p => p.type === "hour").value;
-    const minute = parts.find(p => p.type === "minute").value;
-    const second = parts.find(p => p.type === "second").value;
-    const dayPeriod = parts.find(p => p.type === "dayPeriod").value.toUpperCase();
-
-    const timestamp = `[${day}-${month}-${year} ${hour}:${minute}:${second} ${dayPeriod} IST]`;
-
-    originalMethod.apply(console, [timestamp, ...args]);
-  };
-});
-
-
-
-connectDB();
-// Create HTTP server from Express app
+const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",");
 const server = http.createServer(app);
 
-// Attach WebSocket server
 const io = new Server(server, {
-  path: "/ws/",
   cors: {
-    origin: ["https://quiz.ysminfosolution.com", "http://localhost:3000"],
-    methods: ["GET", "POST"]
-  }
+    origin: allowedOrigins,
+    credentials: true
+  },
+  transports: ["websocket", "polling"],
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
 
-// Init Socket.io events
 initSocket(io);
 
-// Start server
-server.listen(PORT, () => {
-  console.log(`Listening on http://localhost:${PORT} ...`);
-});
+let evaluationWorker;
+let messageWorker;
+let quizStartWorker;
+let quizReminderWorker;
+
+async function connectInfrastructure() {
+  await mongoose.connect(process.env.MONGODB_URI);
+  console.log("MongoDB connected");
+
+  await Promise.all([
+    redisClient.ping(),
+    pubClient.ping(),
+    subClient.ping()
+  ]);
+
+  console.log("Redis clients connected");
+}
+
+async function loadWorkers() {
+  const [evaluationModule, messageModule, quizStartModule, quizReminderModule] = await Promise.all([
+    import("./workers/evaluation.worker.js"),
+    import("./workers/message.worker.js"),
+    import("./workers/quiz-start.worker.js"),
+    import("./workers/quiz-reminder.worker.js")
+  ]);
+
+  evaluationWorker = evaluationModule.default;
+  messageWorker = messageModule.default;
+  quizStartWorker = quizStartModule.default;
+  quizReminderWorker = quizReminderModule.default;
+}
+
+async function shutdown(signal) {
+  console.log(`Received ${signal}, shutting down...`);
+
+  try {
+    await Promise.allSettled([
+      evaluationWorker?.close?.(),
+      messageWorker?.close?.(),
+      quizStartWorker?.close?.(),
+      quizReminderWorker?.close?.()
+    ]);
+
+    await new Promise((resolve) => server.close(resolve));
+    await mongoose.disconnect();
+    await Promise.allSettled([
+      redisClient.quit(),
+      pubClient.quit(),
+      subClient.quit()
+    ]);
+
+    console.log("Server shut down gracefully");
+    process.exit(0);
+  } catch (error) {
+    console.error("Graceful shutdown failed", error);
+    process.exit(1);
+  }
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+
+async function start() {
+  try {
+    await connectInfrastructure();
+    await loadWorkers();
+
+    const port = process.env.PORT || 3000;
+    server.listen(port, () => {
+      console.log(`Listening on port ${port}`);
+    });
+  } catch (error) {
+    console.error("Startup failed", error);
+    process.exit(1);
+  }
+}
+
+await start();

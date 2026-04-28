@@ -1,83 +1,109 @@
 services:
-  mongo:
-    image: mongo
-    container_name: quizbuzz-mongo
-    ports:
-      - "27017:27017"
-    volumes:
-      - quizbuzz-mongo-data:/data/db
-      - quizbuzz-mongo-config:/data/configdb
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  redis:
-    image: redis:alpine
-    container_name: quizbuzz-redis
-    command: redis-server --appendonly yes
-    ports:
-      - "6379:6379"
-    volumes:
-      - quizbuzz-redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  backend:
-    build: ./Backend
-    container_name: quizbuzz-backend
-    ports:
-      - "5000:5000"
-    env_file:
-      - ./Backend/.env
-    depends_on:
-      mongo:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
-
-  worker:
-    build: ./Backend
-    container_name: quizbuzz-worker
-    command: ["node", "worker/evaluationWorker.js"]
-    env_file:
-      - ./Backend/.env
-    depends_on:
-      mongo:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-
   frontend:
     build:
       context: ./Frontend
       args:
-        - VITE_URL=${VITE_URL:-/api}
-        - VITE_WEBSOCKET_URL=${VITE_WEBSOCKET_URL}
-        - VITE_SECRET_KEY=${VITE_SECRET_KEY}
-    container_name: quizbuzz-frontend
-    ports:
-      - "3000:80"
-    env_file:
-      - ./Frontend/.env
+        VITE_URL: ${VITE_API_URL:-https://quiz.ysminfosolution.com/api}
+        VITE_WEBSOCKET_URL: ${VITE_SOCKET_URL:-wss://quiz.ysminfosolution.com/socket.io}
+        VITE_SECRET_KEY: ${VITE_SECRET_KEY}
+    image: ghcr.io/${GHCR_OWNER:-local}/quizbuzz-frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-https://quiz.ysminfosolution.com/api}
+      VITE_SOCKET_URL: ${VITE_SOCKET_URL:-wss://quiz.ysminfosolution.com/socket.io}
     depends_on:
       - backend
+    networks:
+      - app_network
+
+  backend:
+    build: ./Backend
+    image: ghcr.io/${GHCR_OWNER:-local}/quizbuzz-backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    env_file:
+      - ./Backend/.env
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - app_network
+
+  worker:
+    build: ./Backend
+    image: ghcr.io/${GHCR_OWNER:-local}/quizbuzz-worker:${IMAGE_TAG:-latest}
+    command: ["node", "workers/index.js"]
+    restart: unless-stopped
+    env_file:
+      - ./Backend/.env
+    deploy:
+      replicas: 1
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - app_network
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1000
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - certbot_data:/var/www/certbot:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - app_network
 
 volumes:
-  quizbuzz-mongo-data:
-  quizbuzz-mongo-config:
-  quizbuzz-redis-data:
+  mongo_data:
+  redis_data:
+  certbot_data:
+
+networks:
+  app_network:
+    driver: bridge

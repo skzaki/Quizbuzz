@@ -33,7 +33,7 @@ const submissionSchema = new mongoose.Schema(
     totalQuestions: { type: Number, default: 0 },
     status: {
       type: String,
-      enum: ["SUBMITTED", "EVALUATING", "EVALUATED", "FAILED", "submitted", "evaluated", "failed"],
+      enum: ["SUBMITTED", "EVALUATING", "EVALUATED", "FAILED"],
       default: "SUBMITTED"
     },
     submittedAt: { type: Date, default: Date.now },

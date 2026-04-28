@@ -32,6 +32,7 @@ const contestSchema = new mongoose.Schema(
     ],
     rules: [{ type: String }],
     questionBank: [{ type: mongoose.Schema.Types.ObjectId, ref: "Question", alias: "QuestionBank" }],
+    // Stored in paise. Divide by 100 for display.
     registerFee: { type: Number, required: true, min: 0 },
     maxParticipants: { type: Number, min: 0, default: 100 },
     duration: { type: Number, required: true, min: 1 },
@@ -49,6 +50,7 @@ const contestSchema = new mongoose.Schema(
       {
         rankFrom: { type: Number, required: true },
         rankTo: { type: Number, required: true },
+        // Stored in paise. Divide by 100 for display.
         amount: { type: Number, required: true },
         currency: { type: String, default: "INR" },
         benefits: [{ type: String }]
@@ -63,6 +65,7 @@ const contestSchema = new mongoose.Schema(
 contestSchema.index({ slug: 1 }, { unique: true });
 contestSchema.index({ startTime: 1, isDeleted: 1 });
 contestSchema.index({ endTime: 1, isDeleted: 1 });
+contestSchema.index({ status: 1, startTime: 1 });
 contestSchema.index({ status: 1, isDeleted: 1 });
 contestSchema.index({ topicRefs: 1, isDeleted: 1 });
 contestSchema.index({ "domainDistribution.domainRef": 1, isDeleted: 1 });

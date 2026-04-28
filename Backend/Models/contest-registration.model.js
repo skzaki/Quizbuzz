@@ -25,6 +25,7 @@ const contestRegistrationSchema = new mongoose.Schema(
 );
 
 contestRegistrationSchema.index({ userId: 1, contestId: 1 }, { unique: true });
+contestRegistrationSchema.index({ contestId: 1, status: 1 });
 contestRegistrationSchema.index({ contestId: 1, status: 1, registeredAt: -1 });
 
 export const ContestRegistration =

@@ -4,71 +4,189 @@ on:
   push:
     branches:
       - main
-      - second
-      - third
+    paths:
+      - "Backend/**"
+      - "Frontend/**"
+      - "docker-compose.yml"
+      - "nginx/**"
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: quizbuzz-deploy-main
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_OWNER: ${{ github.repository_owner }}
 
 jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
-          cache: 'npm'
+          node-version: 20
+          cache: npm
           cache-dependency-path: Backend/package-lock.json
 
-      - name: Install Backend Dependencies
-        run: cd Backend && npm install
+      - name: Install backend dependencies
+        working-directory: Backend
+        run: npm ci
 
-      - name: Backend Lint check
-        run: cd Backend && npm run lint || true # Skip for now until lint is clean
+      - name: Run backend tests
+        working-directory: Backend
+        run: npm test -- --passWithNoTests
 
-      - name: Backend Test (Stub)
-        run: cd Backend && npm test || true # Skip for now until tests are added
+      - name: Run backend lint
+        working-directory: Backend
+        run: npm run lint
 
-  build:
-    name:  Build
+  build-and-push:
+    name: Build and Push
     runs-on: ubuntu-latest
     needs: test
     steps:
-      - uses: actions/checkout@v3
-      - run: echo "Build complete"
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./Backend
+          push: true
+          tags: |
+            ghcr.io/${{ env.IMAGE_OWNER }}/quizbuzz-backend:latest
+            ghcr.io/${{ env.IMAGE_OWNER }}/quizbuzz-backend:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_ENV=production
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./Frontend
+          push: true
+          tags: |
+            ghcr.io/${{ env.IMAGE_OWNER }}/quizbuzz-frontend:latest
+            ghcr.io/${{ env.IMAGE_OWNER }}/quizbuzz-frontend:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VITE_URL=https://quiz.ysminfosolution.com/api
+            VITE_WEBSOCKET_URL=wss://quiz.ysminfosolution.com/socket.io
+            VITE_SECRET_KEY=${{ secrets.VITE_SECRET_KEY }}
+
+      - name: Build and push worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./Backend
+          push: true
+          tags: |
+            ghcr.io/${{ env.IMAGE_OWNER }}/quizbuzz-worker:latest
+            ghcr.io/${{ env.IMAGE_OWNER }}/quizbuzz-worker:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_ENV=production
 
   deploy:
-    name: Deploy to VPS
+    name: Deploy
     runs-on: ubuntu-latest
-    needs: build
+    needs: build-and-push
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Deploy via SSH
+      - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          GHCR_OWNER: ${{ env.IMAGE_OWNER }}
+          IMAGE_TAG: latest
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 2222
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: GHCR_OWNER,IMAGE_TAG
           script: |
-            cd /var/www/quizbuzz
-            # Create backup of current state
-            docker compose ps -q | xargs -r docker inspect -f '{{.Name}} {{.Config.Image}}' > deploy_backup.txt
-            
-            git fetch origin
-            git checkout ${{ github.ref_name }}
-            git pull origin ${{ github.ref_name }}
-            
-            # Rebuild and start
-            if docker compose up -d --build; then
-              echo "Deployment successful"
-              docker compose ps
-            else
-              echo "Deployment failed! Rolling back..."
-              # Simplified rollback - revert files and restart
-              git checkout HEAD@{1}
-              docker compose up -d
+            set -e
+            cd /opt/quizbuzz
+
+            export GHCR_OWNER="$GHCR_OWNER"
+            export IMAGE_TAG="$IMAGE_TAG"
+
+            echo "Logging in to GHCR"
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+            echo "Pulling latest images"
+            docker compose pull frontend backend worker
+
+            echo "Starting backend replicas with zero-downtime update"
+            docker compose up -d --no-deps --scale backend=2 backend
+
+            sleep 15
+
+            HEALTHY=$(docker compose ps backend | grep -c "healthy" || true)
+            if [ "$HEALTHY" -lt 2 ]; then
+              echo "Deploy failed - backend replicas did not become healthy"
               exit 1
             fi
+
+            echo "Updating worker, frontend, and nginx"
+            docker compose up -d --no-deps worker frontend nginx
+
+            docker image prune -f --filter "until=72h"
+
+            echo "Deploy complete"
+
+  notify:
+    name: Notify Slack
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always()
+    steps:
+      - name: Post success notification
+        if: needs.deploy.result == 'success'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          payload=$(cat <<'JSON'
+          {
+            "channel": "C0AGJSR5P8F",
+            "text": "✅ QuizBuzz deployed successfully\nBranch: ${{ github.ref_name }}\nCommit: ${{ github.sha }}\nBy: ${{ github.actor }}"
+          }
+          JSON
+          )
+
+          curl -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+
+      - name: Post failure notification
+        if: needs.deploy.result != 'success'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          payload=$(cat <<'JSON'
+          {
+            "channel": "C0AGJSR5P8F",
+            "text": "❌ QuizBuzz deploy failed\nBranch: ${{ github.ref_name }}\nCommit: ${{ github.sha }}\nBy: ${{ github.actor }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }
+          JSON
+          )
+
+          curl -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
