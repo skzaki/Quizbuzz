@@ -11,7 +11,7 @@ const [{ default: http }, { Server }, { default: mongoose }, { default: app }, {
   import("./config/redis.js")
 ]);
 
-const { default: redisClient, pubClient, subClient } = redisModule;
+const { default: redisClient, pubClient, subClient, connectRedisClients } = redisModule;
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",");
 const server = http.createServer(app);
@@ -36,6 +36,8 @@ let quizReminderWorker;
 async function connectInfrastructure() {
   await mongoose.connect(process.env.MONGODB_URI);
   console.log("MongoDB connected");
+
+  await connectRedisClients();
 
   await Promise.all([
     redisClient.ping(),

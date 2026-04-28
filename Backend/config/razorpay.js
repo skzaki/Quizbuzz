@@ -1,11 +1,19 @@
 const keyId = process.env.RAZORPAY_KEY_ID;
 const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
-if (!keyId || !keySecret) {
-  throw new Error("Razorpay credentials are missing. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.");
-}
+let base64Auth = null;
 
-const base64Auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+function getAuthHeader() {
+  if (!keyId || !keySecret) {
+    throw new Error("Razorpay credentials are missing. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.");
+  }
+
+  if (!base64Auth) {
+    base64Auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+  }
+
+  return base64Auth;
+}
 
 export const razorpay = {
   orders: {
@@ -13,7 +21,7 @@ export const razorpay = {
       const response = await fetch("https://api.razorpay.com/v1/orders", {
         method: "POST",
         headers: {
-          Authorization: `Basic ${base64Auth}`,
+          Authorization: `Basic ${getAuthHeader()}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify(payload)

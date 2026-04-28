@@ -1,34 +1,16 @@
-import dotenv from "dotenv";
-
-dotenv.config();
-
-const [{ default: express }, { default: cors }, { default: helmet }, { default: morgan }, rateLimitModule] = await Promise.all([
-  import("express"),
-  import("cors"),
-  import("helmet"),
-  import("morgan"),
-  import("express-rate-limit")
-]);
-
-const rateLimit = rateLimitModule.default;
-
-const [{ default: authRoutes }, { default: contestRoutes }, { default: paymentRoutes }, { default: adminContestRoutes }, { default: adminQuestionRoutes }, { default: adminPaymentRoutes }, { default: adminMessageRoutes }, { authMiddleware }, { adminMiddleware }, { default: redisClient }] = await Promise.all([
-  import("./routes/auth.routes.js"),
-  import("./routes/contest.routes.js"),
-  import("./routes/payment.routes.js"),
-  import("./routes/admin/contest.routes.js"),
-  import("./routes/admin/question.routes.js"),
-  import("./routes/admin/payment.routes.js"),
-  import("./routes/admin/message.routes.js"),
-  import("./middleware/auth.js"),
-  import("./middleware/admin.js"),
-  import("./config/redis.js")
-]);
-
-await import("./config/razorpay.js");
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import morgan from "morgan";
+import rateLimit from "express-rate-limit";
 
 const app = express();
-const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",");
+const isTestEnvironment = process.env.NODE_ENV === "test" || Boolean(process.env.JEST_WORKER_ID);
+const allowedOrigins = String(process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 app.set("trust proxy", 1);
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -72,18 +54,42 @@ const otpLimiter = rateLimit({
 app.use(generalLimiter);
 app.use(process.env.NODE_ENV === "production" ? morgan("combined") : morgan("dev"));
 
-app.use("/api/auth/send-otp", otpLimiter);
-app.use("/api/auth", authLimiter, authRoutes);
-app.use("/api/contests", contestRoutes);
-app.use("/api/payments", paymentRoutes);
-app.use("/api/admin/contests", authMiddleware, adminMiddleware, adminContestRoutes);
-app.use("/api/admin/questions", authMiddleware, adminMiddleware, adminQuestionRoutes);
-app.use("/api/admin/payments", authMiddleware, adminMiddleware, adminPaymentRoutes);
-app.use("/api/admin/messages", authMiddleware, adminMiddleware, adminMessageRoutes);
+if (!isTestEnvironment) {
+  const [
+    { default: authRoutes },
+    { default: contestRoutes },
+    { default: paymentRoutes },
+    { default: adminContestRoutes },
+    { default: adminQuestionRoutes },
+    { default: adminPaymentRoutes },
+    { default: adminMessageRoutes },
+    { authMiddleware },
+    { adminMiddleware }
+  ] = await Promise.all([
+    import("./routes/auth.routes.js"),
+    import("./routes/contest.routes.js"),
+    import("./routes/payment.routes.js"),
+    import("./routes/admin/contest.routes.js"),
+    import("./routes/admin/question.routes.js"),
+    import("./routes/admin/payment.routes.js"),
+    import("./routes/admin/message.routes.js"),
+    import("./middleware/auth.js"),
+    import("./middleware/admin.js")
+  ]);
+
+  app.use("/api/auth/send-otp", otpLimiter);
+  app.use("/api/auth", authLimiter, authRoutes);
+  app.use("/api/contests", contestRoutes);
+  app.use("/api/payments", paymentRoutes);
+  app.use("/api/admin/contests", authMiddleware, adminMiddleware, adminContestRoutes);
+  app.use("/api/admin/questions", authMiddleware, adminMiddleware, adminQuestionRoutes);
+  app.use("/api/admin/payments", authMiddleware, adminMiddleware, adminPaymentRoutes);
+  app.use("/api/admin/messages", authMiddleware, adminMiddleware, adminMessageRoutes);
+}
 
 app.get("/health", (req, res) => {
   res.json({
-    status: "ok",
+    status: "healthy",
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     version: process.env.npm_package_version

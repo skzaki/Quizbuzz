@@ -46,7 +46,7 @@ jobs:
 
       - name: Run backend tests
         working-directory: Backend
-        run: npm test -- --passWithNoTests
+        run: node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage --passWithNoTests
 
       - name: Run backend lint
         working-directory: Backend
