@@ -3,6 +3,7 @@ import { DEFAULT_DOMAIN_NAMES, normalizeDomainName, toDomainKey } from '../utils
 import { Contest as ContestModel } from './contest.model.js';
 import { ContestRegistration as ContestRegistrationModel } from './contest-registration.model.js';
 import { Message as MessageModel } from './message.model.js';
+import { Payment as PaymentModel } from './payment.model.js';
 import { Question as QuestionModel } from './question.model.js';
 import { ProctoringEvent as ProctoringEventModel } from './proctoring-event.model.js';
 import { Submission as SubmissionModel } from './submission.model.js';
@@ -50,28 +51,6 @@ const certificatesSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 certificatesSchema.index({ userRef: 1, contestRef: 1 });
-
-const paymentsSchema = new mongoose.Schema({
-    userRef: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    contestRef: { type: mongoose.Schema.Types.ObjectId, ref: "Contest", required: true },
-    orderId: { type: String },
-    paymentId: { type: String },
-    amount: { type: Number },
-    status: { type: String, default: "pending" },
-    description: { type: String },
-    adminNote: { type: String },
-    provider: { type: String, default: 'RazorPay' },
-    metadata: {
-        ip: { type: String },
-        userAgent: { type: String }
-    },
-    isDeleted: { type: Boolean, default: false, index: true },
-}, { timestamps: true });
-
-paymentsSchema.index({ orderId: 1 });
-paymentsSchema.index({ paymentId: 1 }, { sparse: true });
-paymentsSchema.index({ userRef: 1, isDeleted: 1 });
-paymentsSchema.index({ contestRef: 1, status: 1, isDeleted: 1 });
 
 const sessionSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -141,7 +120,7 @@ export const User = mongoose.models.User || mongoose.model("User", userSchema);
 export const Contest = ContestModel;
 export const ContestRegistration = ContestRegistrationModel;
 export const Message = MessageModel;
-export const Payment = mongoose.models.Payment || mongoose.model("Payment", paymentsSchema);
+export const Payment = PaymentModel;
 export const Question = QuestionModel;
 export const ProctoringEvent = ProctoringEventModel;
 export const Submission = SubmissionModel;

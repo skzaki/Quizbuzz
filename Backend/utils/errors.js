@@ -34,6 +34,12 @@ export class NotFoundError extends AppError {
   }
 }
 
+export class ForbiddenError extends AppError {
+  constructor(message = "Forbidden") {
+    super(message, 403, "FORBIDDEN");
+  }
+}
+
 export class ExternalServiceError extends AppError {
   constructor(message = "External Service Error", details = null, provider = null) {
     super(message, 502, "EXTERNAL_SERVICE_ERROR", details);

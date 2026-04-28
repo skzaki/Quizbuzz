@@ -134,13 +134,31 @@ export const OTP = ({ otp, expiresInMinutes }) => {
   return { subject, html };
 };
 
+export const PAYMENT_FAILED = ({ name, contestName, failReason }) => {
+  /* Plain text fallback: Hi {name}, your payment for {contestName} failed. Reason: {failReason}. Please try again. */
+  const subject = `Payment failed for ${contestName}`;
+  const html = layout({
+    title: "Payment Failed",
+    intro: `Hi ${escapeHtml(name)}, your payment for ${escapeHtml(contestName)} was not completed.`,
+    bodyHtml: `
+      <div style="background:#f8fafc;border-radius:12px;padding:16px 18px;margin:18px 0;">
+        <div><strong>Reason:</strong> ${escapeHtml(failReason || "Payment failed")}</div>
+      </div>
+    `,
+    footerHtml: `<p style="margin:16px 0 0;color:#6b7280;">You can try again from the contest payment page.</p>`
+  });
+
+  return { subject, html };
+};
+
 export const emailTemplates = {
   REGISTRATION_CONFIRMATION,
   PAYMENT_RECEIPT,
   QUIZ_REMINDER,
   RESULT_ANNOUNCEMENT,
   CERTIFICATE_READY,
-  OTP
+  OTP,
+  PAYMENT_FAILED
 };
 
 export default emailTemplates;

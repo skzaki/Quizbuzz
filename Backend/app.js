@@ -11,13 +11,16 @@ import redisClient from './redis.js';
 import adminContestRoutes from "./routes/admin/contest.routes.js";
 import adminQuestionRoutes from "./routes/admin/question.routes.js";
 import messageRoutes from "./routes/admin/message.routes.js";
-import paymentRoutes from './routes/admin/paymentRoutes.js';
+import adminPaymentRoutes from './routes/admin/payment.routes.js';
 import authRoutes from "./routes/auth.routes.js";
 import contestRoutes from "./routes/contest.routes.js";
 import domainRoutes from './routes/admin/domainRoutes.js';
 import settingsRoutes from "./routes/admin/settingsRoutes.js";
+import paymentRoutes from './routes/payment.routes.js';
 
 dotenv.config();
+
+await import('./config/razorpay.js');
 
 const app = express();
 
@@ -33,13 +36,25 @@ app.use(cors(coresOptions));
 
 
 // Request parsing middleware
-app.use(express.json({ 
+// The webhook route inside paymentRoutes uses express.raw() middleware, not express.json().
+// Do NOT move the webhook route to a path covered by a global express.json() call.
+// Global express.json() must be applied AFTER payment routes are mounted, or scope it
+// to exclude /api/payments/webhook.
+const jsonParser = express.json({ 
     limit: '10mb',
     type: ['application/json', 'text/plain'],
     verify: (req, res, buf) => {
         req.rawBody = buf;
     }
-}));
+});
+
+app.use((req, res, next) => {
+    if (req.originalUrl.startsWith('/api/payments/webhook')) {
+        return next();
+    }
+
+    return jsonParser(req, res, next);
+});
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Compression middleware
 app.use(compression());
@@ -99,6 +114,7 @@ app.use("/api/admin/questions", roleAuthMiddleware, adminMiddleware, adminQuesti
 app.use("/api/admin/messages", adminMiddleware, messageRoutes);
 app.use("/api/admin/settings", settingsRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/admin/payments", roleAuthMiddleware, adminMiddleware, adminPaymentRoutes);
 
 // F-08: Protected logs endpoint with authMiddleware
 app.post("/api/logs", roleAuthMiddleware, (req, res) => {

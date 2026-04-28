@@ -367,6 +367,43 @@ export async function sendCertificateReady(userId, contestId, certificateUrl) {
   await enqueueJob("EMAIL", "CERTIFICATE_READY", userId, email, variables, contestId);
 }
 
+export async function sendPaymentFailed(userId, contestId, failReason = "Payment failed") {
+  const [user, contest] = await Promise.all([
+    userRepo.findById(userId),
+    contestRepo.findById(contestId)
+  ]);
+
+  if (!user) {
+    throw new NotFoundError(`User not found: ${userId}`);
+  }
+
+  if (!contest) {
+    throw new NotFoundError(`Contest not found: ${contestId}`);
+  }
+
+  const email = getRecipientEmail(user);
+  const variables = {
+    name: buildUserName(user),
+    contestName: contest.title || contest.name || "Contest",
+    failReason
+  };
+
+  if (!email) {
+    await createSkippedMessage({
+      userId,
+      contestId,
+      type: "EMAIL",
+      template: "PAYMENT_FAILED",
+      recipient: "",
+      variables,
+      reason: "User has no email address"
+    });
+    return;
+  }
+
+  await enqueueJob("EMAIL", "PAYMENT_FAILED", userId, email, variables, contestId);
+}
+
 export async function sendOtp(phone, otp) {
   const normalizedPhone = String(phone ?? "").trim();
   const normalizedOtp = String(otp ?? "").trim();

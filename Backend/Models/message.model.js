@@ -17,7 +17,8 @@ const messageSchema = new mongoose.Schema(
         "QUIZ_REMINDER",
         "RESULT_ANNOUNCEMENT",
         "CERTIFICATE_READY",
-        "OTP"
+        "OTP",
+        "PAYMENT_FAILED"
       ],
       required: true
     },

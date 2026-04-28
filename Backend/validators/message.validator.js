@@ -8,7 +8,8 @@ export const messageTemplateSchema = z.enum([
   "QUIZ_REMINDER",
   "RESULT_ANNOUNCEMENT",
   "CERTIFICATE_READY",
-  "OTP"
+  "OTP",
+  "PAYMENT_FAILED"
 ]);
 
 export const sendTestSchema = z.object({
