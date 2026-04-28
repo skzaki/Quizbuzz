@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@socket.io/redis-adapter": "^8.3.0",
+    "bullmq": "^5.76.2",
+    "ioredis": "^5.10.1"
+  }
+}

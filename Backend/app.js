@@ -99,7 +99,7 @@ app.use("/api/admin/settings", settingsRoutes);
 app.use("/api/payments", paymentRoutes);
 
 // F-08: Protected logs endpoint with authMiddleware
-app.post("/api/logs", authMiddleware, (req, res) => {
+app.post("/api/logs", roleAuthMiddleware, (req, res) => {
   const { level, message } = req.body;
   if (["log", "warn", "error"].includes(level)) {
     console[level](`CLIENT ${level.toUpperCase()}:`, message);

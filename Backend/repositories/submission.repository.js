@@ -9,8 +9,16 @@ export async function create(data) {
   return created.toObject();
 }
 
+export async function update(submissionId, data) {
+  return Submission.findByIdAndUpdate(submissionId, { $set: data }, { new: true }).lean();
+}
+
 export async function findById(submissionId) {
   return Submission.findById(submissionId).lean();
+}
+
+export async function countByContest(contestId) {
+  return Submission.countDocuments({ contestId });
 }
 
 export async function findByIdDetailed(submissionId) {
@@ -34,8 +42,17 @@ export async function findLeaderboardByContest(contestId, scoreThreshold = 0) {
     score: { $gte: scoreThreshold }
   })
     .select("_id userId score totalQuestions createdAt updatedAt contestId")
-    .populate("userId", "registrationId firstName lastName college")
+    .populate("userId", "firstName registrationId")
     .populate("contestId", "startTime")
+    .lean();
+}
+
+export async function findLeaderboard(contestId, limit = 25) {
+  return Submission.find({ contestId })
+    .sort({ score: -1, evaluatedAt: 1 })
+    .limit(Number(limit) || 25)
+    .select("userId contestId score status evaluatedAt submittedAt")
+    .populate("userId", "firstName registrationId")
     .lean();
 }
 

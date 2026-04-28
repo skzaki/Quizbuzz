@@ -3,9 +3,9 @@
 import { Worker } from 'bullmq';
 import dotenv from 'dotenv';
 import { Contest, Question, Submission, connectDB } from '../Models/DB.js';
-import redisClient from '../redis.js';
+import redisClient from '../config/redis.js';
 import { deleteUserState } from '../store/contestStateService.js';
-import { evaluationQueue } from './../queue/submissionQueues.js';
+import { evaluationQueue } from '../queues/evaluation.queue.js';
 
 dotenv.config();
 
@@ -99,7 +99,7 @@ async function getCorrectAnswers({ contestId, contestSlug }) {
   return correctAnswers;
 }
 
-export const evaluationWorker = new Worker('contest-evaluation', async (job) => {
+export const evaluationWorker = new Worker('evaluation', async (job) => {
   const { submissionId, contestSlug, contestId, userRegistrationId } = job.data;
 
   try {

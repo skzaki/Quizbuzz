@@ -3,6 +3,8 @@ import { DEFAULT_DOMAIN_NAMES, normalizeDomainName, toDomainKey } from '../utils
 import { Contest as ContestModel } from './contest.model.js';
 import { ContestRegistration as ContestRegistrationModel } from './contest-registration.model.js';
 import { Question as QuestionModel } from './question.model.js';
+import { ProctoringEvent as ProctoringEventModel } from './proctoring-event.model.js';
+import { Submission as SubmissionModel } from './submission.model.js';
 
 const userSchema = new mongoose.Schema({
     registrationId: { type: String },
@@ -84,25 +86,6 @@ const sessionSchema = new mongoose.Schema({
 
 sessionSchema.index({ userId: 1, isActive: 1 });
 
-const submissionSchema = new mongoose.Schema({
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    contestId: { type: mongoose.Schema.Types.ObjectId, ref: "Contest", required: true },
-    answers: [{
-        questionId: { type: mongoose.Schema.Types.ObjectId, ref: "Question" },
-        answer: { type: String },
-        answerIndex: Number,
-        isCorrect: Boolean,
-        correctAnswer: String,
-        submittedAt: { type: Date, default: Date.now },
-    }],
-    score: { type: Number },
-    totalQuestions: Number,
-    status: { type: String, enum: ['submitted', 'evaluated'], default: 'submitted' }
-}, { timestamps: true });
-
-submissionSchema.index({ userId: 1, contestId: 1 }, { unique: true });
-submissionSchema.index({ contestId: 1, score: -1, createdAt: 1 });
-
 const settingsSchema = new mongoose.Schema({
     // General Settings
     platformName: { type: String, default: 'Quizbuzz' },
@@ -158,10 +141,11 @@ export const Contest = ContestModel;
 export const ContestRegistration = ContestRegistrationModel;
 export const Payment = mongoose.models.Payment || mongoose.model("Payment", paymentsSchema);
 export const Question = QuestionModel;
+export const ProctoringEvent = ProctoringEventModel;
+export const Submission = SubmissionModel;
 export const Domain = mongoose.models.Domain || mongoose.model('Domain', domainSchema);
 export const Certificate = mongoose.models.Certificate || mongoose.model("Certificate", certificatesSchema);
 export const Session = mongoose.models.Session || mongoose.model("Session", sessionSchema);
-export const Submission = mongoose.models.Submission || mongoose.model("Submission", submissionSchema);
 export const Settings = mongoose.models.Settings || mongoose.model("Settings", settingsSchema);
 
 const seedDefaultDomains = async () => {
