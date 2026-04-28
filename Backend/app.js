@@ -10,6 +10,7 @@ import { authMiddleware as roleAuthMiddleware } from './middleware/auth.js';
 import redisClient from './redis.js';
 import adminContestRoutes from "./routes/admin/contest.routes.js";
 import adminQuestionRoutes from "./routes/admin/question.routes.js";
+import messageRoutes from "./routes/admin/message.routes.js";
 import paymentRoutes from './routes/admin/paymentRoutes.js';
 import authRoutes from "./routes/auth.routes.js";
 import contestRoutes from "./routes/contest.routes.js";
@@ -95,6 +96,7 @@ app.use("/api/admin/contests", roleAuthMiddleware, adminMiddleware, adminContest
 app.use("/api/contests", contestRoutes);
 app.use('/api/admin/domains', domainRoutes);
 app.use("/api/admin/questions", roleAuthMiddleware, adminMiddleware, adminQuestionRoutes);
+app.use("/api/admin/messages", adminMiddleware, messageRoutes);
 app.use("/api/admin/settings", settingsRoutes);
 app.use("/api/payments", paymentRoutes);
 

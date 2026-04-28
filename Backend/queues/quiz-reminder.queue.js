@@ -1,14 +1,14 @@
 import { Queue } from "bullmq";
 
-export const messageQueue = new Queue("messages", {
+export const quizReminderQueue = new Queue("quiz-reminders", {
   connection: { url: process.env.REDIS_URL },
   defaultJobOptions: {
-    attempts: 5,
+    attempts: 3,
     backoff: {
       type: "exponential",
       delay: 3000
     },
-    removeOnComplete: { count: 100 },
-    removeOnFail: { count: 500 }
+    removeOnComplete: true,
+    removeOnFail: 100
   }
 });

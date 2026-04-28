@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { DEFAULT_DOMAIN_NAMES, normalizeDomainName, toDomainKey } from '../utils/domainCatalog.js';
 import { Contest as ContestModel } from './contest.model.js';
 import { ContestRegistration as ContestRegistrationModel } from './contest-registration.model.js';
+import { Message as MessageModel } from './message.model.js';
 import { Question as QuestionModel } from './question.model.js';
 import { ProctoringEvent as ProctoringEventModel } from './proctoring-event.model.js';
 import { Submission as SubmissionModel } from './submission.model.js';
@@ -139,6 +140,7 @@ const settingsSchema = new mongoose.Schema({
 export const User = mongoose.models.User || mongoose.model("User", userSchema);
 export const Contest = ContestModel;
 export const ContestRegistration = ContestRegistrationModel;
+export const Message = MessageModel;
 export const Payment = mongoose.models.Payment || mongoose.model("Payment", paymentsSchema);
 export const Question = QuestionModel;
 export const ProctoringEvent = ProctoringEventModel;

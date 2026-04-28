@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from "crypto";
 import jwt from "jsonwebtoken";
 import redisClient from "../config/redis.js";
+import * as messageService from "../services/message.service.js";
 import {
   createUser,
   findActiveUserByEmail,
@@ -56,31 +57,6 @@ function nanoid(size = 10) {
   }
 
   return id;
-}
-
-async function sendOtpViaMsg91(phone, otp) {
-  if (!process.env.MSG91_AUTH_KEY || !process.env.MSG91_TEMPLATE_ID) {
-    return { provider: "stub", delivered: true };
-  }
-
-  const payload = {
-    mobile: phone,
-    template_id: process.env.MSG91_TEMPLATE_ID,
-    otp,
-    authkey: process.env.MSG91_AUTH_KEY,
-  };
-
-  const response = await fetch("https://control.msg91.com/api/v5/otp", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    throw new UnauthorizedError("Failed to deliver OTP");
-  }
-
-  return { provider: "msg91", delivered: true };
 }
 
 function buildJwtPayload(user, sessionId, slug) {
@@ -218,11 +194,7 @@ export async function sendOtp(phone) {
 
   const otp = generateNumericOtp(4);
 
-  await redisClient.set(getOtpKey(normalizedPhone), otp, {
-    EX: OTP_TTL_SECONDS,
-  });
-
-  await sendOtpViaMsg91(normalizedPhone, otp);
+  await messageService.sendOtp(normalizedPhone, otp);
 
   return {
     success: true,
@@ -231,19 +203,7 @@ export async function sendOtp(phone) {
 }
 
 export async function verifyOtp(phone, otp) {
-  const normalizedPhone = normalizePhone(phone);
-  const normalizedOtp = String(otp ?? "").trim();
-
-  const storedOtp = await redisClient.get(getOtpKey(normalizedPhone));
-  if (!storedOtp) {
-    throw new UnauthorizedError("OTP not found or expired");
-  }
-
-  if (storedOtp !== normalizedOtp) {
-    throw new UnauthorizedError("Invalid OTP");
-  }
-
-  await redisClient.del(getOtpKey(normalizedPhone));
+  await messageService.verifyOtp(phone, otp);
 
   return {
     success: true,

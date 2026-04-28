@@ -4,6 +4,10 @@ export async function findUserById(userId, projection = null, options = {}) {
   return User.findById(userId, projection, options).lean();
 }
 
+export async function findById(userId, projection = null, options = {}) {
+  return User.findById(userId, projection, options).lean();
+}
+
 export async function findUserByEmail(email, projection = null, options = {}) {
   return User.findOne({ email }, projection, options).lean();
 }

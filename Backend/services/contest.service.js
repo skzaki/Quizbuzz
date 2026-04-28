@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import redisClient from "../config/redis.js";
 import { evaluationQueue } from "../queues/evaluation.queue.js";
+import { quizReminderQueue } from "../queues/quiz-reminder.queue.js";
 import { NotFoundError, ConflictError, UnauthorizedError } from "../utils/errors.js";
 
 import * as contestRepo from "../repositories/contest.repository.js";
@@ -217,6 +218,21 @@ export async function updateStatus(contestId, status) {
   }
 
   const updated = await contestRepo.updateStatus(contestId, status);
+
+  if (status === "PUBLISHED") {
+    const reminderDelay = new Date(existing.startTime).getTime() - Date.now() - (60 * 60 * 1000);
+
+    if (Number.isFinite(reminderDelay) && reminderDelay > 0) {
+      await quizReminderQueue.add(
+        "send-reminders",
+        { contestId: contestId.toString() },
+        {
+          delay: reminderDelay,
+          jobId: `reminder:${contestId}`
+        }
+      );
+    }
+  }
 
   // Bust cache
   if (existing.slug) {

@@ -9,6 +9,12 @@ export async function create(data) {
   return created.toObject();
 }
 
+export async function findConfirmedByContest(contestId) {
+  return ContestRegistration.find({ contestId, status: "CONFIRMED" })
+    .populate("userId", "firstName lastName email phone registrationId")
+    .lean();
+}
+
 export async function confirmPayment(userId, contestId) {
   return ContestRegistration.findOneAndUpdate(
     { userId, contestId },
