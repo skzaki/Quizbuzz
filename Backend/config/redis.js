@@ -39,7 +39,7 @@ for (const client of [redisClient, pubClient, subClient]) {
 	client.on("end", () => console.log("🔌 Redis Client Connection Ended"));
 }
 
-	export async function connectRedisClients() {
+export async function connectRedisClients() {
 	try {
 		await Promise.all([
 			redisClient.connect(),
@@ -48,7 +48,7 @@ for (const client of [redisClient, pubClient, subClient]) {
 		]);
 	} catch (err) {
 		console.error("❌ Redis Initial Connection Failed:", err.message);
- 	}
+	}
 }
 
 export default redisClient;

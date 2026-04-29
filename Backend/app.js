@@ -103,7 +103,7 @@ app.use((req, res) => {
   });
 });
 
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   const status = err.statusCode || 500;
   const message = err.statusCode ? err.message : "Internal server error";
 

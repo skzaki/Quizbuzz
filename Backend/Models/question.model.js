@@ -28,22 +28,7 @@ const questionSchema = new mongoose.Schema(
     difficulty: {
       type: String,
       enum: ["EASY", "MEDIUM", "HARD"],
-    questionSchema.index({ domain: 1, difficulty: 1, isDeleted: 1 });
-    questionSchema.index({ domainRef: 1, difficulty: 1, isDeleted: 1 });
       default: "MEDIUM",
-
-    const normalizeDifficultyFilter = (query) => {
-      if (query?.difficulty && typeof query.difficulty === "string") {
-        query.difficulty = query.difficulty.toUpperCase();
-      }
-
-      return query;
-    };
-
-    questionSchema.pre(["find", "findOne", "findOneAndUpdate", "countDocuments", "updateMany", "updateOne"], function (next) {
-      normalizeDifficultyFilter(this.getQuery());
-      next();
-    });
       set: (value) => String(value || "MEDIUM").toUpperCase()
     },
     tags: { type: [String], default: [] },
@@ -57,10 +42,25 @@ const questionSchema = new mongoose.Schema(
 );
 
 questionSchema.index({ difficulty: 1 });
+questionSchema.index({ domain: 1, difficulty: 1, isDeleted: 1 });
+questionSchema.index({ domainRef: 1, difficulty: 1, isDeleted: 1 });
 questionSchema.index({ tags: 1 });
 questionSchema.index({ contestId: 1 });
 questionSchema.index({ isDeleted: 1 });
 questionSchema.index({ questionText: "text", hint: "text", explanation: "text", tags: "text" });
+
+const normalizeDifficultyFilter = (query) => {
+  if (query?.difficulty && typeof query.difficulty === "string") {
+    query.difficulty = query.difficulty.toUpperCase();
+  }
+
+  return query;
+};
+
+questionSchema.pre(["find", "findOne", "findOneAndUpdate", "countDocuments", "updateMany", "updateOne"], function (next) {
+  normalizeDifficultyFilter(this.getQuery());
+  next();
+});
 
 questionSchema.pre("validate", function (next) {
   if (!Array.isArray(this.options) || this.options.length !== 4) {
