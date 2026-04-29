@@ -5,14 +5,15 @@ services:
       args:
         VITE_URL: ${VITE_API_URL:-https://quiz.ysminfosolution.com/api}
         VITE_WEBSOCKET_URL: ${VITE_SOCKET_URL:-wss://quiz.ysminfosolution.com/socket.io}
-        VITE_SECRET_KEY: ${VITE_SECRET_KEY}
+        VITE_SECRET_KEY: ${VITE_SECRET_KEY:-quizbuzz_secret}
     image: ghcr.io/${GHCR_OWNER:-local}/quizbuzz-frontend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       VITE_API_URL: ${VITE_API_URL:-https://quiz.ysminfosolution.com/api}
       VITE_SOCKET_URL: ${VITE_SOCKET_URL:-wss://quiz.ysminfosolution.com/socket.io}
     depends_on:
-      - backend
+      backend:
+        condition: service_started
     networks:
       - app_network
 
@@ -52,8 +53,6 @@ services:
     restart: unless-stopped
     env_file:
       - ./Backend/.env
-    deploy:
-      replicas: 1
     depends_on:
       mongo:
         condition: service_healthy
@@ -67,6 +66,12 @@ services:
     restart: unless-stopped
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     networks:
       - app_network
 
@@ -80,6 +85,12 @@ services:
       --save 60 1000
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - app_network
 
@@ -94,8 +105,10 @@ services:
       - ./nginx/ssl:/etc/nginx/ssl:ro
       - certbot_data:/var/www/certbot:ro
     depends_on:
-      - frontend
-      - backend
+      frontend:
+        condition: service_started
+      backend:
+        condition: service_started
     networks:
       - app_network
 
