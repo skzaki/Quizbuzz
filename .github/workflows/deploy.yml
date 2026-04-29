@@ -15,15 +15,10 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: quizbuzz-deploy-main
   cancel-in-progress: true
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_OWNER: ${{ github.repository_owner }}
 
 jobs:
   test:
@@ -52,110 +47,32 @@ jobs:
         working-directory: Backend
         run: npm run lint
 
-  build-and-push:
-    name: Build and Push
+  deploy:
+    name: Deploy to VPS
     runs-on: ubuntu-latest
     needs: test
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_TOKEN }}
-
-      - name: Build and push backend image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./Backend
-          push: true
-          tags: |
-            ghcr.io/${{ env.IMAGE_OWNER }}/quizbuzz-backend:latest
-            ghcr.io/${{ env.IMAGE_OWNER }}/quizbuzz-backend:sha-${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            NODE_ENV=production
-
-      - name: Build and push frontend image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./Frontend
-          push: true
-          tags: |
-            ghcr.io/${{ env.IMAGE_OWNER }}/quizbuzz-frontend:latest
-            ghcr.io/${{ env.IMAGE_OWNER }}/quizbuzz-frontend:sha-${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            VITE_URL=https://quiz.ysminfosolution.com/api
-            VITE_WEBSOCKET_URL=wss://quiz.ysminfosolution.com/socket.io
-            VITE_SECRET_KEY=${{ secrets.VITE_SECRET_KEY }}
-
-      - name: Build and push worker image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./Backend
-          push: true
-          tags: |
-            ghcr.io/${{ env.IMAGE_OWNER }}/quizbuzz-worker:latest
-            ghcr.io/${{ env.IMAGE_OWNER }}/quizbuzz-worker:sha-${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            NODE_ENV=production
-
-  deploy:
-    name: Deploy
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    steps:
-      - name: Deploy to VPS
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
-        env:
-          GHCR_OWNER: ${{ env.IMAGE_OWNER }}
-          IMAGE_TAG: latest
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: GHCR_OWNER,IMAGE_TAG
           script: |
             set -e
-            cd /opt/quizbuzz
+            cd /var/www/quizbuzz
 
-            export GHCR_OWNER="$GHCR_OWNER"
-            export IMAGE_TAG="$IMAGE_TAG"
+            echo "Pulling latest code"
+            git pull origin ${{ github.ref_name }}
 
-            echo "Logging in to GHCR"
-            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            echo "Building and starting containers"
+            docker compose up -d --build
 
-            echo "Pulling latest images"
-            docker compose pull frontend backend worker
-
-            echo "Starting backend replicas with zero-downtime update"
-            docker compose up -d --no-deps --scale backend=2 backend
-
-            sleep 15
-
-            HEALTHY=$(docker compose ps backend | grep -c "healthy" || true)
-            if [ "$HEALTHY" -lt 2 ]; then
-              echo "Deploy failed - backend replicas did not become healthy"
-              exit 1
-            fi
-
-            echo "Updating worker, frontend, and nginx"
-            docker compose up -d --no-deps worker frontend nginx
-
+            echo "Cleaning up old images"
             docker image prune -f --filter "until=72h"
 
             echo "Deploy complete"
+            docker compose ps
 
   notify:
     name: Notify Slack
@@ -168,27 +85,15 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          payload=$(cat <<'JSON'
-          {
-            "channel": "C0AGJSR5P8F",
-            "text": "✅ QuizBuzz deployed successfully\nBranch: ${{ github.ref_name }}\nCommit: ${{ github.sha }}\nBy: ${{ github.actor }}"
-          }
-          JSON
-          )
-
-          curl -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"channel":"C0B057XKTT9","text":"✅ QuizBuzz deployed successfully\nBranch: ${{ github.ref_name }}\nCommit: ${{ github.sha }}\nBy: ${{ github.actor }}"}' \
+            "$SLACK_WEBHOOK_URL"
 
       - name: Post failure notification
         if: needs.deploy.result != 'success'
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          payload=$(cat <<'JSON'
-          {
-            "channel": "C0AGJSR5P8F",
-            "text": "❌ QuizBuzz deploy failed\nBranch: ${{ github.ref_name }}\nCommit: ${{ github.sha }}\nBy: ${{ github.actor }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          }
-          JSON
-          )
-
-          curl -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"channel":"C0B057XKTT9","text":"❌ QuizBuzz deploy failed\nBranch: ${{ github.ref_name }}\nCommit: ${{ github.sha }}\nBy: ${{ github.actor }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' \
+            "$SLACK_WEBHOOK_URL"
