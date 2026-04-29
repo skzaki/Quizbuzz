@@ -60,20 +60,21 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 2222 
           script: |
-            set -e
-            cd /var/www/quizbuzz
+              set -e
+              cd /var/www/quizbuzz
 
-            echo "Pulling latest code"
-            git pull origin ${{ github.ref_name }}
+              echo "Pulling latest code"
+              git fetch origin
+              git reset --hard origin/${{ github.ref_name }}
 
-            echo "Building and starting containers"
-            docker compose up -d --build
+              echo "Building and starting containers"
+              docker compose up -d --build
 
-            echo "Cleaning up old images"
-            docker image prune -f --filter "until=72h"
+              echo "Cleaning up old images"
+              docker image prune -f --filter "until=72h"
 
-            echo "Deploy complete"
-            docker compose ps
+              echo "Deploy complete"
+              docker compose ps
 
   notify:
     name: Notify Slack
