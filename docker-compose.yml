@@ -8,6 +8,8 @@ services:
         VITE_SECRET_KEY: ${VITE_SECRET_KEY:-quizbuzz_secret}
     image: ghcr.io/${GHCR_OWNER:-local}/quizbuzz-frontend:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:80"
     environment:
       VITE_API_URL: ${VITE_API_URL:-https://quiz.ysminfosolution.com/api}
       VITE_SOCKET_URL: ${VITE_SOCKET_URL:-wss://quiz.ysminfosolution.com/socket.io}
@@ -21,6 +23,8 @@ services:
     build: ./Backend
     image: ghcr.io/${GHCR_OWNER:-local}/quizbuzz-backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
     env_file:
       - ./Backend/.env
     deploy:
@@ -94,28 +98,9 @@ services:
     networks:
       - app_network
 
-  nginx:
-    image: nginx:alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-      - certbot_data:/var/www/certbot:ro
-    depends_on:
-      frontend:
-        condition: service_started
-      backend:
-        condition: service_started
-    networks:
-      - app_network
-
 volumes:
   mongo_data:
   redis_data:
-  certbot_data:
 
 networks:
   app_network:

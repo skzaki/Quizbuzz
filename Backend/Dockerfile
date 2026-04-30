@@ -20,7 +20,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup && \
     chown -R appuser:appgroup /app
 USER appuser
 
-EXPOSE 5000
+EXPOSE 3000
 
 # Use dummy env for build if needed, but usually provided at runtime
 ENV NODE_ENV=production
